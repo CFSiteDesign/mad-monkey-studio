@@ -84,7 +84,7 @@ Dark UI shell. Always dark — no light mode.
 | Phase | Status | What |
 |---|---|---|
 | 0 | ✅ | Scaffold + hello world deployed to Vercel; full Convex schema pushed to local dev |
-| 1 | ⬜ | Clerk auth + Mad Monkey brand seeded as data; link Convex cloud |
+| 1 | ✅ | Clerk auth wired; Mad Monkey brand + config seeded; user sync on sign-in |
 | 2 | ⬜ | Thin vertical slice: brief → Claude → SVG → PNG |
 | 3 | ⬜ | Threads + conversational refinement |
 | 4 | ⬜ | Validation + auto-regenerate gate |

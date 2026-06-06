@@ -28,7 +28,7 @@ export default defineSchema({
     designSystems: v.array(v.string()),
     claudeMd: v.string(),
     isActive: v.boolean(),
-    updatedBy: v.id("users"),
+    updatedBy: v.optional(v.id("users")),
     updatedAt: v.number(),
   })
     .index("by_brand", ["brandId"])
