@@ -52,10 +52,14 @@ export const seedMadMonkey = internalMutation({
       createdAt: Date.now(),
     });
 
-    const boldDarkId = await ctx.db.insert("design_systems", {
+    // ── Design System 1: Social ───────────────────────────────────────────────
+    // For Instagram posts, Stories, Reels. Dark-first, high-contrast.
+    const socialId = await ctx.db.insert("design_systems", {
       brandId,
-      name: "bold-dark",
-      description: "Dark charcoal backgrounds with cream type and terracotta accents. For social and digital.",
+      name: "social",
+      label: "Social",
+      description: "Instagram, Stories, Reels. Dark-first, high-contrast, bold typography.",
+      guidelines: "PENDING — Kyle to supply rules and guidelines for the Social design system.",
       baseCssVars: JSON.stringify({
         "--bg": "#1C1A18",
         "--surface": "#242220",
@@ -68,13 +72,37 @@ export const seedMadMonkey = internalMutation({
       createdAt: Date.now(),
     });
 
-    const brightLightId = await ctx.db.insert("design_systems", {
+    // ── Design System 2: Brand ────────────────────────────────────────────────
+    // For external brand materials, print, campaigns. Light/cream base.
+    const brandDsId = await ctx.db.insert("design_systems", {
       brandId,
-      name: "bright-light",
-      description: "Cream backgrounds with charcoal type and terracotta accents. For print and A4.",
+      name: "brand",
+      label: "Brand",
+      description: "External brand materials, print, campaigns. Cream base, editorial.",
+      guidelines: "PENDING — Kyle to supply rules and guidelines for the Brand design system.",
       baseCssVars: JSON.stringify({
         "--bg": "#F2EEE6",
         "--surface": "#E8E2D6",
+        "--fg": "#1C1A18",
+        "--accent": "#CC7A5C",
+        "--muted": "#8C8278",
+        "--border": "rgba(28,26,24,0.08)",
+      }),
+      isActive: true,
+      createdAt: Date.now(),
+    });
+
+    // ── Design System 3: Internal ─────────────────────────────────────────────
+    // For internal comms, reports, presentations. Clean, legible, functional.
+    const internalId = await ctx.db.insert("design_systems", {
+      brandId,
+      name: "internal",
+      label: "Internal",
+      description: "Reports, presentations, internal comms. Clean, functional, legible.",
+      guidelines: "PENDING — Kyle to supply rules and guidelines for the Internal design system.",
+      baseCssVars: JSON.stringify({
+        "--bg": "#FFFFFF",
+        "--surface": "#F2EEE6",
         "--fg": "#1C1A18",
         "--accent": "#CC7A5C",
         "--muted": "#8C8278",
@@ -98,12 +126,12 @@ export const seedMadMonkey = internalMutation({
         allowedWeights: [300, 400, 500],
       },
       formats: ["1:1", "4:5", "9:16", "A4"],
-      designSystems: ["bold-dark", "bright-light"],
+      designSystems: ["social", "brand", "internal"],
       claudeMd: MAD_MONKEY_CLAUDE_MD,
       isActive: true,
       updatedAt: Date.now(),
     });
 
-    return { status: "seeded", brandId, boldDarkId, brightLightId };
+    return { status: "seeded", brandId, socialId, brandDsId, internalId };
   },
 });

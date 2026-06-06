@@ -40,9 +40,11 @@ export default defineSchema({
   // ── Design Systems & Templates ────────────────────────────────────────────
   design_systems: defineTable({
     brandId: v.id("brands"),
-    name: v.string(),
-    description: v.string(),
-    baseCssVars: v.string(),
+    name: v.string(),        // "internal" | "social" | "brand"
+    label: v.string(),       // Human-readable: "Internal", "Social", "Brand"
+    description: v.string(), // One-line purpose shown in the system picker
+    guidelines: v.string(),  // Kyle's rules — injected into Claude alongside brand claudeMd
+    baseCssVars: v.string(), // JSON string of CSS custom property defaults for this system
     isActive: v.boolean(),
     createdAt: v.number(),
   }).index("by_brand", ["brandId"]),

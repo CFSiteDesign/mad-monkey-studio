@@ -39,6 +39,13 @@ vercel --prod        # push Next.js to Vercel (or via git push → CI)
 
 **Brand config is versioned, never mutated:** Every admin edit writes a new `brand_config` row (incrementing `version`). Active config = highest version where `isActive = true`. Rollback = flip `isActive`.
 
+**Three design systems, purpose-driven (not visual-style-driven):**
+- `social` — Instagram, Stories, Reels. Dark-first, high-contrast.
+- `brand` — External brand materials, print, campaigns. Cream/light base.
+- `internal` — Reports, presentations, internal comms. Clean, functional.
+
+Each system has a `guidelines` field (Kyle's rules) injected into Claude alongside the global `claudeMd`. Guidelines are data — update via admin UI without a deploy. Status: **PENDING from Kyle**.
+
 ## Architecture overview
 
 ```
