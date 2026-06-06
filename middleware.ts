@@ -1,10 +1,19 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import {
+  convexAuthNextjsMiddleware,
+  createRouteMatcher,
+  isAuthenticatedNextjs,
+  nextjsMiddlewareRedirect,
+} from "@convex-dev/auth/nextjs/server";
 
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
-export default clerkMiddleware(async (auth, req) => {
-  if (!isPublicRoute(req)) {
-    await auth.protect();
+export default convexAuthNextjsMiddleware(async (request) => {
+  const authed = await isAuthenticatedNextjs();
+  if (!isPublicRoute(request) && !authed) {
+    return nextjsMiddlewareRedirect(request, "/sign-in");
+  }
+  if (isPublicRoute(request) && authed) {
+    return nextjsMiddlewareRedirect(request, "/");
   }
 });
 

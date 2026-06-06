@@ -1,7 +1,10 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
+  ...authTables,
+
   // ── Tenants ──────────────────────────────────────────────────────────────
   brands: defineTable({
     name: v.string(),
@@ -117,17 +120,23 @@ export default defineSchema({
     .index("by_user_month", ["userId", "periodMonth"])
     .index("by_brand_month", ["brandId", "periodMonth"]),
 
-  // ── Users ─────────────────────────────────────────────────────────────────
+  // ── Users (extends authTables' users with app-specific fields) ────────────
   users: defineTable({
-    clerkId: v.string(),
-    email: v.string(),
-    name: v.string(),
-    role: v.string(),
-    brandId: v.id("brands"),
-    monthlyCapUsd: v.number(),
-    isActive: v.boolean(),
-    createdAt: v.number(),
+    // Convex Auth fields (managed by authTables, extended here)
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
+    // App-specific fields
+    role: v.optional(v.string()),
+    brandId: v.optional(v.id("brands")),
+    monthlyCapUsd: v.optional(v.number()),
+    isActive: v.optional(v.boolean()),
+    createdAt: v.optional(v.number()),
   })
-    .index("by_clerk_id", ["clerkId"])
+    .index("by_email", ["email"])
     .index("by_brand", ["brandId"]),
 });

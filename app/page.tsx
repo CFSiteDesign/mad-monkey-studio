@@ -1,12 +1,16 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { UserButton } from "@clerk/nextjs";
 import { api } from "@/convex/_generated/api";
+import { SignOutButton } from "@/components/sign-out-button";
 
 export default function Home() {
   const user = useQuery(api.users.getCurrentUser);
   const brandData = useQuery(api.brands.getActiveBrandConfig, { slug: "mad-monkey" });
+
+  const initials = user?.name
+    ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "?";
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -24,39 +28,31 @@ export default function Home() {
               Studio
             </p>
           </div>
-          {user && (
+          {user?.role && (
             <span className="text-[10px] tracking-[0.15em] uppercase text-[#8C8278] border border-[rgba(242,238,230,0.08)] rounded-full px-2.5 py-0.5">
               {user.role}
             </span>
           )}
         </div>
-        <UserButton
-          appearance={{
-            elements: {
-              avatarBox: "h-8 w-8",
-            },
-          }}
-        />
+        <SignOutButton initials={initials} />
       </header>
 
       {/* Main */}
       <main className="flex-1 px-8 py-12 max-w-2xl space-y-10">
-        {/* Welcome */}
         <div className="space-y-2">
           <h1
             className="text-5xl font-light text-[#F2EEE6]"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            {user ? `Hello, ${user.name.split(" ")[0]}.` : "Loading…"}
+            {user ? `Hello, ${user.name?.split(" ")[0] ?? "there"}.` : "Loading…"}
           </h1>
           <p className="text-[#8C8278]">
-            Phase 1 verified — auth and data are wired.
+            Phase 1 verified — Convex Auth and data are wired.
           </p>
         </div>
 
         <div className="h-px w-12 bg-[#CC7A5C] opacity-50" />
 
-        {/* Brand config */}
         {brandData ? (
           <div className="space-y-6">
             <div>
@@ -67,7 +63,7 @@ export default function Home() {
 
             <div>
               <p className="text-[10px] tracking-[0.2em] uppercase text-[#8C8278] mb-3">Palette</p>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-3 flex-wrap">
                 {[
                   ...brandData.config.palette.primary,
                   ...brandData.config.palette.secondary,
@@ -94,7 +90,7 @@ export default function Home() {
             <div>
               <p className="text-[10px] tracking-[0.2em] uppercase text-[#8C8278] mb-2">Formats</p>
               <div className="flex gap-2">
-                {brandData.config.formats.map((f) => (
+                {brandData.config.formats.map((f: string) => (
                   <span
                     key={f}
                     className="text-xs text-[#8C8278] border border-[rgba(242,238,230,0.08)] rounded-full px-2.5 py-0.5"
@@ -108,8 +104,8 @@ export default function Home() {
         ) : (
           <div className="space-y-2">
             <p className="text-[#8C8278]">No brand config found.</p>
-            <p className="text-[#8C8278] text-sm">
-              Run the seed from the Convex dashboard → Functions → seed → seedMadMonkey.
+            <p className="text-xs text-[#8C8278]">
+              Run seed: Convex dashboard → Functions → seed → seedMadMonkey → Run
             </p>
           </div>
         )}

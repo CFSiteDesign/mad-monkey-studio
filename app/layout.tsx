@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, DM_Sans } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "@/components/convex-client-provider";
-import { SyncUser } from "@/components/sync-user";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -28,18 +27,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ConvexAuthNextjsServerProvider>
       <html
         lang="en"
         className={`${fraunces.variable} ${dmSans.variable} dark h-full antialiased`}
       >
         <body className="min-h-full flex flex-col bg-background text-foreground">
-          <ConvexClientProvider>
-            <SyncUser />
-            {children}
-          </ConvexClientProvider>
+          <ConvexClientProvider>{children}</ConvexClientProvider>
         </body>
       </html>
-    </ClerkProvider>
+    </ConvexAuthNextjsServerProvider>
   );
 }
