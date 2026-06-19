@@ -5,7 +5,7 @@
 // `onEnter` action that drives the page (type into fields, switch design system)
 // so the tour DEMONSTRATES the flow rather than just describing it.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
 
@@ -35,28 +35,36 @@ export function Walkthrough({
   const [box, setBox] = useState<Box | null>(null);
   const [entering, setEntering] = useState(false);
 
+  // Refs so the effects below don't re-run on every PARENT re-render (the steps
+  // array is a new reference each render). Without this, `onEnter` re-fires
+  // continuously and restarts the typing demos.
+  const stepsRef = useRef(steps);
+  stepsRef.current = steps;
+  const iRef = useRef(i);
+  iRef.current = i;
+
   const measure = useCallback(() => {
-    const step = steps[i];
+    const step = stepsRef.current[iRef.current];
     if (!step?.target) return setBox(null);
     const el = document.querySelector(step.target) as HTMLElement | null;
     if (!el) return setBox(null);
     const r = el.getBoundingClientRect();
     const pad = step.padding ?? 8;
     setBox({ left: r.left - pad, top: r.top - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
-  }, [i, steps]);
+  }, []);
 
   // Reset to first step whenever the tour opens.
   useEffect(() => {
     if (open) setI(0);
   }, [open]);
 
-  // Enter a step: run its action, scroll the target into view, then measure.
+  // Enter a step: runs ONCE per step change (i/open) — never on a re-render.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     (async () => {
       setEntering(true);
-      const step = steps[i];
+      const step = stepsRef.current[i];
       try {
         await step?.onEnter?.();
       } catch {
@@ -78,7 +86,7 @@ export function Walkthrough({
     return () => {
       cancelled = true;
     };
-  }, [i, open, measure, steps]);
+  }, [i, open, measure]);
 
   // Keep the spotlight aligned on resize/scroll.
   useEffect(() => {
@@ -97,12 +105,12 @@ export function Walkthrough({
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowRight") setI((v) => (v < steps.length - 1 ? v + 1 : v));
+      else if (e.key === "ArrowRight") setI((v) => (v < stepsRef.current.length - 1 ? v + 1 : v));
       else if (e.key === "ArrowLeft") setI((v) => Math.max(0, v - 1));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, steps.length]);
+  }, [open, onClose]);
 
   if (!open || typeof document === "undefined") return null;
   const step = steps[i];
@@ -129,7 +137,10 @@ export function Walkthrough({
     cardStyle = { left, top };
   }
 
-  const next = () => setI((v) => (v < steps.length - 1 ? v + 1 : (onClose(), v)));
+  const next = () => {
+    if (i < steps.length - 1) setI(i + 1);
+    else onClose();
+  };
 
   return createPortal(
     <div className="fixed inset-0 z-[200]" role="dialog" aria-modal="true">

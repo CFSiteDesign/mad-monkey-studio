@@ -135,11 +135,22 @@ export default function StudioPage() {
 
   // ── Interactive product tour ──────────────────────────────────────────────
   const tourSleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  async function typeInto(setter: (s: string) => void, text: string, ms = 28) {
-    setter("");
-    for (let k = 1; k <= text.length; k++) {
-      setter(text.slice(0, k));
-      await tourSleep(ms);
+  // Cancellable typing: each run gets a token; advancing the tour (cancelTyping)
+  // bumps the token so any in-flight typing stops instead of fighting the next
+  // step's instant values.
+  const typeRunRef = useRef(0);
+  const cancelTyping = () => {
+    typeRunRef.current++;
+  };
+  async function typeFields(pairs: [(s: string) => void, string][], ms = 26) {
+    const run = ++typeRunRef.current;
+    for (const [set, text] of pairs) {
+      set("");
+      for (let k = 1; k <= text.length; k++) {
+        if (typeRunRef.current !== run) return; // a newer step took over
+        set(text.slice(0, k));
+        await tourSleep(ms);
+      }
     }
   }
   const DEMO_FOLLOWUPS = [
@@ -150,6 +161,7 @@ export default function StudioPage() {
   const DEMO_ANSWERS = ["Endless foam + a DJ", "Current guests", "UV glow + 200-cap"];
 
   function restoreEventDemo(followup: boolean) {
+    cancelTyping();
     setDesignSystem("brand");
     setFormat("4:5");
     setEventTitle("Foam Party");
@@ -166,6 +178,7 @@ export default function StudioPage() {
     }
   }
   function resetDemo() {
+    cancelTyping();
     setDesignSystem("brand");
     setFormat("4:5");
     setBrief("");
@@ -234,16 +247,17 @@ export default function StudioPage() {
       title: "3 · Answer a few basics",
       body: "Tell us about the event — title, date, location, optional cost. Keep it factual; the AI turns it into a brand-perfect brief, so you never write the brief yourself.",
       onEnter: () => {
+        cancelTyping();
         setDesignSystem("brand");
         setFormat("4:5");
         setBriefStep("base");
         setEventTitle(""); setEventDate(""); setEventCost(""); setEventLocation("");
-        void (async () => {
-          await typeInto(setEventTitle, "Foam Party");
-          await typeInto(setEventDate, "Saturday 9pm");
-          await typeInto(setEventCost, "$8");
-          await typeInto(setEventLocation, "Mad Monkey Uluwatu, Bali");
-        })();
+        void typeFields([
+          [setEventTitle, "Foam Party"],
+          [setEventDate, "Saturday 9pm"],
+          [setEventCost, "$8"],
+          [setEventLocation, "Mad Monkey Uluwatu, Bali"],
+        ]);
       },
     },
     {
@@ -269,8 +283,8 @@ export default function StudioPage() {
     },
     {
       target: '[data-tour="brand-marks"]',
-      title: "7 · Brand marks (with preview)",
-      body: "Toggle which marks to stamp on — the logo, the ALL IN stickers, or the Mad Monkey Stamp. Hover any box to preview exactly what it adds, by your cursor.",
+      title: "7 · Choose your logo & brand marks",
+      body: "This is where you pick which marks go on the asset — tick the Mad Monkey logo, the ALL IN stickers, and/or the Mad Monkey Stamp (any combination). Hover any box to preview exactly which logo/sticker it adds, right by your cursor.",
       onEnter: () => {
         restoreEventDemo(true);
         setIncludeAllIn(true);
@@ -287,15 +301,15 @@ export default function StudioPage() {
       title: "9 · Presentations",
       body: "Pick the Presentation format and you're building a full multi-slide deck — same Brand system, just a different output. Give the topic and a slide count; the AI plans the outline and designs every slide on-brand, then exports straight to PowerPoint.",
       onEnter: () => {
+        cancelTyping();
         setDesignSystem("brand");
         setFormat("presentation");
         setDeckSlides(8);
         void (async () => {
-          await tourSleep(140);
-          await typeInto(
-            setDeckBrief,
-            "Investor pitch for our Bali expansion — 3 new properties, the team, and the $4M ask.",
-            16,
+          await tourSleep(160);
+          await typeFields(
+            [[setDeckBrief, "Investor pitch for our Bali expansion — 3 new properties, the team, and the $4M ask."]],
+            14,
           );
         })();
       },
