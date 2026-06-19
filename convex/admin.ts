@@ -38,7 +38,7 @@ export const createInvite = internalMutation({
 
     const inviteId = await ctx.db.insert("invites", {
       email,
-      role: args.role ?? "marketer",
+      role: args.role === "admin" ? "admin" : "user",
       brandId,
       monthlyCapUsd: args.monthlyCapUsd ?? DEFAULT_CAP_USD,
       createdAt: Date.now(),
@@ -95,7 +95,7 @@ export const inviteUser = mutation({
 
     return await ctx.db.insert("invites", {
       email,
-      role: args.role ?? "marketer",
+      role: args.role === "admin" ? "admin" : "user",
       brandId: admin!.brandId!,
       monthlyCapUsd: args.monthlyCapUsd ?? DEFAULT_CAP_USD,
       createdBy: adminId,
@@ -108,7 +108,17 @@ export const setUserCap = mutation({
   args: { userId: v.id("users"), monthlyCapUsd: v.number() },
   handler: async (ctx, { userId, monthlyCapUsd }) => {
     await requireAdmin(ctx);
-    await ctx.db.patch(userId, { monthlyCapUsd });
+    await ctx.db.patch(userId, { monthlyCapUsd: Math.max(0, Math.round(monthlyCapUsd)) });
+  },
+});
+
+// Promote/demote a member. Admins can invite others; users can't.
+export const setUserRole = mutation({
+  args: { userId: v.id("users"), role: v.string() },
+  handler: async (ctx, { userId, role }) => {
+    const adminId = await requireAdmin(ctx);
+    if (userId === adminId) throw new Error("You can't change your own role.");
+    await ctx.db.patch(userId, { role: role === "admin" ? "admin" : "user" });
   },
 });
 
@@ -117,5 +127,43 @@ export const listInvites = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
     return await ctx.db.query("invites").order("desc").take(100);
+  },
+});
+
+// Everything the in-app Members admin page needs: all signed-up members of this
+// brand + the invites that haven't signed up yet.
+export const listMembers = query({
+  args: {},
+  handler: async (ctx) => {
+    const adminId = await requireAdmin(ctx);
+    const admin = await ctx.db.get(adminId);
+    const brandId = admin?.brandId;
+
+    const allUsers = await ctx.db.query("users").collect();
+    const users = allUsers.filter((u) => !brandId || u.brandId === brandId);
+    const emails = new Set(users.map((u) => (u.email ?? "").toLowerCase()));
+
+    const invites = await ctx.db.query("invites").order("desc").take(200);
+    const pending = invites.filter(
+      (inv) => (!brandId || inv.brandId === brandId) && !emails.has(inv.email.toLowerCase()),
+    );
+
+    return {
+      meId: adminId,
+      users: users.map((u) => ({
+        _id: u._id,
+        email: u.email ?? "",
+        name: u.name ?? "",
+        role: u.role === "admin" ? "admin" : "user",
+        monthlyCapUsd: u.monthlyCapUsd ?? DEFAULT_CAP_USD,
+        isActive: u.isActive ?? true,
+      })),
+      pending: pending.map((p) => ({
+        _id: p._id,
+        email: p.email,
+        role: p.role === "admin" ? "admin" : "user",
+        monthlyCapUsd: p.monthlyCapUsd ?? DEFAULT_CAP_USD,
+      })),
+    };
   },
 });

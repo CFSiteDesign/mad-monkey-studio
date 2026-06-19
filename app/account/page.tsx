@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { BrandLogo } from "@/components/brand-logo";
 import { PoweredBy } from "@/components/powered-by";
+import { AdminMembers } from "@/components/admin-members";
 import {
   ArrowLeft,
   Images,
@@ -229,6 +230,9 @@ export default function AccountPage() {
             </ul>
           )}
         </section>
+
+        {/* ── Members (admins only) ── */}
+        {stats.role === "admin" && <AdminMembers />}
       </main>
 
       <div className="pointer-events-none fixed bottom-4 right-5 z-20 opacity-60">
