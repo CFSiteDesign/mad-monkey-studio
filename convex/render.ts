@@ -3,7 +3,7 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { svgToPng } from "../lib/resvg-render";
+import { svgToPng, svgToJpeg } from "../lib/resvg-render";
 
 /**
  * Rasterise an SVG to PNG server-side with resvg, which has the brand fonts
@@ -40,7 +40,12 @@ export const rasterizeForExport = action({
   handler: async (_ctx, { svg, width }): Promise<{ base64: string }> => {
     if (svg.length > 12_000_000) throw new Error("Design too large to export.");
     const w = Math.min(Math.max(Math.round(width), 64), 4096);
-    const png = await svgToPng(svg, w);
-    return { base64: png.toString("base64") };
+    // Return JPEG (not PNG): slides are full-bleed photos, so a JPEG is ~150KB
+    // vs ~3MB for the PNG. That keeps the assembled deck PPTX well under
+    // Vercel's 4.5MB serverless response limit and shrinks the Convex→route
+    // transfer. Encoded in this Convex runtime (where resvg works), so the
+    // Vercel export route stays free of native image deps.
+    const jpg = await svgToJpeg(svg, w, 82);
+    return { base64: jpg.toString("base64") };
   },
 });

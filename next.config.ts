@@ -1,11 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // @resvg/resvg-js and sharp ship platform-specific native binaries that
-  // Turbopack can't bundle — keep them (and pptxgenjs) external so the
-  // deck-export route requires them from node_modules at runtime instead of
-  // trying to bundle them.
-  serverExternalPackages: ["@resvg/resvg-js", "pptxgenjs", "sharp"],
+  // pptxgenjs is kept external so the deck-export route requires it from
+  // node_modules at runtime instead of Turbopack trying to bundle it. (No
+  // native image deps here anymore — slides are rasterised + JPEG-encoded in
+  // Convex; the route only assembles the pptx.)
+  serverExternalPackages: ["pptxgenjs"],
 };
 
 export default nextConfig;

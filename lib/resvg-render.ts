@@ -136,3 +136,19 @@ export async function svgToPng(svg: string, pxWidth: number): Promise<Buffer> {
   const img = await renderSvg(svg, pxWidth);
   return Buffer.from(img.asPng());
 }
+
+/**
+ * Render an SVG to JPEG bytes. resvg only emits PNG (~3MB for a full-bleed
+ * photo slide); re-encode its raw RGBA pixels to JPEG here with the pure-JS
+ * jpeg-js (no native binary) so the deck PPTX export stays well under Vercel's
+ * 4.5MB serverless response limit AND the Vercel route needs zero native deps.
+ */
+export async function svgToJpeg(svg: string, pxWidth: number, quality = 82): Promise<Buffer> {
+  const jpeg = await import("jpeg-js");
+  const img = await renderSvg(svg, pxWidth);
+  const out = jpeg.encode(
+    { data: Buffer.from(img.pixels), width: img.width, height: img.height },
+    quality,
+  );
+  return Buffer.from(out.data);
+}
