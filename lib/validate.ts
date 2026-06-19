@@ -15,6 +15,9 @@ export interface ValidateOptions {
   forbidBlur?: boolean;
   /** Detect overlapping <text> elements via estimated bounding boxes. */
   checkTextOverlap?: boolean;
+  /** Deck slides: flag body text that straddles a photo/panel edge (text
+   *  partly under an opaque image = clipped). Requires checkTextOverlap+canvas. */
+  checkImageTextClip?: boolean;
   /** Canvas size — enables small-decorative-image-over-text detection. */
   canvas?: { w: number; h: number };
   /** Reject empty starbursts and text overflowing pills/badges/buttons. */
@@ -724,6 +727,28 @@ export function validateSvg(svg: string, opts: ValidateOptions): string[] {
               `A small decorative image overlaps the text "${t.label}" — images must never sit on text. Move it to clear space.`,
             );
             break;
+          }
+        }
+      }
+
+      // Deck slides: a large photo/panel is opaque and drawn last, so text that
+      // runs UNDER its edge is silently clipped — the "text overlaps image"
+      // failure. Distinguish from an intentional full-bleed overlay (text fully
+      // inside a background photo, with a scrim): flag only text that STRADDLES
+      // an image edge — meaningfully overlapping yet not mostly contained.
+      if (opts.checkImageTextClip) {
+        for (const img of imageBoxes(svg)) {
+          if (boxArea(img) <= 0.08 * canvasArea) continue; // panels only
+          for (const t of texts) {
+            const tArea = boxArea(t);
+            if (tArea <= 0) continue;
+            const frac = boxOverlap(img, t) / tArea;
+            if (frac > 0.2 && frac < 0.85) {
+              violations.add(
+                `Text "${t.label}" overlaps the photo/panel and is clipped where the image covers it — on a slide the image is opaque. Keep the photo and ALL text in separate, non-overlapping zones with a clear gutter: move or shrink the text fully clear of the image. Text may only sit on a photo when it is a full-bleed background with a dark scrim, never a side panel.`,
+              );
+              break;
+            }
           }
         }
       }

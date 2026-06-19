@@ -112,7 +112,11 @@ async function generateSlide(
       : `No bullet points — make this a bold ${slide.role} slide carried by the heading.`,
     slide.visual ? `Suggested visual: ${slide.visual}` : "",
     `This is a single 16:9 deck slide — calmer than a poster, reads in 3 seconds, clear hierarchy.`,
-    `LAYOUT IS CRITICAL: nothing may overlap. Text must never sit on top of other text, and stickers/badges must never cover text. Give every element its own clear zone with generous gaps. If it feels tight, use fewer words or a smaller font — never overlap.`,
+    `LAYOUT IS CRITICAL — text and photos must NEVER overlap. Build the slide as separate, non-overlapping zones:`,
+    `• If the slide uses a photo or image panel, SPLIT the canvas: the image takes ONE rectangle (e.g. the right ~40%), and the heading plus EVERY bullet live entirely in the OTHER rectangle, with a ≥64px gutter between them. No text — heading, bullet, label or badge — may cross that gutter into the image. The photo is opaque and drawn last, so any character beneath it is invisible and clipped: that is a hard failure.`,
+    `• Every bullet line must wrap WITHIN the text column's width. If a line would reach the photo, break it earlier, shorten it, or drop the font-size — never let a line run under or behind the image.`,
+    `• Text may sit ON a photo ONLY when that photo is a full-bleed BACKGROUND covering the whole slide with a dark scrim behind the text — never on a side panel.`,
+    `• Text must never sit on other text; stickers/badges must never cover text. Give every element its own clear space. When tight, use fewer words or a smaller font — never overlap.`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -136,7 +140,7 @@ async function generateSlide(
     const raw = res.content[0].type === "text" ? res.content[0].text : "";
     const outputCode = normalizeSvgRoot(escapeStrayAmpersands(injectCountryKit(injectBrandKit(stripFences(raw)))));
 
-    const soft = validateSvg(outputCode, { ...validateOpts, checkTextOverlap: true, checkContainers: true });
+    const soft = validateSvg(outputCode, { ...validateOpts, checkTextOverlap: true, checkContainers: true, checkImageTextClip: true });
     const hard = validateSvg(outputCode, validateOpts).filter((vv) => !soft.includes(vv));
     const hasLogo = /mm-logo-(white|black)\.png/.test(outputCode);
     if (includeLogo && !hasLogo) {
