@@ -2,16 +2,25 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { sanitizeSvg } from "@/lib/sanitize-svg";
 import { inlineSvgImages } from "@/lib/inline-images";
 import { BrandLogo } from "@/components/brand-logo";
 import { PoweredBy } from "@/components/powered-by";
-import { ChevronLeft, Download, Loader2, Presentation } from "lucide-react";
+import { QuickFixEditor } from "@/components/quick-fix-editor";
+import { ChevronLeft, Download, Loader2, Pencil, Presentation } from "lucide-react";
 
-function Slide({ outputCode, index }: { outputCode: string; index: number }) {
+function Slide({
+  outputCode,
+  index,
+  onEdit,
+}: {
+  outputCode: string;
+  index: number;
+  onEdit?: () => void;
+}) {
   const [svg, setSvg] = useState("");
   useEffect(() => {
     let cancelled = false;
@@ -23,7 +32,7 @@ function Slide({ outputCode, index }: { outputCode: string; index: number }) {
     };
   }, [outputCode]);
   return (
-    <div className="overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-[rgba(242,238,230,0.1)]">
+    <div className="group overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-[rgba(242,238,230,0.1)]">
       <div className="relative aspect-video w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full">
         {svg ? (
           <div className="h-full w-full [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} />
@@ -32,9 +41,28 @@ function Slide({ outputCode, index }: { outputCode: string; index: number }) {
             <Loader2 className="h-5 w-5 animate-spin text-[#8C8278]" />
           </div>
         )}
+        {onEdit && svg && (
+          <button
+            onClick={onEdit}
+            title="Move, resize and retype elements on this slide by hand"
+            className="absolute right-3 top-3 flex cursor-pointer items-center gap-1.5 rounded-full bg-[#1C1A18]/85 px-3 py-1.5 text-xs font-medium text-[#F2EEE6] opacity-0 ring-1 ring-[rgba(242,238,230,0.12)] backdrop-blur-sm transition-opacity hover:bg-[#1C1A18] group-hover:opacity-100 focus-visible:opacity-100"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Quick fix
+          </button>
+        )}
       </div>
       <div className="flex items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-widest text-[#8C8278]">
         <span>Slide {index + 1}</span>
+        {onEdit && (
+          <button
+            onClick={onEdit}
+            className="flex cursor-pointer items-center gap-1 text-[#8C8278] transition-colors hover:text-[#F2EEE6]"
+          >
+            <Pencil className="h-3 w-3" />
+            Quick fix
+          </button>
+        )}
       </div>
     </div>
   );
@@ -43,7 +71,9 @@ function Slide({ outputCode, index }: { outputCode: string; index: number }) {
 export default function PresentationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const deck = useQuery(api.decksInternal.getDeck, { deckId: id as Id<"decks"> });
+  const saveSlideEdit = useMutation(api.decksInternal.saveSlideEdit);
   const [exporting, setExporting] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   async function exportPptx() {
     if (exporting) return;
@@ -66,7 +96,9 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
     }
   }
 
-  const realSlides = (deck?.slides ?? []).filter((s) => s.outputCode);
+  const realSlides = (deck?.slides ?? [])
+    .map((s, i) => ({ ...s, _index: i }))
+    .filter((s) => s.outputCode);
   const generating = deck?.status === "generating";
   const done = deck?.status === "complete";
 
@@ -116,7 +148,12 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
 
             <div className="space-y-5">
               {realSlides.map((s, i) => (
-                <Slide key={i} outputCode={s.outputCode} index={i} />
+                <Slide
+                  key={s._index}
+                  outputCode={s.outputCode}
+                  index={i}
+                  onEdit={done ? () => setEditingIndex(s._index) : undefined}
+                />
               ))}
               {generating && (
                 <div className="grid aspect-video w-full place-items-center rounded-xl border border-dashed border-[rgba(242,238,230,0.12)]">
@@ -130,6 +167,22 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
         )}
       </div>
       <PoweredBy />
+
+      {/* Quick fix — hand-edit one slide; saved in place, re-renders reactively */}
+      {editingIndex !== null && deck?.slides[editingIndex] && (
+        <QuickFixEditor
+          outputCode={deck.slides[editingIndex].outputCode}
+          onCancel={() => setEditingIndex(null)}
+          onSave={async (edited) => {
+            await saveSlideEdit({
+              deckId: id as Id<"decks">,
+              slideIndex: editingIndex,
+              outputCode: edited,
+            });
+            setEditingIndex(null);
+          }}
+        />
+      )}
     </main>
   );
 }

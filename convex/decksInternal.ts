@@ -97,6 +97,41 @@ export const getDeck = query({
   },
 });
 
+// Persist a hand "quick fix" to one slide (owner only). The edited SVG replaces
+// that slide's outputCode in place — same shape, so no schema change and the
+// deck query re-renders the slide reactively. Costs nothing (no tokens).
+export const saveSlideEdit = mutation({
+  args: {
+    deckId: v.id("decks"),
+    slideIndex: v.number(),
+    outputCode: v.string(),
+  },
+  handler: async (ctx, { deckId, slideIndex, outputCode }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const deck = await ctx.db.get(deckId);
+    if (!deck || deck.userId !== userId) throw new Error("Not your presentation.");
+    if (slideIndex < 0 || slideIndex >= deck.slides.length) {
+      throw new Error("Slide not found.");
+    }
+
+    const trimmed = outputCode.trim();
+    if (!trimmed.startsWith("<svg") || !trimmed.endsWith("</svg>")) {
+      throw new Error("Edited slide is not a valid SVG.");
+    }
+    if (trimmed.length > 900_000) {
+      throw new Error("Edited slide is too large to save.");
+    }
+
+    const slides = deck.slides.map((s, i) =>
+      i === slideIndex ? { ...s, outputCode: trimmed } : s,
+    );
+    await ctx.db.patch(deckId, { slides });
+    return { ok: true };
+  },
+});
+
 // Delete a presentation (owner only).
 export const deleteDeck = mutation({
   args: { deckId: v.id("decks") },
