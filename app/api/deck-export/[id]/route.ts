@@ -5,7 +5,6 @@ import { ConvexHttpClient } from "convex/browser";
 import PptxGenJS from "pptxgenjs";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { svgToPng } from "@/lib/resvg-render";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -59,12 +58,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "No slides to export yet" }, { status: 409 });
   }
 
-  // Render each slide SVG → PNG (resvg, correct brand fonts).
-  const pngs: Buffer[] = [];
-  for (const svg of deck.slides) {
-    const inlined = await inlineImages(svg);
-    pngs.push(await svgToPng(inlined, SLIDE_PX_WIDTH));
-  }
+  // Render each slide → PNG via Convex (resvg runs there with the brand fonts;
+  // this Vercel route runtime can't load the native rasteriser, which is why the
+  // old in-route render failed to export). Images are inlined HERE first because
+  // the brand logos live in this app's /public dir.
+  const slideImages = await Promise.all(
+    deck.slides.map(async (svg) => {
+      const inlined = await inlineImages(svg);
+      const { base64 } = await client.action(api.render.rasterizeForExport, {
+        svg: inlined,
+        width: SLIDE_PX_WIDTH,
+      });
+      return `data:image/png;base64,${base64}`;
+    }),
+  );
 
   // Assemble a 16:9 PowerPoint — each slide is a full-bleed image.
   const pptx = new PptxGenJS();
@@ -72,15 +79,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   pptx.layout = "MM_16x9";
   pptx.author = "Mad Monkey Studio";
   pptx.title = deck.title;
-  for (const png of pngs) {
+  for (const data of slideImages) {
     const slide = pptx.addSlide();
-    slide.addImage({
-      data: `data:image/png;base64,${png.toString("base64")}`,
-      x: 0,
-      y: 0,
-      w: 13.333,
-      h: 7.5,
-    });
+    slide.addImage({ data, x: 0, y: 0, w: 13.333, h: 7.5 });
   }
 
   const buf = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
