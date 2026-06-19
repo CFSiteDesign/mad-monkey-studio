@@ -80,7 +80,15 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
     setExporting(true);
     try {
       const res = await fetch(`/api/deck-export/${id}`);
-      if (!res.ok) throw new Error("Export failed");
+      if (!res.ok) {
+        let detail = `${res.status}`;
+        try {
+          detail = (await res.json())?.error ?? detail;
+        } catch {
+          /* non-JSON error body — keep the status code */
+        }
+        throw new Error(detail);
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -88,9 +96,9 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
       a.download = `${(deck?.title ?? "presentation").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pptx`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      /* surfaced below via a simple alert fallback */
-      alert("Couldn't export the PowerPoint — try again once all slides are done.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "unknown error";
+      alert(`Couldn't export the PowerPoint.\n\n${msg}\n\nIf this mentions "rasterizeForExport", the backend needs deploying. Otherwise try again once all slides are done.`);
     } finally {
       setExporting(false);
     }

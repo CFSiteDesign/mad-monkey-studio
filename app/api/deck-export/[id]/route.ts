@@ -58,40 +58,49 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "No slides to export yet" }, { status: 409 });
   }
 
-  // Render each slide → PNG via Convex (resvg runs there with the brand fonts;
-  // this Vercel route runtime can't load the native rasteriser, which is why the
-  // old in-route render failed to export). Images are inlined HERE first because
-  // the brand logos live in this app's /public dir.
-  const slideImages = await Promise.all(
-    deck.slides.map(async (svg) => {
-      const inlined = await inlineImages(svg);
-      const { base64 } = await client.action(api.render.rasterizeForExport, {
-        svg: inlined,
-        width: SLIDE_PX_WIDTH,
-      });
-      return `data:image/png;base64,${base64}`;
-    }),
-  );
+  try {
+    // Render each slide → PNG via Convex (resvg runs there with the brand fonts;
+    // this Vercel route runtime can't load the native rasteriser, which is why
+    // the old in-route render failed to export). Images are inlined HERE first
+    // because the brand logos live in this app's /public dir.
+    const slideImages = await Promise.all(
+      deck.slides.map(async (svg) => {
+        const inlined = await inlineImages(svg);
+        const { base64 } = await client.action(api.render.rasterizeForExport, {
+          svg: inlined,
+          width: SLIDE_PX_WIDTH,
+        });
+        return `data:image/png;base64,${base64}`;
+      }),
+    );
 
-  // Assemble a 16:9 PowerPoint — each slide is a full-bleed image.
-  const pptx = new PptxGenJS();
-  pptx.defineLayout({ name: "MM_16x9", width: 13.333, height: 7.5 });
-  pptx.layout = "MM_16x9";
-  pptx.author = "Mad Monkey Studio";
-  pptx.title = deck.title;
-  for (const data of slideImages) {
-    const slide = pptx.addSlide();
-    slide.addImage({ data, x: 0, y: 0, w: 13.333, h: 7.5 });
+    // Assemble a 16:9 PowerPoint — each slide is a full-bleed image.
+    const pptx = new PptxGenJS();
+    pptx.defineLayout({ name: "MM_16x9", width: 13.333, height: 7.5 });
+    pptx.layout = "MM_16x9";
+    pptx.author = "Mad Monkey Studio";
+    pptx.title = deck.title;
+    for (const data of slideImages) {
+      const slide = pptx.addSlide();
+      slide.addImage({ data, x: 0, y: 0, w: 13.333, h: 7.5 });
+    }
+
+    const buf = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
+    const filename = `${(deck.title || "presentation").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pptx`;
+    return new NextResponse(new Uint8Array(buf), {
+      status: 200,
+      headers: {
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  } catch (err) {
+    // Surface the real reason (e.g. "Could not find public function
+    // render:rasterizeForExport" when the Convex backend isn't deployed yet)
+    // instead of a generic 500, so the client can show it.
+    const message = err instanceof Error ? err.message : "Unknown export error";
+    console.error("deck-export failed:", message);
+    return NextResponse.json({ error: `Export failed: ${message}` }, { status: 500 });
   }
-
-  const buf = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
-  const filename = `${(deck.title || "presentation").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pptx`;
-  return new NextResponse(new Uint8Array(buf), {
-    status: 200,
-    headers: {
-      "Content-Type":
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-    },
-  });
 }
