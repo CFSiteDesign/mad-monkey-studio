@@ -9,6 +9,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { encode as jpegEncode } from "jpeg-js";
 import { MONTSERRAT_FONTS_B64, DISPLAY_FONTS_B64, MONT_FAMILY } from "./brand-fonts";
 import { normalizeSvgRoot } from "./validate";
 
@@ -144,9 +145,8 @@ export async function svgToPng(svg: string, pxWidth: number): Promise<Buffer> {
  * 4.5MB serverless response limit AND the Vercel route needs zero native deps.
  */
 export async function svgToJpeg(svg: string, pxWidth: number, quality = 82): Promise<Buffer> {
-  const jpeg = await import("jpeg-js");
   const img = await renderSvg(svg, pxWidth);
-  const out = jpeg.encode(
+  const out = jpegEncode(
     { data: Buffer.from(img.pixels), width: img.width, height: img.height },
     quality,
   );

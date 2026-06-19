@@ -68,12 +68,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         const inlined = await inlineImages(svg);
         // rasterizeForExport returns JPEG (encoded in Convex): ~150KB/slide, so
         // the assembled pptx stays well under Vercel's 4.5MB response limit and
-        // this route needs no native image deps.
-        const { base64 } = await client.action(api.render.rasterizeForExport, {
+        // this route needs no native image deps. It returns { error } rather
+        // than throwing so the real reason isn't redacted to "Server Error".
+        const res = await client.action(api.render.rasterizeForExport, {
           svg: inlined,
           width: SLIDE_PX_WIDTH,
         });
-        return `data:image/jpeg;base64,${base64}`;
+        if (res.error || !res.base64) throw new Error(res.error ?? "empty render");
+        return `data:image/jpeg;base64,${res.base64}`;
       }),
     );
 

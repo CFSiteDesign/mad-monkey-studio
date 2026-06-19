@@ -37,15 +37,22 @@ export const rasterize = action({
  */
 export const rasterizeForExport = action({
   args: { svg: v.string(), width: v.number() },
-  handler: async (_ctx, { svg, width }): Promise<{ base64: string }> => {
-    if (svg.length > 12_000_000) throw new Error("Design too large to export.");
+  handler: async (_ctx, { svg, width }): Promise<{ base64?: string; error?: string }> => {
+    if (svg.length > 12_000_000) return { error: "Design too large to export." };
     const w = Math.min(Math.max(Math.round(width), 64), 4096);
     // Return JPEG (not PNG): slides are full-bleed photos, so a JPEG is ~150KB
     // vs ~3MB for the PNG. That keeps the assembled deck PPTX well under
     // Vercel's 4.5MB serverless response limit and shrinks the Convex→route
     // transfer. Encoded in this Convex runtime (where resvg works), so the
     // Vercel export route stays free of native image deps.
-    const jpg = await svgToJpeg(svg, w, 82);
-    return { base64: jpg.toString("base64") };
+    //
+    // Return the error rather than throwing: Convex redacts thrown errors to a
+    // generic "Server Error", which hid the real cause from the export route.
+    try {
+      const jpg = await svgToJpeg(svg, w, 82);
+      return { base64: jpg.toString("base64") };
+    } catch (err) {
+      return { error: `rasterize: ${err instanceof Error ? err.message : String(err)}` };
+    }
   },
 });
