@@ -320,8 +320,25 @@ export default function StudioPage() {
       body: "Everything you create lands here. Click any version to refine it in plain English, hand-edit it with Quick Fix, or export to PNG / JPG / PDF / PowerPoint.",
     },
     {
+      target: '[data-tour="account-menu"]',
+      title: "11 · The image bank",
+      body: (
+        <div className="space-y-1.5">
+          <p>
+            Click your avatar (up here) → <b className="text-[#F2EEE6]">Image bank</b>. It's the shared library of
+            real Mad Monkey photos — foam parties, pool days, dorms, beach runs.
+          </p>
+          <p className="text-[#8C8278]">
+            Upload a shot with a short description and the AI automatically drops the best-matching photo into your
+            designs. A fresh bank starts empty — load it up, because the more real photos it holds, the better every
+            poster and deck looks.
+          </p>
+        </div>
+      ),
+    },
+    {
       title: "That's everything — you're ALL IN 🐵",
-      body: "You now know the whole tool: systems, formats, the smart questions, presentations and the gallery. Replay this tour anytime from the ? in the top bar.",
+      body: "You now know the whole tool: systems, formats, the smart questions, presentations, the gallery and the image bank. Replay this tour anytime from “How it works” in the top bar.",
     },
   ];
 

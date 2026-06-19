@@ -39,6 +39,7 @@ export function SignOutButton({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Account menu"
+        data-tour="account-menu"
         className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-b from-[#D4866A] to-[#C06F51] text-xs font-medium text-[#F7F3EC] ring-1 ring-[rgba(242,238,230,0.16)] transition-transform hover:scale-105 cursor-pointer"
       >
         {initials}
@@ -64,7 +65,7 @@ export function SignOutButton({
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[#F2EEE6] hover:bg-[rgba(242,238,230,0.05)] transition-colors cursor-pointer"
           >
             <BarChart3 className="h-4 w-4 text-[#8C8278]" />
-            My account stats
+            My account
           </button>
           <button
             role="menuitem"
