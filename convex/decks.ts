@@ -105,7 +105,7 @@ async function generateSlide(
   model: string,
 ): Promise<{ outputCode: string; notes: string[]; inputTokens: number; outputTokens: number }> {
   const brief = [
-    `Slide ${index + 1} of ${total} in the deck "${deckTitle}" — role: ${slide.role}.`,
+    `Role: ${slide.role}${index === 0 ? " — the deck opener" : index === total - 1 ? " — the deck closer" : ""}, in the deck "${deckTitle}". This is INTERNAL context only: NEVER print a slide number, slide position or slide count anywhere on the slide — no "SLIDE 4", "SLIDE 7/8", "8 SLIDES", "GO LIVE 1/8", page numbers, or progress dots. The audience never sees which slide number this is.`,
     `Heading (use as the slide's hook): ${slide.heading}`,
     slide.points.length
       ? `Show these points, kept short and VERBATIM:\n${slide.points.map((p) => `• ${p}`).join("\n")}`
@@ -117,6 +117,7 @@ async function generateSlide(
     `• Every bullet line must wrap WITHIN the text column's width. If a line would reach the photo, break it earlier, shorten it, or drop the font-size — never let a line run under or behind the image.`,
     `• Text may sit ON a photo ONLY when that photo is a full-bleed BACKGROUND covering the whole slide with a dark scrim behind the text — never on a side panel.`,
     `• Text must never sit on other text; stickers/badges must never cover text. Give every element its own clear space. When tight, use fewer words or a smaller font — never overlap.`,
+    `• PHOTOS IN FRAMES: a photo placed in a frame/border MUST be clipped to the frame's rounded rectangle. Define a <clipPath> with a <rect> at the photo's EXACT x/y/width/height and the frame's corner radius (rx), and put clip-path="url(#id)" on the <image>. Set preserveAspectRatio="xMidYMid slice" so the photo COVERS the frame edge-to-edge — crop the overflow; never leave empty space, letterbox bars, or square corners. Draw the frame as a slightly larger rounded rect of the SAME centre BEHIND the photo so an even border shows on all four sides, and any outline stroke uses the same rx. No part of the photo may have square corners or spill past the frame, and no gap may show between photo and frame.`,
   ]
     .filter(Boolean)
     .join("\n");
