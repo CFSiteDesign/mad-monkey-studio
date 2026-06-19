@@ -59,6 +59,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   try {
+    // Crisp logos/text need higher JPEG quality, but the whole pptx must stay
+    // under Vercel's 4.5MB response limit — so scale quality to slide count.
+    // q82 left brand marks fuzzy; q90 is clean and ~3.4MB for an 8-slide deck.
+    const n = deck.slides.length;
+    const quality = n <= 8 ? 90 : n <= 11 ? 85 : 80;
+
     // Render each slide → PNG via Convex (resvg runs there with the brand fonts;
     // this Vercel route runtime can't load the native rasteriser, which is why
     // the old in-route render failed to export). Images are inlined HERE first
@@ -73,6 +79,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         const res = await client.action(api.render.rasterizeForExport, {
           svg: inlined,
           width: SLIDE_PX_WIDTH,
+          quality,
         });
         if (res.error || !res.base64) throw new Error(res.error ?? "empty render");
         return `data:image/jpeg;base64,${res.base64}`;
