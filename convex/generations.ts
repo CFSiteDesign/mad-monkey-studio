@@ -472,10 +472,10 @@ export const generateAsset = action({
       )) {
         const href = im[1];
         if (href.startsWith("data:")) continue;
-        if (/^\/mm-(logo-(white|black)|allin|allin-monkey)\.png$/.test(href)) continue;
+        if (/^\/mm-(logo-(white|black)|allin|allin-monkey|stamp)\.png$/.test(href)) continue;
         if (!bankUrls.has(href)) {
           hard.push(
-            `Image href "${href.slice(0, 70)}" is not a real asset — it renders as a blank box. Use ONLY exact URLs from the IMAGE BANK list, or /mm-logo-white.png, /mm-logo-black.png, /mm-allin.png, /mm-allin-monkey.png. If no bank image fits, use flat graphic shapes instead.`,
+            `Image href "${href.slice(0, 70)}" is not a real asset — it renders as a blank box. Use ONLY exact URLs from the IMAGE BANK list, or /mm-logo-white.png, /mm-logo-black.png, /mm-allin.png, /mm-allin-monkey.png, /mm-stamp.png. If no bank image fits, use flat graphic shapes instead.`,
           );
         }
       }
