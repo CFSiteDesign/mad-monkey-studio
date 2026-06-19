@@ -10,6 +10,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { BrandLogo } from "@/components/brand-logo";
 import { GenerationLoader } from "@/components/generation-loader";
 import { GenerationCard, type FeedGeneration } from "@/components/generation-card";
+import { useGeneration } from "@/components/generation-provider";
 import { PoweredBy } from "@/components/powered-by";
 import { Walkthrough, type TourStep } from "@/components/walkthrough";
 import { FORMAT_DIMENSIONS } from "@/lib/prompt";
@@ -46,18 +47,6 @@ const DESIGN_SYSTEMS = [
 ] as const;
 
 // The freshly-returned generation, shown until the thread query catches up.
-type GenerateResult = {
-  generationId: string;
-  outputCode: string;
-  inputTokens: number;
-  outputTokens: number;
-  costUsd: number;
-  retryCount?: number;
-  notes?: string[];
-  format: string;
-  designSystem: string;
-};
-
 const ASPECT: Record<string, string> = {
   "1:1": "aspect-square",
   "4:5": "aspect-[4/5]",
@@ -78,8 +67,6 @@ function GalleryThumb({ svg, format }: { svg: string; format: string }) {
 
 export default function StudioPage() {
   const user = useQuery(api.users.getCurrentUser);
-  const generateAsset = useAction(api.generations.generateAsset);
-  const composeBrief = useAction(api.briefs.composeBrief);
   const followUpQuestions = useAction(api.briefs.followUpQuestions);
   const generateDeck = useAction(api.decks.generateDeck);
   const router = useRouter();
@@ -101,9 +88,21 @@ export default function StudioPage() {
   const [markHover, setMarkHover] = useState<{ src: string; label: string } | null>(null);
   const [markHoverPos, setMarkHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [tourOpen, setTourOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<GenerateResult | null>(null);
-  const [error, setError] = useState("");
+  // Asset generation lives in a provider above the router so it survives
+  // navigating to /account or /bank mid-generation. Decks still run locally
+  // (they redirect to their own page on completion).
+  const {
+    generating,
+    result,
+    error: genError,
+    activeThreadId,
+    runAsset,
+    clearResult,
+  } = useGeneration();
+  const [deckLoading, setDeckLoading] = useState(false);
+  const [localError, setLocalError] = useState("");
+  const loading = generating || deckLoading;
+  const error = genError || localError;
 
   // ── Smart follow-up questions (Haiku) — a 2-step brief flow for new creations.
   // "base": original questions. "followup": 3 tailored questions + optional details.
@@ -361,18 +360,18 @@ export default function StudioPage() {
 
   function createNew() {
     setThreadId(null);
-    setResult(null);
+    clearResult();
     setBrief("");
-    setError("");
+    setLocalError("");
     resetBriefFlow();
   }
 
   function selectThread(id: Id<"threads">) {
     if (loading) return;
     setThreadId(id);
-    setResult(null);
+    clearResult();
     setBrief("");
-    setError("");
+    setLocalError("");
   }
 
   async function handleDelete(id: Id<"threads">) {
@@ -395,6 +394,15 @@ export default function StudioPage() {
     setDesignSystem(last.designSystem);
   }, [threadId, activeThread, loading]);
 
+  // Re-attach to the thread of an in-flight / just-finished generation whenever
+  // the page (re)mounts — e.g. after popping over to /account or /bank while a
+  // design was still generating. The work keeps running in the provider; this
+  // just reconnects the view to it.
+  useEffect(() => {
+    if (activeThreadId && activeThreadId !== threadId) setThreadId(activeThreadId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeThreadId]);
+
   // "Presentation" is a format (16:9 multi-slide deck) under the universal Brand
   // system, driven by a single free-text details box instead of the event fields.
   const isPresentation = format === "presentation";
@@ -411,7 +419,7 @@ export default function StudioPage() {
   async function loadFollowUps() {
     if (loadingFollowUps || !baseReady) return;
     setLoadingFollowUps(true);
-    setError("");
+    setLocalError("");
     try {
       const context = isPresentation
         ? `Topic: ${deckBrief.trim()}\nSlides: ${deckSlides}`
@@ -458,8 +466,8 @@ export default function StudioPage() {
     // Presentation = a multi-slide deck. Generate, then jump to its view.
     if (isPresentation && newCreation) {
       if (!presentationReady) return;
-      setLoading(true);
-      setError("");
+      setDeckLoading(true);
+      setLocalError("");
       try {
         const extra = [
           ...answeredFollowUps.map((p) => `- ${p.q} ${p.a}`),
@@ -477,45 +485,42 @@ export default function StudioPage() {
         resetBriefFlow();
         router.push(`/presentation/${deckId}`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Presentation failed.");
-        setLoading(false);
+        setLocalError(err instanceof Error ? err.message : "Presentation failed.");
+        setDeckLoading(false);
       }
       return;
     }
 
     if (threadId ? !brief.trim() : !eventFieldsReady) return;
-    setLoading(true);
-    setError("");
-    try {
-      // New creations: Haiku expands the event answers (+ follow-ups + details)
-      // into a brand-voiced brief. Refinements send the refine text directly.
-      let briefText = brief;
-      if (!threadId) {
-        const composed = await composeBrief({
-          title: eventTitle.trim(),
-          date: eventDate.trim(),
-          cost: eventCost.trim() || undefined,
-          location: eventLocation.trim(),
-          format,
-          designSystem,
-          followUps: answeredFollowUps.length ? answeredFollowUps : undefined,
-          extraDetails: otherDetails.trim() || undefined,
-        });
-        briefText = composed.brief;
-      }
-      const res = await generateAsset({
-        brief: briefText,
-        format,
-        designSystem,
-        threadId: threadId ?? undefined,
-        includeLogo,
-        includeAllIn,
-        includeAllInMonkey,
-        includeStamp,
-      });
-      // Shown immediately; the reactive thread query takes over once it
-      // includes this generation.
-      setResult({ ...res, format, designSystem });
+    // Hand the whole compose+generate sequence to the provider (above the
+    // router) so it keeps running even if the user pops over to /account or
+    // /bank mid-generation. New creations: Haiku expands the event answers into
+    // a brand-voiced brief first. Refinements send the refine text directly.
+    const res = await runAsset({
+      briefText: threadId ? brief : undefined,
+      compose: threadId
+        ? undefined
+        : {
+            title: eventTitle.trim(),
+            date: eventDate.trim(),
+            cost: eventCost.trim() || undefined,
+            location: eventLocation.trim(),
+            format,
+            designSystem,
+            followUps: answeredFollowUps.length ? answeredFollowUps : undefined,
+            extraDetails: otherDetails.trim() || undefined,
+          },
+      format,
+      designSystem,
+      threadId: threadId ?? undefined,
+      includeLogo,
+      includeAllIn,
+      includeAllInMonkey,
+      includeStamp,
+    });
+    // Runs only if the page is still mounted — the provider holds the result +
+    // thread regardless. Clears the brief form for the next creation.
+    if (res) {
       setThreadId(res.threadId);
       setBrief("");
       setEventTitle("");
@@ -523,10 +528,6 @@ export default function StudioPage() {
       setEventCost("");
       setEventLocation("");
       resetBriefFlow();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Generation failed.");
-    } finally {
-      setLoading(false);
     }
   }
 
