@@ -3,6 +3,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { ConvexHttpClient } from "convex/browser";
 import PptxGenJS from "pptxgenjs";
+import sharp from "sharp";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -70,7 +71,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           svg: inlined,
           width: SLIDE_PX_WIDTH,
         });
-        return `data:image/png;base64,${base64}`;
+        // resvg only emits PNG (~3MB/slide). An 8-slide PNG deck is ~25MB, which
+        // exceeds Vercel's 4.5MB serverless response limit and silently 500s the
+        // whole export. Slides are full-bleed photos, so re-encode each as JPEG
+        // (q82): visually identical, but the assembled pptx lands a few MB.
+        const jpg = await sharp(Buffer.from(base64, "base64"))
+          .jpeg({ quality: 82, mozjpeg: true })
+          .toBuffer();
+        return `data:image/jpeg;base64,${jpg.toString("base64")}`;
       }),
     );
 
