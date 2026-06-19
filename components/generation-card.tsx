@@ -98,11 +98,20 @@ export function GenerationCard({
     if (!svgEl) return;
     const dim = FORMAT_DIMENSIONS[gen.format] ?? { w: 1080, h: 1080 };
     const baseName = `mm-studio-${gen.designSystem}-${gen.format.replace(":", "x")}-v${version}`;
+    // HD download: render up to ~4K (resvg caps at 4096px) so the logo, text and
+    // shapes come out razor-sharp instead of the ~1080px the preview rendered at.
+    // Scale from the long edge, capped at 4×, and never downscale below native.
+    const longEdge = Math.max(dim.w, dim.h);
+    const scale = Math.max(1, Math.min(4096 / longEdge, 4));
+    const renderDim = { w: Math.round(dim.w * scale), h: Math.round(dim.h * scale) };
     setExporting(kind);
     setExportOpen(false);
     try {
+      // Re-inline images at higher resolution for the EXPORT only (the on-screen
+      // preview stays light at 1600px) so marks/photos aren't the 4K bottleneck.
+      const exportSvg = sanitizeSvg(await inlineSvgImages(gen.outputCode, 2400));
       if (kind === "svg") {
-        exportSvgString(safeSvg, baseName);
+        exportSvgString(exportSvg, baseName);
         return;
       }
       // Render the raster server-side (resvg → correct brand fonts), retrying a
@@ -112,15 +121,15 @@ export function GenerationCard({
       let pngBytes: Uint8Array<ArrayBuffer> | null = null;
       for (let attempt = 0; attempt < 3 && !pngBytes; attempt++) {
         try {
-          const { base64 } = await rasterize({ svg: safeSvg, width: dim.w });
+          const { base64 } = await rasterize({ svg: exportSvg, width: renderDim.w });
           pngBytes = pngBase64ToBytes(base64);
         } catch (err) {
           if (attempt < 2) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
           else console.warn("Server render unavailable — using font-embedded fallback:", err);
         }
       }
-      if (!pngBytes) pngBytes = await canvasFallbackPng(safeSvg, dim);
-      await exportFromPng(pngBytes, kind, dim, baseName);
+      if (!pngBytes) pngBytes = await canvasFallbackPng(exportSvg, renderDim);
+      await exportFromPng(pngBytes, kind, renderDim, baseName);
     } finally {
       setExporting(null);
     }

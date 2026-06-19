@@ -19,7 +19,7 @@ export const rasterize = action({
     if (!userId) throw new Error("Not authenticated");
     // Images are downscaled during inlining (lib/inline-images), so a normal
     // design is well under this; the cap only guards against a runaway payload.
-    if (svg.length > 6_000_000) throw new Error("Design too large to export.");
+    if (svg.length > 12_000_000) throw new Error("Design too large to export.");
     const w = Math.min(Math.max(Math.round(width), 64), 4096);
     const png = await svgToPng(svg, w);
     return { base64: png.toString("base64") };

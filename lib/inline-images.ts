@@ -14,7 +14,7 @@
  * ≤1600px on the way in — photos to JPEG, local /public logos to PNG (to keep
  * transparency). Falls back to the raw blob if canvas decoding isn't available.
  */
-async function downscaleToDataUrl(blob: Blob, href: string): Promise<string> {
+async function downscaleToDataUrl(blob: Blob, href: string, maxPx: number): Promise<string> {
   const rawDataUrl = () =>
     new Promise<string>((resolve, reject) => {
       const fr = new FileReader();
@@ -27,7 +27,7 @@ async function downscaleToDataUrl(blob: Blob, href: string): Promise<string> {
   }
   try {
     const bmp = await createImageBitmap(blob);
-    const MAX = 1600;
+    const MAX = maxPx;
     const scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
     const w = Math.max(1, Math.round(bmp.width * scale));
     const h = Math.max(1, Math.round(bmp.height * scale));
@@ -48,7 +48,7 @@ async function downscaleToDataUrl(blob: Blob, href: string): Promise<string> {
   }
 }
 
-export async function inlineSvgImages(svg: string): Promise<string> {
+export async function inlineSvgImages(svg: string, maxPx = 1600): Promise<string> {
   // Escape stray & (Google Fonts @import) — the strict XML parser otherwise
   // fails and this function silently skips inlining (and exports lose photos).
   svg = svg.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, "&amp;");
@@ -79,7 +79,7 @@ export async function inlineSvgImages(svg: string): Promise<string> {
         const res = await fetch(href);
         if (!res.ok) return;
         const blob = await res.blob();
-        const dataUrl = await downscaleToDataUrl(blob, href);
+        const dataUrl = await downscaleToDataUrl(blob, href, maxPx);
         el.setAttribute("href", dataUrl);
         el.removeAttributeNS("http://www.w3.org/1999/xlink", "href");
       } catch {
