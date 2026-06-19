@@ -222,7 +222,22 @@ export async function exportFromPng(
   const pngUrl = URL.createObjectURL(pngBlob);
   try {
     if (kind === "png") {
-      downloadBlob(pngBlob, `${baseName}.png`);
+      // Lean PNGs (crisp text/graphics) ship as-is. Photo-heavy posters make
+      // huge PNGs — re-encode those as a high-quality JPEG so the download stays
+      // crystal-clear but comfortably under 5MB.
+      if (pngBlob.size <= 5_000_000) {
+        downloadBlob(pngBlob, `${baseName}.png`);
+        return;
+      }
+      const img = await loadImage(pngUrl);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      downloadBlob(await canvasToBlob(canvas, "image/jpeg", 0.92), `${baseName}.jpg`);
       return;
     }
     if (kind === "jpg") {

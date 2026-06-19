@@ -52,6 +52,17 @@ export const myStats = query({
         createdAt: g.createdAt,
       }));
 
+    // This month's failed runs — surfaced so a failure isn't an invisible
+    // "+1 media created, nothing in the gallery".
+    const failedThisMonth = allGens.filter(
+      (g) =>
+        g.status === "failed" &&
+        new Date(g.createdAt).toISOString().slice(0, 7) === periodMonth,
+    );
+    const lastFailReason =
+      [...failedThisMonth].sort((a, b) => b.createdAt - a.createdAt)[0]
+        ?.validationErrors?.[0] ?? null;
+
     return {
       email: user.email,
       name: user.name,
@@ -60,10 +71,12 @@ export const myStats = query({
       capUsd: user.monthlyCapUsd ?? DEFAULT_CAP_USD,
       month: {
         generations: monthRows.length,
+        failed: failedThisMonth.length,
         inputTokens: monthInputTokens,
         outputTokens: monthOutputTokens,
         spendUsd: monthSpendUsd,
       },
+      lastFailReason,
       allTime: {
         generations: allGens.length,
         tokens: allTimeTokens,

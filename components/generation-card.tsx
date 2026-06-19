@@ -98,18 +98,20 @@ export function GenerationCard({
     if (!svgEl) return;
     const dim = FORMAT_DIMENSIONS[gen.format] ?? { w: 1080, h: 1080 };
     const baseName = `mm-studio-${gen.designSystem}-${gen.format.replace(":", "x")}-v${version}`;
-    // HD download: render up to ~4K (resvg caps at 4096px) so the logo, text and
-    // shapes come out razor-sharp instead of the ~1080px the preview rendered at.
-    // Scale from the long edge, capped at 4×, and never downscale below native.
+    // Crisp but lean: normalise every format to ~2560px on the long edge — far
+    // sharper than the 1080px preview, while keeping the render fast and the
+    // returned PNG small (true 4K hung the export ~30s on a ~20MB response).
+    // exportFromPng auto-falls back to a high-quality JPEG if a photo-heavy PNG
+    // would top 5MB, so downloads stay crystal-clear AND under 5MB.
     const longEdge = Math.max(dim.w, dim.h);
-    const scale = Math.max(1, Math.min(4096 / longEdge, 4));
+    const scale = Math.min(2560 / longEdge, 4);
     const renderDim = { w: Math.round(dim.w * scale), h: Math.round(dim.h * scale) };
     setExporting(kind);
     setExportOpen(false);
     try {
-      // Re-inline images at higher resolution for the EXPORT only (the on-screen
-      // preview stays light at 1600px) so marks/photos aren't the 4K bottleneck.
-      const exportSvg = sanitizeSvg(await inlineSvgImages(gen.outputCode, 2400));
+      // Re-inline images for the export (preview stays light). 2000px source is
+      // ample for a 2560px render and keeps the upload + render quick.
+      const exportSvg = sanitizeSvg(await inlineSvgImages(gen.outputCode, 2000));
       if (kind === "svg") {
         exportSvgString(exportSvg, baseName);
         return;

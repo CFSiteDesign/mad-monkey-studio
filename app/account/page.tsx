@@ -219,6 +219,15 @@ export default function AccountPage() {
                     <span className="capitalize text-[#F2EEE6]">
                       {g.designSystem}
                     </span>
+                    {g.status === "failed" ? (
+                      <span className="rounded-md bg-red-500/15 px-2 py-0.5 text-[10px] font-medium text-red-300">
+                        Failed
+                      </span>
+                    ) : (
+                      <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300/80">
+                        Done
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-4 font-mono text-[11px] text-[#8C8278]">
                     <span>{fmtTokens(g.tokens)} tok</span>

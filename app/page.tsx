@@ -344,6 +344,10 @@ export default function StudioPage() {
   // ── Gallery (past creations) ──
   const threads = useQuery(api.threads.list);
   const decks = useQuery(api.decksInternal.listDecks);
+  // Recent failed runs — so an empty gallery can explain "media created" that
+  // didn't pass brand checks rather than looking mysteriously empty.
+  const stats = useQuery(api.usage.myStats);
+  const failedCount = stats?.month.failed ?? 0;
   const [threadId, setThreadId] = useState<Id<"threads"> | null>(null);
   const activeThread = useQuery(api.threads.get, threadId ? { threadId } : "skip");
   const archiveThread = useMutation(api.threads.archive);
@@ -667,8 +671,9 @@ export default function StudioPage() {
                 </div>
               ) : threads.length === 0 ? (
                 <p className="px-1 py-2 text-xs leading-relaxed text-[#8C8278]/70">
-                  Nothing here yet — hit Create something new and your first
-                  asset lands in this gallery.
+                  {failedCount > 0
+                    ? `${failedCount} recent ${failedCount === 1 ? "run" : "runs"} didn't pass brand checks, so nothing's landed here yet. Only on-brand designs appear — tweak the brief and try again.`
+                    : "Nothing here yet — hit Create something new and your first asset lands in this gallery."}
                 </p>
               ) : (
                 <ul className="grid grid-cols-2 gap-2.5">
@@ -1300,6 +1305,16 @@ export default function StudioPage() {
                 <span className="text-[#8C8278]/40">·</span>
                 <span>{FORMAT_DIMENSIONS[format]?.label?.split("—")[0]?.trim() ?? format}</span>
               </div>
+              {failedCount > 0 && (
+                <div className="mt-1 w-full rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2.5 text-left">
+                  <p className="text-[12px] font-medium text-amber-300/90">
+                    {failedCount} recent {failedCount === 1 ? "run" : "runs"} didn&apos;t pass brand checks
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-[#8C8278]">
+                    They aren&apos;t shown here{stats?.lastFailReason ? ` — last reason: ${stats.lastFailReason}` : ""}. Tweak the brief and try again, or see Account → Recent for details.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-14 pb-8">
