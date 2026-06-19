@@ -55,7 +55,23 @@ type TextEl = {
   content: string;
   box: Box;
   at: number; // source-order index (for z-order occlusion checks)
+  attrs: string; // raw attribute string (for font-weight / font-family checks)
 };
+
+/** Fonts that render heavy by design, so text in them counts as "bold" even at
+ *  font-weight 400 (Anton/Bungee/Archivo Black/Titan One are single heavy
+ *  weights; MMMont600+ are the renamed heavy Montserrat families). */
+const HEAVY_FONTS = /Anton|Bungee|Archivo Black|Titan One|MMMont(?:[6-9]00)|Permanent Marker/i;
+
+/** Is this text element bold? Heavy display face, font-weight:bold, or >= 600. */
+function isBoldText(attrs: string): boolean {
+  const fam = attrs.match(/font-family\s*[:=]\s*["']?\s*([^"';]+)/i)?.[1] ?? "";
+  if (HEAVY_FONTS.test(fam)) return true;
+  const fw = (attrs.match(/font-weight\s*[:=]\s*["']?\s*([a-z0-9]+)/i)?.[1] ?? "").toLowerCase();
+  if (fw === "bold" || fw === "bolder") return true;
+  const n = parseInt(fw, 10);
+  return Number.isFinite(n) && n >= 600;
+}
 
 /**
  * Character ranges of the source that sit inside a <g transform="…"> group.
@@ -109,7 +125,7 @@ function parseTexts(svg: string): TextEl[] {
     const width = content.length * fontSize * 0.6;
     const x1 = anchor === "middle" ? x - width / 2 : anchor === "end" ? x - width : x;
     els.push({
-      x, y, fontSize, anchor, baseline, content, at: m.index,
+      x, y, fontSize, anchor, baseline, content, at: m.index, attrs,
       box: { x1, y1: y - fontSize * 0.75, x2: x1 + width, y2: y + fontSize * 0.05, label: content.slice(0, 28) },
     });
   }
@@ -415,6 +431,12 @@ function containerViolations(svg: string, canvas: { w: number; h: number }): str
       if (t.box.x2 - t.box.x1 > c.innerW * 1.1) {
         out.add(
           `Text "${t.content.slice(0, 28)}" overflows its pill/badge — the text is wider than the shape. Shorten the text or shrink the font so it fits inside with padding.`,
+        );
+      }
+      // Bold: label text sitting inside a box/pill/badge/card must be bold.
+      if (!isBoldText(t.attrs)) {
+        out.add(
+          `Text "${t.content.slice(0, 28)}" inside a box/pill/badge must be BOLD — set font-weight="700" (or use a heavy display face like Anton/Bungee). Container labels are never thin/regular weight.`,
         );
       }
       // Horizontal centring (strict): must be text-anchor="middle" at centre x
