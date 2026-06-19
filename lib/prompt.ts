@@ -178,8 +178,8 @@ export function buildSystemPrompt(
     includeStamp
       ? `Mad Monkey Stamp: REQUIRED — embed /mm-stamp.png (the round MAD MONKEY HOSTELS roundel stamp; black-on-transparent, reads best on light backgrounds or over a photo) as a circular badge, rotated ±0–10°, clear of the wordmark and all text.`
       : `Mad Monkey Stamp: EXCLUDED for this asset — do NOT embed /mm-stamp.png.`,
-    stickerCount === 2
-      ? `Both stickers are required: place them in DIFFERENT regions of the canvas (e.g. one top-left, one mid-right), never adjacent, never overlapping each other or anything else.`
+    stickerCount >= 2
+      ? `${stickerCount} stickers are required: place EACH in a DIFFERENT region of the canvas (e.g. one top-left, one mid-right, one lower-centre), never adjacent, never overlapping each other or anything else.`
       : "",
     includeLogo && stickerCount > 0
       ? `Stickers and the wordmark must NEVER overlap or touch — keep at least 60px between bounding boxes, and keep stickers away from the bottom-right corner.`
