@@ -1,12 +1,12 @@
 import { query, mutation } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-    return await ctx.db.get(identity.subject as Id<"users">);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    return await ctx.db.get(userId);
   },
 });
 
@@ -14,10 +14,10 @@ export const getCurrentUser = query({
 export const ensureBrand = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
 
-    const user = await ctx.db.get(identity.subject as Id<"users">);
+    const user = await ctx.db.get(userId);
     if (!user || user.brandId) return null;
 
     const brand = await ctx.db

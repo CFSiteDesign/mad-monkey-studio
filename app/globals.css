@@ -110,12 +110,257 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv01";
   }
   html {
     @apply font-sans;
+  }
+
+  /* Warm selection */
+  ::selection {
+    background: rgba(204, 122, 92, 0.3);
+    color: #f7f3ec;
+  }
+
+  /* Consistent, visible keyboard focus everywhere */
+  :focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px #1c1a18,
+      0 0 0 4px rgba(204, 122, 92, 0.7);
+    border-radius: 4px;
+  }
+
+  /* Slim, on-brand scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(242, 238, 230, 0.14) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(242, 238, 230, 0.12);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(242, 238, 230, 0.22);
+    background-clip: padding-box;
+  }
+}
+
+@layer utilities {
+  /* Atmospheric warmth: layered radial glows behind the shell */
+  .mm-ambient {
+    background-color: #1c1a18;
+    background-image:
+      radial-gradient(
+        60rem 60rem at 12% -10%,
+        rgba(204, 122, 92, 0.1),
+        transparent 60%
+      ),
+      radial-gradient(
+        48rem 48rem at 100% 0%,
+        rgba(204, 122, 92, 0.06),
+        transparent 55%
+      ),
+      radial-gradient(
+        70rem 50rem at 50% 120%,
+        rgba(140, 130, 120, 0.06),
+        transparent 60%
+      );
+  }
+
+  /* Subtle film grain overlay */
+  .mm-grain::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .mm-hairline {
+    border: 1px solid rgba(242, 238, 230, 0.08);
+  }
+
+  .mm-card {
+    background: linear-gradient(
+      180deg,
+      rgba(242, 238, 230, 0.022),
+      rgba(242, 238, 230, 0) 40%
+    );
+    background-color: #242220;
+    border: 1px solid rgba(242, 238, 230, 0.08);
+    box-shadow:
+      0 1px 0 0 rgba(242, 238, 230, 0.04) inset,
+      0 16px 40px -24px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Primary CTA — terracotta with depth + glow on hover */
+  .mm-cta {
+    background: linear-gradient(180deg, #d4866a, #c06f51);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.16) inset,
+      0 8px 24px -12px rgba(204, 122, 92, 0.7);
+    transition:
+      filter 0.2s ease,
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  .mm-cta:hover:not(:disabled) {
+    filter: brightness(1.06);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.2) inset,
+      0 12px 32px -10px rgba(204, 122, 92, 0.85);
+  }
+  .mm-cta:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  /* Form fields */
+  .mm-field {
+    background-color: #1c1a18;
+    border: 1px solid rgba(242, 238, 230, 0.12);
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease,
+      background-color 0.2s ease;
+  }
+  .mm-field:hover {
+    border-color: rgba(242, 238, 230, 0.22);
+  }
+  .mm-field:focus,
+  .mm-field:focus-visible {
+    outline: none;
+    border-color: #cc7a5c;
+    box-shadow: 0 0 0 3px rgba(204, 122, 92, 0.18);
+    background-color: #201d1b;
+  }
+
+  .mm-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #8c8278;
+  }
+
+  @keyframes mm-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .mm-fade-up {
+    animation: mm-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes mm-shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  .mm-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .mm-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(242, 238, 230, 0.06),
+      transparent
+    );
+    animation: mm-shimmer 1.6s ease-in-out infinite;
+  }
+
+  /* ── Generation loader (poster-style) ── */
+  @keyframes mm-spin-slow {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .mm-spin-slow {
+    animation: mm-spin-slow 14s linear infinite;
+  }
+
+  @keyframes mm-wobble {
+    0%,
+    100% {
+      transform: rotate(-7deg);
+    }
+    50% {
+      transform: rotate(7deg);
+    }
+  }
+  .mm-wobble {
+    animation: mm-wobble 1.4s ease-in-out infinite;
+  }
+
+  @keyframes mm-stamp {
+    0% {
+      opacity: 0;
+      transform: scale(1.7) rotate(-5deg);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(0.94) rotate(2deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(-1deg);
+    }
+  }
+  .mm-stamp {
+    display: inline-block;
+    animation: mm-stamp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes mm-stripe-scroll {
+    to {
+      background-position: 32px 0;
+    }
+  }
+  .mm-stripe-bar {
+    /* Square-tile barber pole: four 25% diagonal bands tile seamlessly, so
+       the pattern is uniform from the first pixel and a shift of exactly one
+       tile (32px) loops without a seam — unlike an angled repeating-gradient,
+       whose first stripe clips differently at the box edge. */
+    background-image: linear-gradient(
+      135deg,
+      var(--stripe, #ffc000) 25%,
+      #0a0a0a 25% 50%,
+      var(--stripe, #ffc000) 50% 75%,
+      #0a0a0a 75%
+    );
+    background-size: 32px 32px;
+    animation: mm-stripe-scroll 0.5s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

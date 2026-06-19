@@ -63,6 +63,17 @@ export default defineSchema({
     .index("by_brand", ["brandId"])
     .index("by_design_system", ["designSystemId"]),
 
+  // ── Community image bank ──────────────────────────────────────────────────
+  // Real brand photography uploaded by the team. The description is mandatory —
+  // it's how Claude matches a brief to an image (Claude never sees the pixels).
+  brand_images: defineTable({
+    brandId: v.id("brands"),
+    uploadedBy: v.id("users"),
+    storageId: v.id("_storage"),
+    description: v.string(),
+    createdAt: v.number(),
+  }).index("by_brand", ["brandId"]),
+
   // ── Conversation ──────────────────────────────────────────────────────────
   threads: defineTable({
     userId: v.id("users"),
@@ -108,6 +119,34 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_brand", ["brandId"]),
 
+  // ── Slide decks ───────────────────────────────────────────────────────────
+  // A deck is N on-brand 16:9 slides generated from one brief. Slides are stored
+  // inline (SVGs carry image URL refs, not inlined data, so they stay small).
+  decks: defineTable({
+    userId: v.id("users"),
+    brandId: v.id("brands"),
+    brandConfigVersion: v.number(),
+    title: v.string(),
+    brief: v.string(),
+    designSystem: v.string(),
+    status: v.string(), // "outlining" | "generating" | "complete" | "failed"
+    slides: v.array(
+      v.object({
+        heading: v.string(),
+        outputCode: v.string(),
+        notes: v.optional(v.array(v.string())),
+      }),
+    ),
+    slideCount: v.number(),
+    inputTokens: v.number(),
+    outputTokens: v.number(),
+    costUsd: v.number(),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_brand", ["brandId"]),
+
   // ── Metering ──────────────────────────────────────────────────────────────
   usage_ledger: defineTable({
     userId: v.id("users"),
@@ -141,4 +180,15 @@ export default defineSchema({
   })
     .index("by_email", ["email"])
     .index("by_brand", ["brandId"]),
+
+  // ── Invites (allowlist — registration is invite-only) ─────────────────────
+  invites: defineTable({
+    email: v.string(),               // normalised lowercase
+    role: v.string(),                // "admin" | "marketer"
+    brandId: v.id("brands"),
+    monthlyCapUsd: v.number(),       // per-user monthly USD cap (0 = unlimited)
+    createdBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+    usedAt: v.optional(v.number()),  // set when the invite is redeemed
+  }).index("by_email", ["email"]),
 });

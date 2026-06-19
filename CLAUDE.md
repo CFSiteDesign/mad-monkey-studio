@@ -91,19 +91,67 @@ Dark UI shell. Always dark — no light mode.
 | Phase | Status | What |
 |---|---|---|
 | 0 | ✅ | Scaffold + hello world deployed to Vercel; full Convex schema pushed to local dev |
-| 1 | ✅ | Clerk auth wired; Mad Monkey brand + config seeded; user sync on sign-in |
-| 2 | ⬜ | Thin vertical slice: brief → Claude → SVG → PNG |
-| 3 | ⬜ | Threads + conversational refinement |
-| 4 | ⬜ | Validation + auto-regenerate gate |
+| 1 | ✅ | Convex Auth wired (Password provider); Mad Monkey brand + config seeded; user sync on sign-in |
+| 2 | ✅ | Thin vertical slice: brief → Claude → SVG → PNG (pending seed + ANTHROPIC_API_KEY) |
+| 3 | ✅ | Threads + conversational refinement — gallery sidebar (past creations as SVG thumbnails + ≤6-word caption), "Create something new", refine-in-place, delete-with-confirm, collapsible. Chat feed shows every version (each exportable: PNG/JPG/PDF/DOCX/SVG). Quick Fix mode (`components/quick-fix-editor.tsx` + `convex/edits.saveManualEdit`): hand move/resize/rotate/retype/delete on the SVG, saved as a new version marked "hand-edited" (not re-validated) |
+| 4 | ✅ | Validation + auto-regenerate gate — `lib/validate.ts` (colours incl. rgb()/named, fonts, blur, gradients, logo presence) + `lib/pixel-validate.ts` (resvg raster audit: sentinel-colour visibility — catches covered/clipped text and off-canvas marks even in rotated/transformed groups; ~1.5s/attempt, best-effort soft layer), max 3 auto-retries in `generateAsset`, hard fails never ship, soft layout notes ship with amber "to eyeball" badge |
 | 5 | ⬜ | Template expansion + server-side export |
 | 6 | ⬜ | Token metering + per-seat caps + admin dashboard |
 | 7 | ⬜ | Versioned brand governance + rollback |
 | 8 | ⬜ | Multi-tenant onboarding |
 | 9 | ⬜ | Production hardening + monitoring |
 
+## Security & abuse controls (live)
+
+**Registration is invite-only.** `auth.ts > createOrUpdateUser` rejects any new email
+that isn't in the `invites` allowlist. No stranger can self-register.
+
+**Per-user monthly spend cap — $50 (0 = unlimited).** Enforced *before* the Claude
+call in `generateAsset`: sums `usage_ledger` for the current month and blocks at the cap.
+Default cap for invited users is `$50` (set at invite time).
+
+**Per-user rate limits (standard).** Also pre-flight in `generateAsset`:
+10 generations/minute, 200/day (counted from the `generations` table).
+
+**SVG XSS sanitisation.** Claude's SVG is run through DOMPurify (svg profile) before
+`dangerouslySetInnerHTML` — strips `<script>`, event handlers, external refs.
+
+**Secrets.** `ANTHROPIC_API_KEY` lives only in the Convex action env (server-side);
+never referenced in any client component. `.env*` is gitignored.
+
+### Admin operations (CLI = deployment-access = admin)
+
+```bash
+# Authorise a new login (creates an allowlist entry; they then sign up at /sign-up)
+npx convex run admin:createInvite '{"email":"person@madmonkeyhostels.com","role":"marketer"}'
+
+# Promote an existing user to admin (+ set their cap)
+npx convex run admin:bootstrapAdmin '{"email":"person@madmonkeyhostels.com"}'
+```
+Auth-gated equivalents (`admin:inviteUser`, `admin:setUserCap`, `admin:listInvites`)
+exist for a future in-app admin UI.
+
+## Go-live runbook (Convex prod + Vercel)
+
+1. `npx convex deploy` → creates/uses the **production** Convex deployment (managed JWT keys).
+2. Set prod env: `npx convex env set ANTHROPIC_API_KEY sk-ant-... --prod`.
+3. Run the seed against prod: `npx convex run seed:seedMadMonkey --prod`.
+4. Bootstrap the first admin against prod (`admin:bootstrapAdmin --prod`).
+5. Vercel: set `NEXT_PUBLIC_CONVEX_URL` (+ site URL) to the prod deployment; deploy.
+6. Verify: invite-only blocks unknown emails, cap blocks at $100, rate limit trips, HTTPS only.
+
+## Community image bank
+
+Real brand photography lives in `brand_images` (Convex storage + mandatory description).
+Claude never sees pixels — `generateAsset` injects a URL+description manifest into the
+system prompt and Claude picks by description match. Any signed-in user can upload at
+`/bank`; deletion is uploader-or-admin. Client inlines `<image>` hrefs as data URLs
+post-generation (`lib/inline-images.ts`) because SVG-as-img rasterisation blocks all
+external resources — without it, exports silently lose photos and logos.
+
 ## Convex schema tables
 
-`brands` · `brand_config` · `design_systems` · `templates` · `threads` · `messages` · `generations` · `usage_ledger` · `users`
+`brands` · `brand_config` · `design_systems` · `templates` · `threads` · `messages` · `generations` · `usage_ledger` · `users` · `invites` · `brand_images`
 
 See plan file for full field definitions: `.claude/plans/unified-sprouting-seal.md`
 
@@ -119,26 +167,32 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
 ```
 
+## Convex runtime split rule
+
+Convex's `"use node"` runtime only allows **actions** in the same file. Queries and mutations must live in a separate file *without* `"use node"`.
+
+Pattern used throughout this project:
+- `convex/generationsInternal.ts` — `internalQuery` + `internalMutation` (no "use node")
+- `convex/generations.ts` — `action` only ("use node"; imports `@anthropic-ai/sdk`)
+
 ## File structure
 
 ```
 app/                   Next.js App Router pages
-  (auth)/              Clerk sign-in / sign-up routes
-  (studio)/            Main studio UI (threads, canvas)
+  (auth)/              Convex Auth sign-in / sign-up routes
   admin/               Admin-only routes (brand config, usage)
-  api/                 API routes (webhook from Clerk, render endpoint)
 components/
   ui/                  shadcn primitives
-  studio/              Studio-specific components (Canvas, ThreadList, etc.)
-  admin/               Admin components
 convex/
-  schema.ts            Full database schema
+  schema.ts            Full database schema (with authTables spread)
+  auth.ts              Convex Auth config (Password provider)
+  auth.config.ts       JWT issuer config
+  http.ts              HTTP router (auth routes)
   brands.ts            Brand + brand_config queries/mutations
-  threads.ts           Thread + message queries/mutations
-  generations.ts       Generation action (Claude call + validation)
-  users.ts             User sync + role checks
-  usage.ts             Ledger queries + cap enforcement
+  generations.ts       generateAsset action only — "use node" (Claude call)
+  generationsInternal.ts  getDesignSystem + persistGeneration — no "use node"
+  seed.ts              seedMadMonkey internalMutation — idempotent brand seed
+  users.ts             getCurrentUser + ensureBrand
 lib/
-  validator.ts         Brand config validation logic (pure, testable)
-  prompt.ts            System prompt builder
+  prompt.ts            buildSystemPrompt, stripFences, FORMAT_DIMENSIONS
 ```
