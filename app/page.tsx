@@ -985,9 +985,9 @@ export default function StudioPage() {
                 </div>
               )}
 
-              {/* Brand marks (not for presentations — the deck brands itself).
-                  Hover a checkbox to preview the mark it inserts, by the cursor. */}
-              {!isPresentation && (
+              {/* Brand marks — new creations only (a refinement keeps the marks
+                  already on the design). Hover a checkbox to preview the mark. */}
+              {!isPresentation && !threadId && (
               <div data-tour="brand-marks" className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-0.5">
                 {(
                   [
@@ -1051,7 +1051,8 @@ export default function StudioPage() {
               </p>
             </div>
 
-            {/* Design system */}
+            {/* Design system — hidden while refining (a refinement keeps it) */}
+            {!threadId && (
             <div className="space-y-2.5" data-tour="design-system">
               <label className="mm-eyebrow">Design system</label>
               <div className="space-y-2">
@@ -1094,8 +1095,10 @@ export default function StudioPage() {
                 })}
               </div>
             </div>
+            )}
 
-            {/* Format */}
+            {/* Format — hidden while refining (a refinement keeps it) */}
+            {!threadId && (
             <div className="space-y-2.5" data-tour="format">
               <label className="mm-eyebrow">Format</label>
               <div className="grid grid-cols-4 gap-2">
@@ -1189,6 +1192,7 @@ export default function StudioPage() {
                 </div>
               )}
             </div>
+            )}
 
             <div className="flex-1" />
 
