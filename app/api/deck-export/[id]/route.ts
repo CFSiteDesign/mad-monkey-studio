@@ -44,6 +44,45 @@ async function inlineImages(svg: string): Promise<string> {
   return svg;
 }
 
+const SLIDE_W = 1920;
+const SLIDE_H = 1080;
+const PPT_W = 13.333;
+const PPT_H = 7.5;
+
+// The slide bakes a ~40px logo into the JPEG, which pixelates. We strip it and
+// re-place a crisp high-res PNG on top in the pptx so PowerPoint downscales the
+// 600px source sharply instead of showing the tiny baked version.
+const LOGO_HD: Record<string, string> = {
+  "/mm-logo-white.png": "/mm-logo-white-hd.png",
+  "/mm-logo-black.png": "/mm-logo-black-hd.png",
+};
+const LOGO_RE = /<image\b[^>]*\bhref="(\/mm-logo-(?:white|black)\.png)"[^>]*>/gi;
+
+function numAttr(tag: string, name: string): number | null {
+  const m = tag.match(new RegExp(`\\b${name}="\\s*(-?[\\d.]+)`));
+  return m ? parseFloat(m[1]) : null;
+}
+
+// HD logo data URL + intrinsic PNG size (IHDR), read once per file.
+const logoCache = new Map<string, { data: string; w: number; h: number } | null>();
+async function loadLogo(href: string) {
+  const hd = LOGO_HD[href] ?? href;
+  if (logoCache.has(hd)) return logoCache.get(hd)!;
+  let result: { data: string; w: number; h: number } | null = null;
+  try {
+    const buf = await fs.readFile(path.join(PUBLIC_DIR, hd));
+    result = {
+      data: `data:image/png;base64,${buf.toString("base64")}`,
+      w: buf.readUInt32BE(16),
+      h: buf.readUInt32BE(20),
+    };
+  } catch {
+    result = null;
+  }
+  logoCache.set(hd, result);
+  return result;
+}
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -65,36 +104,62 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const n = deck.slides.length;
     const quality = n <= 8 ? 90 : n <= 11 ? 85 : 80;
 
-    // Render each slide → PNG via Convex (resvg runs there with the brand fonts;
-    // this Vercel route runtime can't load the native rasteriser, which is why
-    // the old in-route render failed to export). Images are inlined HERE first
-    // because the brand logos live in this app's /public dir.
-    const slideImages = await Promise.all(
+    // For each slide: strip the baked (tiny, pixelated) brand logo from the SVG,
+    // rasterise the rest to a JPEG background in Convex (resvg runs there with
+    // the brand fonts; this Vercel runtime can't load the native rasteriser),
+    // and remember the logo's box so we can re-place a crisp high-res PNG on top
+    // in the pptx. rasterizeForExport returns JPEG + { error } (never throws, so
+    // the real reason isn't redacted to "Server Error").
+    const slides = await Promise.all(
       deck.slides.map(async (svg) => {
-        const inlined = await inlineImages(svg);
-        // rasterizeForExport returns JPEG (encoded in Convex): ~150KB/slide, so
-        // the assembled pptx stays well under Vercel's 4.5MB response limit and
-        // this route needs no native image deps. It returns { error } rather
-        // than throwing so the real reason isn't redacted to "Server Error".
+        const overlays: { data: string; x: number; y: number; w: number; h: number }[] = [];
+        let bgSvg = svg;
+        for (const m of svg.matchAll(LOGO_RE)) {
+          const tag = m[0];
+          const logo = await loadLogo(m[1]);
+          const x = numAttr(tag, "x");
+          const y = numAttr(tag, "y");
+          const bw = numAttr(tag, "width");
+          const bh = numAttr(tag, "height");
+          if (!logo || x == null || y == null || bw == null || bh == null) continue;
+          // Fit the logo inside its box preserving aspect (SVG "meet"), centred.
+          const imgA = logo.w / logo.h;
+          const boxA = bw / bh;
+          let fw = bw, fh = bh, fx = x, fy = y;
+          if (imgA > boxA) { fh = bw / imgA; fy = y + (bh - fh) / 2; }
+          else { fw = bh * imgA; fx = x + (bw - fw) / 2; }
+          overlays.push({
+            data: logo.data,
+            x: (fx / SLIDE_W) * PPT_W,
+            y: (fy / SLIDE_H) * PPT_H,
+            w: (fw / SLIDE_W) * PPT_W,
+            h: (fh / SLIDE_H) * PPT_H,
+          });
+          bgSvg = bgSvg.replace(tag, ""); // strip only the logos we re-place
+        }
+        const inlined = await inlineImages(bgSvg);
         const res = await client.action(api.render.rasterizeForExport, {
           svg: inlined,
           width: SLIDE_PX_WIDTH,
           quality,
         });
         if (res.error || !res.base64) throw new Error(res.error ?? "empty render");
-        return `data:image/jpeg;base64,${res.base64}`;
+        return { bg: `data:image/jpeg;base64,${res.base64}`, overlays };
       }),
     );
 
-    // Assemble a 16:9 PowerPoint — each slide is a full-bleed image.
+    // Assemble a 16:9 PowerPoint — full-bleed slide JPEG + crisp logo overlay.
     const pptx = new PptxGenJS();
-    pptx.defineLayout({ name: "MM_16x9", width: 13.333, height: 7.5 });
+    pptx.defineLayout({ name: "MM_16x9", width: PPT_W, height: PPT_H });
     pptx.layout = "MM_16x9";
     pptx.author = "Mad Monkey Studio";
     pptx.title = deck.title;
-    for (const data of slideImages) {
+    for (const s of slides) {
       const slide = pptx.addSlide();
-      slide.addImage({ data, x: 0, y: 0, w: 13.333, h: 7.5 });
+      slide.addImage({ data: s.bg, x: 0, y: 0, w: PPT_W, h: PPT_H });
+      for (const o of s.overlays) {
+        slide.addImage({ data: o.data, x: o.x, y: o.y, w: o.w, h: o.h });
+      }
     }
 
     const buf = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
