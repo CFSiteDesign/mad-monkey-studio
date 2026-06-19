@@ -1305,16 +1305,6 @@ export default function StudioPage() {
                 <span className="text-[#8C8278]/40">·</span>
                 <span>{FORMAT_DIMENSIONS[format]?.label?.split("—")[0]?.trim() ?? format}</span>
               </div>
-              {failedCount > 0 && (
-                <div className="mt-1 w-full rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2.5 text-left">
-                  <p className="text-[12px] font-medium text-amber-300/90">
-                    {failedCount} recent {failedCount === 1 ? "run" : "runs"} didn&apos;t pass brand checks
-                  </p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-[#8C8278]">
-                    They aren&apos;t shown here{stats?.lastFailReason ? ` — last reason: ${stats.lastFailReason}` : ""}. Tweak the brief and try again, or see Account → Recent for details.
-                  </p>
-                </div>
-              )}
             </div>
           ) : (
             <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-14 pb-8">
