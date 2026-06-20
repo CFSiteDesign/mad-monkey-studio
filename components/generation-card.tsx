@@ -16,6 +16,7 @@ import {
   type ExportKind,
 } from "@/lib/export";
 import { QuickFixEditor } from "@/components/quick-fix-editor";
+import { ChangePhoto, photoTargetsOf, swapNthPhoto } from "@/components/change-photo";
 import {
   Check,
   ChevronDown,
@@ -23,6 +24,7 @@ import {
   FileImage,
   FileType,
   FileText,
+  Images,
   Loader2,
   PenTool,
   Pencil,
@@ -71,10 +73,13 @@ export function GenerationCard({
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState<ExportKind | null>(null);
   const [editing, setEditing] = useState(false);
+  const [changing, setChanging] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const saveManualEdit = useMutation(api.edits.saveManualEdit);
   const rasterize = useAction(api.render.rasterize);
+
+  const photoTargets = useMemo(() => photoTargetsOf(gen.outputCode), [gen.outputCode]);
 
   // Inline bank photos / logos as data URLs so exports keep them (idempotent —
   // data: hrefs are skipped, so re-running on a fresh result is free).
@@ -235,6 +240,18 @@ export function GenerationCard({
           Quick fix
         </button>
 
+        {/* Change photo — swap a bank image or upload your own */}
+        {photoTargets.length > 0 && (
+          <button
+            onClick={() => setChanging(true)}
+            title="Swap a photo for one from the image bank, or upload your own"
+            className="flex cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(242,238,230,0.06)] px-3.5 py-1.5 text-xs font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.12)]"
+          >
+            <Images className="h-3.5 w-3.5" />
+            Change photo
+          </button>
+        )}
+
         {/* Export menu */}
         <div ref={exportRef} className="relative">
           <button
@@ -296,6 +313,20 @@ export function GenerationCard({
               outputCode: edited,
             });
             setEditing(false);
+          }}
+        />
+      )}
+
+      {/* Change photo — swap the chosen photo for a bank image or a new upload */}
+      {changing && (
+        <ChangePhoto
+          targets={photoTargets}
+          onClose={() => setChanging(false)}
+          onSwap={async (index, newUrl) => {
+            await saveManualEdit({
+              generationId: gen.id as Id<"generations">,
+              outputCode: swapNthPhoto(gen.outputCode, index, newUrl),
+            });
           }}
         />
       )}

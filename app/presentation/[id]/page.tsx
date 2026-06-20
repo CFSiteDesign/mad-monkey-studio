@@ -10,16 +10,19 @@ import { inlineSvgImages } from "@/lib/inline-images";
 import { BrandLogo } from "@/components/brand-logo";
 import { PoweredBy } from "@/components/powered-by";
 import { QuickFixEditor } from "@/components/quick-fix-editor";
-import { ChevronLeft, Download, Loader2, Pencil, Presentation } from "lucide-react";
+import { ChangePhoto, photoTargetsOf, swapNthPhoto } from "@/components/change-photo";
+import { ChevronLeft, Download, Images, Loader2, Pencil, Presentation } from "lucide-react";
 
 function Slide({
   outputCode,
   index,
   onEdit,
+  onChangePhoto,
 }: {
   outputCode: string;
   index: number;
   onEdit?: () => void;
+  onChangePhoto?: () => void;
 }) {
   const [svg, setSvg] = useState("");
   useEffect(() => {
@@ -54,15 +57,26 @@ function Slide({
       </div>
       <div className="flex items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-widest text-[#8C8278]">
         <span>Slide {index + 1}</span>
-        {onEdit && (
-          <button
-            onClick={onEdit}
-            className="flex cursor-pointer items-center gap-1 text-[#8C8278] transition-colors hover:text-[#F2EEE6]"
-          >
-            <Pencil className="h-3 w-3" />
-            Quick fix
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {onChangePhoto && (
+            <button
+              onClick={onChangePhoto}
+              className="flex cursor-pointer items-center gap-1 text-[#8C8278] transition-colors hover:text-[#F2EEE6]"
+            >
+              <Images className="h-3 w-3" />
+              Change photo
+            </button>
+          )}
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="flex cursor-pointer items-center gap-1 text-[#8C8278] transition-colors hover:text-[#F2EEE6]"
+            >
+              <Pencil className="h-3 w-3" />
+              Quick fix
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -74,6 +88,7 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
   const saveSlideEdit = useMutation(api.decksInternal.saveSlideEdit);
   const [exporting, setExporting] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [photoIndex, setPhotoIndex] = useState<number | null>(null);
 
   async function exportPptx() {
     if (exporting) return;
@@ -161,6 +176,11 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
                   outputCode={s.outputCode}
                   index={i}
                   onEdit={done ? () => setEditingIndex(s._index) : undefined}
+                  onChangePhoto={
+                    done && photoTargetsOf(s.outputCode).length > 0
+                      ? () => setPhotoIndex(s._index)
+                      : undefined
+                  }
                 />
               ))}
               {generating && (
@@ -188,6 +208,21 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
               outputCode: edited,
             });
             setEditingIndex(null);
+          }}
+        />
+      )}
+
+      {/* Change photo — swap a slide's photo for a bank image or a new upload */}
+      {photoIndex !== null && deck?.slides[photoIndex] && (
+        <ChangePhoto
+          targets={photoTargetsOf(deck.slides[photoIndex].outputCode)}
+          onClose={() => setPhotoIndex(null)}
+          onSwap={async (idx, newUrl) => {
+            await saveSlideEdit({
+              deckId: id as Id<"decks">,
+              slideIndex: photoIndex,
+              outputCode: swapNthPhoto(deck.slides[photoIndex].outputCode, idx, newUrl),
+            });
           }}
         />
       )}
