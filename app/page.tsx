@@ -28,6 +28,7 @@ import {
   Presentation,
   ArrowRight,
   HelpCircle,
+  Home,
   MessageSquare,
 } from "lucide-react";
 
@@ -442,10 +443,15 @@ export default function StudioPage() {
         format,
         designSystem,
       });
-      setFollowUps(questions);
-      setFollowUpAnswers(questions.map(() => ""));
+      // Events always lead with "What's included?" — the detail that most often
+      // makes or breaks a promo (free entry, a drink, a t-shirt…).
+      const whatsIncluded = { q: "What's included?", hint: "e.g. free entry, drink, t-shirt" };
+      const withIncluded = isPresentation ? questions : [whatsIncluded, ...questions];
+      setFollowUps(withIncluded);
+      setFollowUpAnswers(withIncluded.map(() => ""));
     } catch {
-      setFollowUps([]); // best-effort — still let them add details + generate
+      // best-effort — still ask "What's included?" for events, plus the details box
+      setFollowUps(isPresentation ? [] : [{ q: "What's included?", hint: "e.g. free entry, drink, t-shirt" }]);
     } finally {
       setBriefStep("followup");
       setLoadingFollowUps(false);
@@ -582,6 +588,14 @@ export default function StudioPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={createNew}
+            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] px-3 py-1.5 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6]"
+            title="Start fresh — back to a new creation"
+          >
+            <Home className="h-3.5 w-3.5" /> Home
+          </button>
           <a
             href="https://docs.google.com/forms/d/e/1FAIpQLSdCGDQJTQHuj1OY3I8mAtQL7vyTAfK3Ym-gEmfQHjursAm1Vw/viewform"
             target="_blank"
