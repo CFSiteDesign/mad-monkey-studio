@@ -32,10 +32,10 @@ import {
 } from "lucide-react";
 
 const FORMATS = [
-  { id: "1:1", ratio: "aspect-square" },
-  { id: "4:5", ratio: "aspect-[4/5]" },
-  { id: "9:16", ratio: "aspect-[9/16]" },
-  { id: "A4", ratio: "aspect-[794/1123]" },
+  { id: "1:1", ratio: "aspect-square", name: "a Square" },
+  { id: "4:5", ratio: "aspect-[4/5]", name: "Insta Post Size" },
+  { id: "9:16", ratio: "aspect-[9/16]", name: "Story, Reel or TikTok shapes" },
+  { id: "A4", ratio: "aspect-[794/1123]", name: "Poster" },
 ] as const;
 
 const DESIGN_SYSTEMS = [
@@ -1116,8 +1116,8 @@ export default function StudioPage() {
             {!threadId && (
             <div className="space-y-2.5" data-tour="format">
               <label className="mm-eyebrow">Format</label>
-              <div className="grid grid-cols-4 gap-2">
-                {FORMATS.map(({ id, ratio }) => {
+              <div className="grid grid-cols-2 gap-2">
+                {FORMATS.map(({ id, ratio, name }) => {
                   const active = format === id;
                   return (
                     <button
@@ -1126,28 +1126,33 @@ export default function StudioPage() {
                       onClick={() => setFormat(id)}
                       aria-pressed={active}
                       title={FORMAT_DIMENSIONS[id]?.label ?? id}
-                      className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border px-1 py-2.5 transition-all duration-200 ${
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-all duration-200 ${
                         active
                           ? "border-[#CC7A5C]/70 bg-[#CC7A5C]/10"
                           : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.2)]"
                       }`}
                     >
-                      <span className="flex h-7 items-center justify-center">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
                         <span
                           className={`${ratio} w-auto rounded-[3px] border ${
                             active
                               ? "border-[#CC7A5C] bg-[#CC7A5C]/25"
                               : "border-[#8C8278]/50 bg-[rgba(242,238,230,0.04)]"
                           }`}
-                          style={{ height: "1.75rem" }}
+                          style={{ height: "1.6rem" }}
                         />
                       </span>
-                      <span
-                        className={`text-[10px] font-medium ${
-                          active ? "text-[#F2EEE6]" : "text-[#8C8278]"
-                        }`}
-                      >
-                        {id}
+                      <span className="min-w-0">
+                        <span
+                          className={`block text-[12px] font-semibold leading-tight ${
+                            active ? "text-[#F2EEE6]" : "text-[#CFC8BD]"
+                          }`}
+                        >
+                          {id}
+                        </span>
+                        <span className="block text-[10px] leading-tight text-[#8C8278]">
+                          {name}
+                        </span>
                       </span>
                     </button>
                   );
