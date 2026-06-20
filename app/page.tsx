@@ -28,6 +28,7 @@ import {
   Presentation,
   ArrowRight,
   HelpCircle,
+  MessageSquare,
 } from "lucide-react";
 
 const FORMATS = [
@@ -581,6 +582,15 @@ export default function StudioPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href="https://docs.google.com/forms/d/e/1FAIpQLSdCGDQJTQHuj1OY3I8mAtQL7vyTAfK3Ym-gEmfQHjursAm1Vw/viewform"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] px-3 py-1.5 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6]"
+            title="Share feedback (opens a form in a new tab)"
+          >
+            <MessageSquare className="h-3.5 w-3.5" /> Feedback
+          </a>
           <button
             type="button"
             onClick={() => setTourOpen(true)}
