@@ -128,6 +128,9 @@ export function buildSystemPrompt(
     dim ? `Composition guidance: ${dim.guidance}` : "",
     `Design the asset FOR this format and aspect ratio. The brief describes WHAT to say; this format dictates HOW it is laid out. Whatever the prompt asks for, it must be composed to fit ${w} × ${h} (${dim?.orientation ?? "square"}) — adapt the layout, type scale and focal placement to these proportions.`,
     "",
+    `━━ COPY INTEGRITY (do not make things up) ━━`,
+    `Use ONLY the words and facts the brief provides. NEVER invent or add a factual claim that wasn't given — no prices, times, dates, perks, statistics, AND no place-specific details (scenery/geography like "limestone cliffs" or "white-sand beaches", landmarks, distances, "famous for…", named attractions, history, weather). You may add brand energy and short vibe words (e.g. "ALL IN", "BIG NIGHT", "LET'S GO"), but never present an invented specific as if it were a real fact about the location or event.`,
+    "",
   ];
 
   if (ds && !ds.guidelines.startsWith(PENDING_PREFIX)) {

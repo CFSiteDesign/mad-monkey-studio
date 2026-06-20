@@ -47,7 +47,8 @@ The brief you write instructs an SVG poster engine. From the event details provi
 
 Target asset: ${args.designSystem} design system — ${ds?.description ?? ""}. Format: ${dim?.label ?? args.format} (${dim?.useCase ?? ""}).
 
-Rules: 60–110 words. Plain text only — no markdown, no headings, no preamble, no quotes around the whole thing. Never invent facts (prices, times, perks) that weren't provided.`;
+Rules: 60–110 words. Plain text only — no markdown, no headings, no preamble, no quotes around the whole thing.
+NEVER invent or imply any fact that wasn't provided. This includes prices, times, dates and perks, AND any place-specific claim — scenery or geography ("limestone cliffs", "white-sand beach", "jungle", "waterfalls"), landmarks, distances ("5 min from the beach"), "famous for…", "home to…", named nearby attractions, history, weather, or statistics. You may sell brand energy, vibe and the event details given — but if a concrete detail about the place or event wasn't supplied, do NOT state it as fact. When in doubt, keep it about the party and the people, not invented specifics of the location.`;
 
     const followUpLines = (args.followUps ?? [])
       .filter((f) => f.a.trim())

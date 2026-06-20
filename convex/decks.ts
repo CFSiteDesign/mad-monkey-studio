@@ -63,7 +63,7 @@ Turn the brief into a tight slide-deck OUTLINE. Output STRICT JSON only — no m
 Rules:
 - EXACTLY ${n} slides — no more, no fewer. First slide role "title", last role "closing".
 - Each content slide: 2–5 SHORT points (≤8 words each) — never paragraphs. Use "stat" role for a slide built around one big number.
-- Keep any facts, names, numbers, dates from the brief VERBATIM. Never invent figures.
+- Keep any facts, names, numbers, dates from the brief VERBATIM. NEVER invent or imply a fact that wasn't provided — no figures, statistics, prices, perks, AND no place-specific claims (scenery/geography like "limestone cliffs" or "white-sand beach", landmarks, distances, "famous for…", named attractions, history, weather). If a concrete detail wasn't supplied, leave it out rather than make one up.
 - APAC ONLY: Mad Monkey operates exclusively in Southeast Asia & Australia (Bali/Uluwatu, Koh Rong & Phnom Penh Cambodia, Thailand, Philippines/El Nido & Cebu, Sydney/Australia). Any place, property, market, currency or example you reference MUST be from this real APAC footprint — never invent non-APAC locations, Western/US/Europe examples, or generic placeholder cities. If the brief names specific places, use those verbatim; otherwise draw only from the APAC hostels above.
 - Headings are punchy and concrete. The deck targets: ${designSystemDesc}.`;
 
