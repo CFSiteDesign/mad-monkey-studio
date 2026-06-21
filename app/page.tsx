@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { SignOutButton } from "@/components/sign-out-button";
 import { BrandLogo } from "@/components/brand-logo";
+import { UploadPhotos, type UploadedImage } from "@/components/upload-photos";
 import { GenerationLoader } from "@/components/generation-loader";
 import { GenerationCard, type FeedGeneration } from "@/components/generation-card";
 import { useGeneration } from "@/components/generation-provider";
@@ -112,6 +113,7 @@ export default function StudioPage() {
   const [followUps, setFollowUps] = useState<{ q: string; hint: string }[]>([]);
   const [followUpAnswers, setFollowUpAnswers] = useState<string[]>([]);
   const [otherDetails, setOtherDetails] = useState("");
+  const [userPhotos, setUserPhotos] = useState<UploadedImage[]>([]);
   const [loadingFollowUps, setLoadingFollowUps] = useState(false);
 
   function resetBriefFlow() {
@@ -369,6 +371,7 @@ export default function StudioPage() {
     clearResult();
     setBrief("");
     setLocalError("");
+    setUserPhotos([]);
     resetBriefFlow();
   }
 
@@ -378,6 +381,7 @@ export default function StudioPage() {
     clearResult();
     setBrief("");
     setLocalError("");
+    setUserPhotos([]);
   }
 
   async function handleDelete(id: Id<"threads">) {
@@ -474,6 +478,13 @@ export default function StudioPage() {
       .map((f, i) => ({ q: f.q, a: (followUpAnswers[i] ?? "").trim() }))
       .filter((p) => p.a);
 
+    // The user's own uploaded photos are already in the bank; tell the engine to
+    // feature them (it matches the bank image by this description).
+    const readyPhotos = userPhotos.filter((p) => p.status === "ready" && p.description);
+    const photoInstruction = readyPhotos.length
+      ? `Feature the user's own uploaded photo${readyPhotos.length > 1 ? "s" : ""} as the main/hero image — use the bank image${readyPhotos.length > 1 ? "s" : ""} described as: ${readyPhotos.map((p) => `"${p.description}"`).join("; ")}.`
+      : "";
+
     // Presentation = a multi-slide deck. Generate, then jump to its view.
     if (isPresentation && newCreation) {
       if (!presentationReady) return;
@@ -483,6 +494,7 @@ export default function StudioPage() {
         const extra = [
           ...answeredFollowUps.map((p) => `- ${p.q} ${p.a}`),
           otherDetails.trim() ? `Other details: ${otherDetails.trim()}` : "",
+          photoInstruction,
         ].filter(Boolean);
         const enrichedBrief = extra.length
           ? `${deckBrief.trim()}\n\nAdditional context:\n${extra.join("\n")}`
@@ -493,6 +505,7 @@ export default function StudioPage() {
           slideCount: deckSlides,
         });
         setDeckBrief("");
+        setUserPhotos([]);
         resetBriefFlow();
         router.push(`/presentation/${deckId}`);
       } catch (err) {
@@ -519,7 +532,7 @@ export default function StudioPage() {
             format,
             designSystem,
             followUps: answeredFollowUps.length ? answeredFollowUps : undefined,
-            extraDetails: otherDetails.trim() || undefined,
+            extraDetails: [otherDetails.trim(), photoInstruction].filter(Boolean).join(" ") || undefined,
           },
       format,
       designSystem,
@@ -538,6 +551,7 @@ export default function StudioPage() {
       setEventDate("");
       setEventCost("");
       setEventLocation("");
+      setUserPhotos([]);
       resetBriefFlow();
     }
   }
@@ -896,6 +910,7 @@ export default function StudioPage() {
                   value={brief}
                   onChange={(e) => setBrief(e.target.value)}
                   rows={4}
+                  spellCheck
                   placeholder="What should change? “Make the headline bigger”, “swap to the lime colourway”, “use the pool party photo”…"
                   className="mm-field w-full resize-none rounded-lg px-3.5 py-3 text-sm leading-relaxed text-[#F2EEE6] placeholder:text-[#8C8278]/55"
                 />
@@ -910,6 +925,7 @@ export default function StudioPage() {
                       value={deckBrief}
                       onChange={(e) => setDeckBrief(e.target.value)}
                       rows={5}
+                      spellCheck
                       placeholder={`Topic, audience, and the key points / numbers to cover. e.g. Investor pitch for Mad Monkey Bali expansion — 3 new properties, 2027 target, occupancy and revenue highlights, the team, and the ask of $2M.`}
                       className="mm-field w-full resize-none rounded-lg px-3.5 py-3 text-sm leading-relaxed text-[#F2EEE6] placeholder:text-[#8C8278]/55"
                     />
@@ -933,6 +949,7 @@ export default function StudioPage() {
                       <span className="text-[11px] text-[#8C8278]">slides (3–14) · Claude plans the rest</span>
                     </div>
                   </div>
+                  <UploadPhotos images={userPhotos} onChange={setUserPhotos} />
                 </div>
               ) : (
                 <div className="space-y-2" data-tour="event-fields">
@@ -940,6 +957,7 @@ export default function StudioPage() {
                     id="event-title"
                     value={eventTitle}
                     onChange={(e) => setEventTitle(e.target.value)}
+                    spellCheck
                     placeholder="Event title — “Foam Party”, “Bar Olympics”…"
                     className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#F2EEE6] placeholder:text-[#8C8278]/55"
                   />
@@ -958,9 +976,11 @@ export default function StudioPage() {
                   <input
                     value={eventLocation}
                     onChange={(e) => setEventLocation(e.target.value)}
+                    spellCheck
                     placeholder="Location(s) — “Mad Monkey Uluwatu, Bali”"
                     className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#F2EEE6] placeholder:text-[#8C8278]/55"
                   />
+                  <UploadPhotos images={userPhotos} onChange={setUserPhotos} />
                 </div>
               )}
 
@@ -1007,6 +1027,7 @@ export default function StudioPage() {
                       value={otherDetails}
                       onChange={(e) => setOtherDetails(e.target.value)}
                       rows={2}
+                      spellCheck
                       placeholder="Anything else that should shape the design…"
                       className="mm-field w-full resize-none rounded-lg px-3 py-2 text-sm leading-relaxed text-[#F2EEE6] placeholder:text-[#8C8278]/55"
                     />
