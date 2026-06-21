@@ -3,16 +3,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Loader2, ZoomIn } from "lucide-react";
 
-/** Result as a rect relative to the frame ([0,0,1,1] = the frame exactly).
- *  The image always covers the frame, so nx≤0, ny≤0, nx+nw≥1, ny+nh≥1. */
+/** Result as a rect relative to the cut-out window ([0,0,1,1] = the window
+ *  exactly). The photo always covers the window, so nx≤0, ny≤0, nx+nw≥1,
+ *  ny+nh≥1. */
 export type CropRect = { nx: number; ny: number; nw: number; nh: number };
 
-const VP_W = 460;
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /**
- * Drag-to-pan + zoom cropper. The viewport matches the frame's aspect ratio, so
- * what you see is exactly what will show; the image is constrained to always
- * cover the frame (no gaps). Returns the chosen rect relative to the frame.
+ * Reframe a photo without cropping it away. The WHOLE photo is shown (dimmed
+ * outside a fixed cut-out window); you drag the full photo behind the window
+ * and zoom to land the exact shot. The window always stays filled. Returns the
+ * chosen rect relative to the window.
  */
 export function PhotoCropper({
   imageUrl,
@@ -22,27 +24,25 @@ export function PhotoCropper({
   onBack,
 }: {
   imageUrl: string;
-  frameAspect: number; // frameW / frameH
-  rxFrac?: number; // corner radius as a fraction of the frame's short side
+  frameAspect: number; // windowW / windowH
+  rxFrac?: number; // corner radius as a fraction of the window's short side
   onApply: (rect: CropRect) => void;
   onBack: () => void;
 }) {
-  // The viewport adapts to the space available so it never overflows a phone:
-  // width from the container, height from the screen. Falls back to the desktop
-  // 460×380 box when there's room.
+  // The editing area adapts to the space available so it never overflows a phone.
   const wrapRef = useRef<HTMLDivElement>(null);
   const [avail, setAvail] = useState(() =>
     typeof window === "undefined"
-      ? { w: VP_W, h: 380 }
-      : { w: Math.min(VP_W, window.innerWidth - 56), h: Math.min(380, window.innerHeight - 240) },
+      ? { w: 460, h: 360 }
+      : { w: Math.min(460, window.innerWidth - 56), h: Math.min(360, window.innerHeight - 230) },
   );
   useEffect(() => {
     function measure() {
       const cw = wrapRef.current?.clientWidth;
       const w = cw ? cw - 40 : window.innerWidth - 56; // outer padding (p-5) = 40px
       setAvail({
-        w: Math.max(200, Math.min(VP_W, w)),
-        h: Math.max(220, Math.min(380, window.innerHeight - 240)),
+        w: Math.max(220, Math.min(460, w)),
+        h: Math.max(240, Math.min(360, window.innerHeight - 230)),
       });
     }
     measure();
@@ -50,18 +50,30 @@ export function PhotoCropper({
     return () => window.removeEventListener("resize", measure);
   }, []);
 
-  let vpW = avail.w;
-  let vpH = avail.w / Math.max(0.2, frameAspect);
-  if (vpH > avail.h) {
-    vpH = avail.h;
-    vpW = vpH * frameAspect;
-  }
-  vpW = Math.round(vpW);
-  vpH = Math.round(vpH);
+  // Stage = the editing canvas; the cut-out window sits centred inside it with a
+  // margin all round so you can see (dimmed) and drag the rest of the photo.
+  const geo = useMemo(() => {
+    const maxWW = Math.max(120, avail.w * 0.7);
+    const maxWH = Math.max(140, avail.h * 0.8);
+    let WW = maxWW;
+    let WH = WW / Math.max(0.2, frameAspect);
+    if (WH > maxWH) {
+      WH = maxWH;
+      WW = WH * frameAspect;
+    }
+    WW = Math.round(WW);
+    WH = Math.round(WH);
+    const marginX = Math.round(Math.min(WW * 0.5, Math.max(28, (avail.w - WW) / 2)));
+    const marginY = Math.round(Math.min(WH * 0.34, Math.max(20, (avail.h - WH) / 2)));
+    const SW = Math.round(Math.min(avail.w, WW + marginX * 2));
+    const SH = Math.round(Math.min(avail.h, WH + marginY * 2));
+    return { SW, SH, WW, WH, WX: Math.round((SW - WW) / 2), WY: Math.round((SH - WH) / 2) };
+  }, [avail, frameAspect]);
+
   const [imgAspect, setImgAspect] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const drag = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [pos, setPos] = useState<{ pl: number; pt: number } | null>(null);
+  const drag = useRef<{ x: number; y: number; pl: number; pt: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,93 +87,142 @@ export function PhotoCropper({
     };
   }, [imageUrl]);
 
-  // Size of the photo at zoom 1 = "fills the frame" (cover).
-  const { baseW, baseH } = useMemo(() => {
-    const a = imgAspect ?? frameAspect;
-    return {
-      baseW: a > frameAspect ? vpH * a : vpW,
-      baseH: a > frameAspect ? vpH : vpW / a,
-    };
-  }, [imgAspect, frameAspect, vpW, vpH]);
+  // Photo size: zoom 1 = "covers the window" (so the window is never empty),
+  // then scaled up by zoom for a tighter crop.
+  const a = imgAspect ?? frameAspect;
+  const baseW = a > frameAspect ? geo.WH * a : geo.WW;
+  const baseH = a > frameAspect ? geo.WH : geo.WW / a;
   const rw = baseW * zoom;
   const rh = baseH * zoom;
-  // You can zoom OUT to fitZoom (whole photo visible inside the frame) or in to
-  // 3×. No forced cropping — gaps outside the photo are allowed.
-  const fitZoom = Math.min(1, vpW / baseW, vpH / baseH);
 
-  const clamp = (p: { x: number; y: number }) => {
-    // Free movement behind the frame: the photo can be dragged anywhere (even
-    // past the edges, leaving a gap) — we only keep a sliver inside so it's
-    // never dragged completely out of view.
-    const kv = Math.max(24, Math.min(vpW, vpH) * 0.08);
-    const mx = Math.max(0, (rw + vpW) / 2 - kv);
-    const my = Math.max(0, (rh + vpH) / 2 - kv);
-    return { x: Math.max(-mx, Math.min(mx, p.x)), y: Math.max(-my, Math.min(my, p.y)) };
-  };
+  // Keep the photo covering the window (drag never exposes a gap).
+  const clampPos = (pl: number, pt: number) => ({
+    pl: clamp(pl, geo.WX + geo.WW - rw, geo.WX),
+    pt: clamp(pt, geo.WY + geo.WH - rh, geo.WY),
+  });
+  const centred = () =>
+    clampPos(geo.WX + (geo.WW - rw) / 2, geo.WY + (geo.WH - rh) / 2);
 
+  // Centre the photo on the window once it loads.
   useEffect(() => {
-    setPan((p) => clamp(p));
+    if (imgAspect != null) setPos(centred());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rw, rh]);
+  }, [imgAspect]);
 
-  const imageX = (vpW - rw) / 2 + pan.x;
-  const imageY = (vpH - rh) / 2 + pan.y;
+  // Re-clamp if the stage resizes (e.g. rotate the phone).
+  useEffect(() => {
+    setPos((p) => (p ? clampPos(p.pl, p.pt) : p));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geo.SW, geo.SH]);
+
+  const p = pos ?? centred();
 
   function onPointerDown(e: React.PointerEvent) {
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    drag.current = { sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = { x: e.clientX, y: e.clientY, pl: p.pl, pt: p.pt };
   }
   function onPointerMove(e: React.PointerEvent) {
     if (!drag.current) return;
-    setPan(clamp({ x: drag.current.px + (e.clientX - drag.current.sx), y: drag.current.py + (e.clientY - drag.current.sy) }));
+    setPos(
+      clampPos(
+        drag.current.pl + (e.clientX - drag.current.x),
+        drag.current.pt + (e.clientY - drag.current.y),
+      ),
+    );
   }
   function onPointerUp() {
     drag.current = null;
   }
 
-  function apply() {
-    onApply({ nx: imageX / vpW, ny: imageY / vpH, nw: rw / vpW, nh: rh / vpH });
+  function onZoom(v: number) {
+    // Zoom around the window centre so the framed subject stays put.
+    const ccx = geo.WX + geo.WW / 2;
+    const ccy = geo.WY + geo.WH / 2;
+    const nx = (ccx - p.pl) / rw;
+    const ny = (ccy - p.pt) / rh;
+    const nrw = baseW * v;
+    const nrh = baseH * v;
+    setZoom(v);
+    setPos({
+      pl: clamp(ccx - nx * nrw, geo.WX + geo.WW - nrw, geo.WX),
+      pt: clamp(ccy - ny * nrh, geo.WY + geo.WH - nrh, geo.WY),
+    });
   }
+
+  function apply() {
+    onApply({
+      nx: (p.pl - geo.WX) / geo.WW,
+      ny: (p.pt - geo.WY) / geo.WH,
+      nw: rw / geo.WW,
+      nh: rh / geo.WH,
+    });
+  }
+
+  const radius = rxFrac * Math.min(geo.WW, geo.WH);
 
   return (
     <div ref={wrapRef} className="flex flex-col items-center gap-4 p-5">
-      <p className="px-2 text-center text-[12px] text-[#8C8278]">Drag the photo anywhere · zoom in or out — any part can sit in the frame</p>
+      <p className="px-2 text-center text-[12px] text-[#8C8278]">
+        Drag the photo to frame the shot · zoom for a tighter crop
+      </p>
 
       <div
-        className="relative cursor-grab touch-none select-none overflow-hidden bg-[#0a0a0a] active:cursor-grabbing"
-        style={{ width: vpW, height: vpH, borderRadius: rxFrac * Math.min(vpW, vpH) }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        className="relative touch-none select-none overflow-hidden rounded-xl bg-[#100F0D]"
+        style={{ width: geo.SW, height: geo.SH }}
       >
         {imgAspect == null ? (
           <div className="grid h-full w-full place-items-center">
             <Loader2 className="h-5 w-5 animate-spin text-[#CC7A5C]" />
           </div>
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageUrl}
-            alt="Reposition"
-            draggable={false}
-            className="pointer-events-none absolute max-w-none"
-            style={{ left: imageX, top: imageY, width: rw, height: rh }}
-          />
+          <>
+            {/* The full photo — draggable behind the window */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt="Reposition"
+              draggable={false}
+              className="pointer-events-none absolute max-w-none"
+              style={{ left: p.pl, top: p.pt, width: rw, height: rh }}
+            />
+            {/* Drag surface (whole stage) */}
+            <div
+              className="absolute inset-0 cursor-grab active:cursor-grabbing"
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+            />
+            {/* Cut-out window: dims everything outside, bright frame on top */}
+            <div
+              className="pointer-events-none absolute border-2 border-[#F2EEE6]"
+              style={{
+                left: geo.WX,
+                top: geo.WY,
+                width: geo.WW,
+                height: geo.WH,
+                borderRadius: radius,
+                boxShadow: "0 0 0 9999px rgba(12,11,9,0.62)",
+              }}
+            />
+            <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/45 px-2 py-1 text-[11px] text-[#F2EEE6]">
+              The bright window is your post
+            </div>
+          </>
         )}
-        <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/20" style={{ borderRadius: rxFrac * Math.min(vpW, vpH) }} />
       </div>
 
       <div className="flex w-full max-w-[460px] items-center gap-3">
         <ZoomIn className="h-4 w-4 shrink-0 text-[#8C8278]" />
         <input
           type="range"
-          min={fitZoom}
+          min={1}
           max={3}
           step={0.01}
           value={zoom}
-          onChange={(e) => setZoom(Number(e.target.value))}
+          onChange={(e) => onZoom(Number(e.target.value))}
           className="h-1 flex-1 cursor-pointer accent-[#CC7A5C]"
+          aria-label="Zoom the photo"
         />
       </div>
 
