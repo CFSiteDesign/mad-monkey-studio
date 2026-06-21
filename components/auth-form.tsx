@@ -4,9 +4,20 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowRight, Check } from "lucide-react";
 
 type Mode = "signIn" | "signUp";
+
+// The only rule actually enforced server-side is the Convex Auth Password
+// default: a minimum length. Keep this list honest — don't advertise rules
+// (uppercase, symbols, …) the backend doesn't enforce.
+const MIN_PASSWORD_LENGTH = 8;
+const PASSWORD_RULES: { label: string; test: (pw: string) => boolean }[] = [
+  {
+    label: `At least ${MIN_PASSWORD_LENGTH} characters`,
+    test: (pw) => pw.length >= MIN_PASSWORD_LENGTH,
+  },
+];
 
 const COPY = {
   signIn: {
@@ -18,18 +29,17 @@ const COPY = {
     altLink: "Create one",
     altHref: "/sign-up",
     passwordPlaceholder: "••••••••",
-    passwordHint: undefined as string | undefined,
   },
   signUp: {
     heading: "Create your account",
     submit: "Create account",
     submitting: "Creating account…",
-    error: "Could not create account. Try a stronger password.",
+    error:
+      "Could not create account. Check your password meets the requirements below — if it does, your email may not be authorised or may already be registered.",
     altText: "Already have an account?",
     altLink: "Sign in",
     altHref: "/sign-in",
     passwordPlaceholder: "8+ characters",
-    passwordHint: "Use at least 8 characters.",
   },
 } as const;
 
@@ -121,8 +131,31 @@ export function AuthForm({ mode }: { mode: Mode }) {
               {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          {copy.passwordHint && (
-            <p className="text-[11px] text-[#8C8278]/70">{copy.passwordHint}</p>
+          {mode === "signUp" && (
+            <ul className="space-y-1 pt-0.5" aria-label="Password requirements">
+              {PASSWORD_RULES.map((rule) => {
+                const met = rule.test(password);
+                return (
+                  <li
+                    key={rule.label}
+                    className={`flex items-center gap-1.5 text-[11px] transition-colors ${
+                      met ? "text-[#7FB069]" : "text-[#8C8278]/70"
+                    }`}
+                  >
+                    <span
+                      className={`grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full border transition-colors ${
+                        met
+                          ? "border-[#7FB069] bg-[#7FB069]/15"
+                          : "border-[#8C8278]/40"
+                      }`}
+                    >
+                      {met && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
+                    </span>
+                    {rule.label}
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
       </div>
