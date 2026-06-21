@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Loader2, Search, Upload, X } from "lucide-react";
+import { Crop, Loader2, Search, Upload, X } from "lucide-react";
 import { PhotoCropper, type CropRect } from "@/components/photo-cropper";
 
 /** Downscale to ≤1200px JPEG before upload (matches the image-bank page so the
@@ -328,6 +328,20 @@ export function ChangePhoto({
                 }}
               />
             </div>
+
+            {/* Reframe the photo that's already here — no swap, straight to drag/zoom */}
+            {target?.box && (
+              <button
+                onClick={() => chooseImage(target.href)}
+                disabled={!!busy}
+                className="flex shrink-0 items-center gap-2.5 border-b border-[rgba(242,238,230,0.08)] px-5 py-2.5 text-left transition-colors hover:bg-[rgba(242,238,230,0.04)] disabled:opacity-50"
+              >
+                <Crop className="h-4 w-4 shrink-0 text-[#CC7A5C]" />
+                <span className="text-xs text-[#CFC8BD]">
+                  <span className="font-medium text-[#F2EEE6]">Reframe the current photo</span> — drag &amp; zoom to reposition without changing it
+                </span>
+              </button>
+            )}
 
             {/* Bank grid */}
             <div className="relative grid grid-cols-3 gap-3 overflow-y-auto p-5 sm:grid-cols-4">

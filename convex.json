@@ -1,5 +1,11 @@
 {
+  "$schema": "node_modules/convex/schemas/convex.schema.json",
   "node": {
-    "externalPackages": ["@resvg/resvg-js"]
+    "externalPackages": [
+      "@resvg/resvg-js"
+    ]
+  },
+  "aiFiles": {
+    "enabled": false
   }
 }
