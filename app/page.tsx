@@ -632,7 +632,7 @@ export default function StudioPage() {
   const charCount = brief.length;
 
   return (
-    <div className="mm-ambient relative flex min-h-[100svh] flex-col overflow-x-hidden dt:h-screen dt:overflow-hidden">
+    <div className="mm-ambient relative flex min-h-[100svh] flex-col dt:h-screen dt:overflow-hidden">
       {/* ── Header ── */}
       <header className="mm-safe-t z-20 flex shrink-0 items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-3 py-3 backdrop-blur-md sm:px-4 lg:px-6 lg:py-3.5">
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
@@ -692,7 +692,7 @@ export default function StudioPage() {
       <Walkthrough steps={TOUR_STEPS} open={tourOpen} onClose={closeTour} />
 
       {/* ── Body ── */}
-      <div className="relative z-10 flex flex-1 flex-col overflow-visible dt:flex-row dt:overflow-hidden">
+      <div className="relative flex flex-1 flex-col overflow-visible dt:flex-row dt:overflow-hidden">
         {/* Mobile: dim backdrop behind the gallery drawer */}
         {mobileNavOpen && (
           <div

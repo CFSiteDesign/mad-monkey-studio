@@ -127,6 +127,9 @@
     @apply font-sans;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    /* Prevent horizontal scroll at the document level — NOT on an inner wrapper,
+       which would clip the fixed mobile drawer in Safari. */
+    overflow-x: hidden;
   }
 
   /* True mobile only (<700px): force ≥16px form fields so iOS Safari never
