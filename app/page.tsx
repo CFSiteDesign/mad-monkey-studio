@@ -9,6 +9,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { SignOutButton } from "@/components/sign-out-button";
 import { BrandLogo } from "@/components/brand-logo";
 import { UploadPhotos, type UploadedImage } from "@/components/upload-photos";
+import { extractTextFromFile } from "@/lib/extract-text";
 import { GenerationLoader } from "@/components/generation-loader";
 import { GenerationCard, type FeedGeneration } from "@/components/generation-card";
 import { useGeneration } from "@/components/generation-provider";
@@ -28,9 +29,12 @@ import {
   ImagePlus,
   Presentation,
   ArrowRight,
+  FileText,
   HelpCircle,
   Home,
   MessageSquare,
+  Paperclip,
+  X,
 } from "lucide-react";
 
 const FORMATS = [
@@ -114,6 +118,11 @@ export default function StudioPage() {
   const [followUpAnswers, setFollowUpAnswers] = useState<string[]>([]);
   const [otherDetails, setOtherDetails] = useState("");
   const [userPhotos, setUserPhotos] = useState<UploadedImage[]>([]);
+  const [docText, setDocText] = useState("");
+  const [docName, setDocName] = useState("");
+  const [docBusy, setDocBusy] = useState(false);
+  const [docError, setDocError] = useState("");
+  const docInputRef = useRef<HTMLInputElement>(null);
   const [loadingFollowUps, setLoadingFollowUps] = useState(false);
 
   function resetBriefFlow() {
@@ -372,6 +381,7 @@ export default function StudioPage() {
     setBrief("");
     setLocalError("");
     setUserPhotos([]);
+    clearDoc();
     resetBriefFlow();
   }
 
@@ -382,6 +392,32 @@ export default function StudioPage() {
     setBrief("");
     setLocalError("");
     setUserPhotos([]);
+  }
+
+  // Presentation: pull deck details from an uploaded document (PDF / Word / text).
+  async function handleDocFile(file: File) {
+    setDocError("");
+    setDocBusy(true);
+    setDocName(file.name);
+    try {
+      const text = await extractTextFromFile(file);
+      if (!text || text.length < 20) {
+        throw new Error("Couldn't find readable text in that file — try a PDF/Word export, or paste the text.");
+      }
+      setDocText(text.slice(0, 16000)); // cap so the brief stays a sane size
+    } catch (e) {
+      setDocError(e instanceof Error ? e.message : "Couldn't read that file.");
+      setDocName("");
+      setDocText("");
+    } finally {
+      setDocBusy(false);
+    }
+  }
+
+  function clearDoc() {
+    setDocText("");
+    setDocName("");
+    setDocError("");
   }
 
   async function handleDelete(id: Id<"threads">) {
@@ -421,7 +457,7 @@ export default function StudioPage() {
     eventTitle.trim().length > 0 &&
     eventDate.trim().length > 0 &&
     eventLocation.trim().length > 0;
-  const presentationReady = deckBrief.trim().length > 0;
+  const presentationReady = deckBrief.trim().length > 0 || docText.trim().length > 0;
 
   const baseReady = isPresentation ? presentationReady : eventFieldsReady;
 
@@ -496,9 +532,15 @@ export default function StudioPage() {
           otherDetails.trim() ? `Other details: ${otherDetails.trim()}` : "",
           photoInstruction,
         ].filter(Boolean);
+        const base = [
+          deckBrief.trim(),
+          docText.trim() ? `Source document (${docName}) — pull the details, facts and structure from this:\n${docText.trim()}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n\n");
         const enrichedBrief = extra.length
-          ? `${deckBrief.trim()}\n\nAdditional context:\n${extra.join("\n")}`
-          : deckBrief.trim();
+          ? `${base}\n\nAdditional context:\n${extra.join("\n")}`
+          : base;
         const { deckId } = await generateDeck({
           brief: enrichedBrief,
           designSystem: "brand",
@@ -506,6 +548,7 @@ export default function StudioPage() {
         });
         setDeckBrief("");
         setUserPhotos([]);
+        clearDoc();
         resetBriefFlow();
         router.push(`/presentation/${deckId}`);
       } catch (err) {
@@ -930,6 +973,55 @@ export default function StudioPage() {
                       className="mm-field w-full resize-none rounded-lg px-3.5 py-3 text-sm leading-relaxed text-[#F2EEE6] placeholder:text-[#8C8278]/55"
                     />
                   </div>
+                  {/* Add a document — Claude pulls the deck details from it */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-medium text-[#CFC8BD]">
+                      Or add a document{" "}
+                      <span className="text-[#8C8278]">· optional — PDF, Word or text</span>
+                    </label>
+                    {docName ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-[rgba(242,238,230,0.1)] bg-[rgba(242,238,230,0.03)] px-3 py-2">
+                        {docBusy ? (
+                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[#CC7A5C]" />
+                        ) : (
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-[#CC7A5C]" />
+                        )}
+                        <span className="flex-1 truncate text-[12px] text-[#CFC8BD]">
+                          {docName}
+                          {docBusy ? " — reading…" : docText ? ` · ${docText.split(/\s+/).length} words` : ""}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={clearDoc}
+                          className="shrink-0 text-[#8C8278] transition-colors hover:text-[#F2EEE6]"
+                          aria-label="Remove document"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => docInputRef.current?.click()}
+                        className="flex items-center gap-1.5 rounded-lg border border-dashed border-[rgba(242,238,230,0.2)] px-3 py-2 text-[12px] text-[#8C8278] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#CFC8BD]"
+                      >
+                        <Paperclip className="h-3.5 w-3.5" /> Add file
+                      </button>
+                    )}
+                    {docError && <p className="text-[11px] leading-relaxed text-red-300">{docError}</p>}
+                    <input
+                      ref={docInputRef}
+                      type="file"
+                      accept=".pdf,.docx,.txt,.md,.csv,.rtf,application/pdf,text/plain"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleDocFile(f);
+                        e.target.value = "";
+                      }}
+                    />
+                  </div>
+
                   <div className="space-y-1.5">
                     <label htmlFor="deck-slides" className="block text-[11px] font-medium text-[#CFC8BD]">
                       How many slides?
