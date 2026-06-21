@@ -4,6 +4,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Compact-desktop tier: ≥700px keeps the multi-column desktop layout (just
+   tighter) so a half-screen desktop window doesn't collapse to the phone view.
+   Below 700px = true mobile (stacked + drawer). Enables the `dt:` variant. */
+@theme {
+  --breakpoint-dt: 700px;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -122,10 +129,9 @@
     text-size-adjust: 100%;
   }
 
-  /* Mobile: force ≥16px form fields so iOS Safari never auto-zooms the page on
-     focus (any smaller and it zooms, then the layout is stuck shifted). Desktop
-     keeps the tighter type. */
-  @media (max-width: 1023px) {
+  /* True mobile only (<700px): force ≥16px form fields so iOS Safari never
+     auto-zooms the page on focus. Compact desktop keeps the tighter type. */
+  @media (max-width: 699px) {
     input,
     textarea,
     select {

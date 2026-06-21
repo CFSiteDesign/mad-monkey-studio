@@ -45,6 +45,15 @@ const ASPECT: Record<string, string> = {
   "A4": "aspect-[794/1123]",
 };
 
+// width ÷ height — used to size the artwork to fit both the canvas width and the
+// screen height, at any window size (mobile, half-screen, or full desktop).
+const AR_NUM: Record<string, number> = {
+  "1:1": 1,
+  "4:5": 4 / 5,
+  "9:16": 9 / 16,
+  "A4": 794 / 1123,
+};
+
 export type FeedGeneration = {
   id: string;
   outputCode: string;
@@ -165,7 +174,8 @@ export function GenerationCard({
       {/* Artwork */}
       <div
         ref={canvasRef}
-        className={`${ASPECT[gen.format] ?? "aspect-square"} w-full max-w-full overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-[rgba(242,238,230,0.1)] [&>svg]:block [&>svg]:h-full [&>svg]:w-full lg:h-[calc(100svh_-_280px)] lg:w-auto lg:max-w-none`}
+        className={`${ASPECT[gen.format] ?? "aspect-square"} max-w-full overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-[rgba(242,238,230,0.1)] [&>svg]:block [&>svg]:h-full [&>svg]:w-full`}
+        style={{ width: `min(100%, calc((100svh - 250px) * ${AR_NUM[gen.format] ?? 1}))` }}
       >
         {safeSvg ? (
           <div

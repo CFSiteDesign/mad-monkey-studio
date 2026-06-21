@@ -632,7 +632,7 @@ export default function StudioPage() {
   const charCount = brief.length;
 
   return (
-    <div className="mm-ambient relative flex min-h-[100svh] flex-col overflow-x-hidden lg:h-screen lg:overflow-hidden">
+    <div className="mm-ambient relative flex min-h-[100svh] flex-col overflow-x-hidden dt:h-screen dt:overflow-hidden">
       {/* ── Header ── */}
       <header className="mm-safe-t z-20 flex shrink-0 items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-3 py-3 backdrop-blur-md sm:px-4 lg:px-6 lg:py-3.5">
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
@@ -641,7 +641,7 @@ export default function StudioPage() {
             type="button"
             onClick={() => setMobileNavOpen(true)}
             aria-label="Open gallery"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] lg:hidden"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] dt:hidden"
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -692,21 +692,21 @@ export default function StudioPage() {
       <Walkthrough steps={TOUR_STEPS} open={tourOpen} onClose={closeTour} />
 
       {/* ── Body ── */}
-      <div className="relative z-10 flex flex-1 flex-col overflow-visible lg:flex-row lg:overflow-hidden">
+      <div className="relative z-10 flex flex-1 flex-col overflow-visible dt:flex-row dt:overflow-hidden">
         {/* Mobile: dim backdrop behind the gallery drawer */}
         {mobileNavOpen && (
           <div
             onClick={() => setMobileNavOpen(false)}
-            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm dt:hidden"
             aria-hidden
           />
         )}
         {/* ── Gallery sidebar — collapsible rail on desktop, slide-over drawer on mobile ── */}
         <aside
           data-tour="gallery"
-          className={`fixed inset-y-0 left-0 z-40 flex w-[17rem] shrink-0 flex-col overflow-hidden border-r border-[rgba(242,238,230,0.08)] bg-[#161412] shadow-2xl transition-transform duration-300 ease-in-out lg:relative lg:z-auto lg:translate-x-0 lg:bg-[#1C1A18]/60 lg:shadow-none lg:transition-[width] ${
-            mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-          } ${galleryOpen ? "lg:w-64" : "lg:w-12"}`}
+          className={`fixed inset-y-0 left-0 z-40 flex w-[17rem] shrink-0 flex-col overflow-hidden border-r border-[rgba(242,238,230,0.08)] bg-[#161412] shadow-2xl transition-transform duration-300 ease-in-out dt:relative dt:z-auto dt:translate-x-0 dt:bg-[#1C1A18]/60 dt:shadow-none dt:transition-[width] ${
+            mobileNavOpen ? "translate-x-0" : "-translate-x-full dt:translate-x-0"
+          } ${galleryOpen ? "dt:w-56 xl:w-64" : "dt:w-12"}`}
         >
           {/* Persistent header — toggle always reachable */}
           <div className="flex shrink-0 items-center justify-between px-2.5 pb-1 pt-3.5">
@@ -723,7 +723,7 @@ export default function StudioPage() {
             <button
               onClick={() => setMobileNavOpen(false)}
               aria-label="Close gallery"
-              className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] lg:hidden"
+              className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] dt:hidden"
             >
               <X className="h-4 w-4" />
             </button>
@@ -731,7 +731,7 @@ export default function StudioPage() {
             <button
               onClick={() => setGalleryOpen((o) => !o)}
               aria-label={galleryOpen ? "Collapse gallery" : "Expand gallery"}
-              className="hidden h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] lg:grid"
+              className="hidden h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] dt:grid"
             >
               <ChevronLeft
                 className={`h-4 w-4 transition-transform duration-300 ${
@@ -750,7 +750,7 @@ export default function StudioPage() {
             disabled={loading && !galleryOpen}
             aria-label="Create something new"
             title="Create something new"
-            className={`mm-cta absolute left-1/2 top-[3.25rem] hidden h-8 w-8 -translate-x-1/2 cursor-pointer place-items-center rounded-md text-[#F7F3EC] transition-opacity duration-200 disabled:opacity-40 lg:grid ${
+            className={`mm-cta absolute left-1/2 top-[3.25rem] hidden h-8 w-8 -translate-x-1/2 cursor-pointer place-items-center rounded-md text-[#F7F3EC] transition-opacity duration-200 disabled:opacity-40 dt:grid ${
               galleryOpen ? "pointer-events-none opacity-0" : "opacity-100"
             }`}
           >
@@ -759,7 +759,7 @@ export default function StudioPage() {
 
           {/* Body — fixed width so it clips cleanly instead of reflowing as the rail shrinks */}
           <div
-            className={`flex w-64 min-h-0 flex-1 flex-col transition-opacity duration-200 ${
+            className={`flex w-[17rem] min-h-0 flex-1 flex-col transition-opacity duration-200 dt:w-56 xl:w-64 ${
               galleryOpen ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
           >
@@ -945,13 +945,13 @@ export default function StudioPage() {
         </aside>
 
         {/* ── Left control panel ── */}
-        <aside className="flex w-full shrink-0 flex-col border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/40 lg:w-80 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+        <aside className="flex w-full shrink-0 flex-col border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/40 dt:w-72 dt:overflow-y-auto dt:border-b-0 dt:border-r xl:w-80">
           <form onSubmit={handleGenerate} className="flex flex-1 flex-col">
             {/* Locked while a generation is in flight — nothing about the
                 in-progress design can change mid-run. */}
             <fieldset
               disabled={loading}
-              className={`m-0 flex flex-1 flex-col gap-6 border-0 p-5 transition-opacity [min-inline-size:0] lg:gap-7 lg:p-6 ${
+              className={`m-0 flex flex-1 flex-col gap-6 border-0 p-5 transition-opacity [min-inline-size:0] xl:gap-7 xl:p-6 ${
                 loading ? "pointer-events-none opacity-50" : ""
               }`}
             >
@@ -1376,7 +1376,7 @@ export default function StudioPage() {
             </div>
             )}
 
-            <div className="hidden lg:block lg:flex-1" />
+            <div className="hidden dt:block dt:flex-1" />
 
             {/* Generate */}
             <div className="space-y-3">
@@ -1446,7 +1446,7 @@ export default function StudioPage() {
 
         {/* ── Canvas: scrollable chat feed of every version ── */}
         <main
-          className="relative flex min-h-[60svh] w-full flex-1 flex-col bg-[#18160F] p-4 sm:p-6 lg:min-h-0 lg:overflow-y-auto lg:p-8"
+          className="relative flex min-h-[60svh] w-full flex-1 flex-col bg-[#18160F] p-4 sm:p-6 dt:min-h-0 dt:overflow-y-auto xl:p-8"
           style={{
             backgroundImage:
               "linear-gradient(rgba(242,238,230,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(242,238,230,0.04) 1px, transparent 1px)",
