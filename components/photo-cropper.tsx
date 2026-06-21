@@ -52,17 +52,27 @@ export function PhotoCropper({
     };
   }, [imageUrl]);
 
-  // Cover size at zoom 1, then scaled by zoom.
-  const { rw, rh } = useMemo(() => {
+  // Size of the photo at zoom 1 = "fills the frame" (cover).
+  const { baseW, baseH } = useMemo(() => {
     const a = imgAspect ?? frameAspect;
-    const baseW = a > frameAspect ? vpH * a : vpW;
-    const baseH = a > frameAspect ? vpH : vpW / a;
-    return { rw: baseW * zoom, rh: baseH * zoom };
-  }, [imgAspect, frameAspect, zoom, vpW, vpH]);
+    return {
+      baseW: a > frameAspect ? vpH * a : vpW,
+      baseH: a > frameAspect ? vpH : vpW / a,
+    };
+  }, [imgAspect, frameAspect, vpW, vpH]);
+  const rw = baseW * zoom;
+  const rh = baseH * zoom;
+  // You can zoom OUT to fitZoom (whole photo visible inside the frame) or in to
+  // 3×. No forced cropping — gaps outside the photo are allowed.
+  const fitZoom = Math.min(1, vpW / baseW, vpH / baseH);
 
   const clamp = (p: { x: number; y: number }) => {
-    const mx = Math.max(0, (rw - vpW) / 2);
-    const my = Math.max(0, (rh - vpH) / 2);
+    // Free movement behind the frame: the photo can be dragged anywhere (even
+    // past the edges, leaving a gap) — we only keep a sliver inside so it's
+    // never dragged completely out of view.
+    const kv = Math.max(24, Math.min(vpW, vpH) * 0.08);
+    const mx = Math.max(0, (rw + vpW) / 2 - kv);
+    const my = Math.max(0, (rh + vpH) / 2 - kv);
     return { x: Math.max(-mx, Math.min(mx, p.x)), y: Math.max(-my, Math.min(my, p.y)) };
   };
 
@@ -92,7 +102,7 @@ export function PhotoCropper({
 
   return (
     <div className="flex flex-col items-center gap-4 p-5">
-      <p className="text-[12px] text-[#8C8278]">Drag to move · zoom to frame the exact shot</p>
+      <p className="text-[12px] text-[#8C8278]">Drag the photo anywhere · zoom in or out — any part can sit in the frame</p>
 
       <div
         className="relative cursor-grab touch-none select-none overflow-hidden bg-[#0a0a0a] active:cursor-grabbing"
@@ -123,7 +133,7 @@ export function PhotoCropper({
         <ZoomIn className="h-4 w-4 shrink-0 text-[#8C8278]" />
         <input
           type="range"
-          min={1}
+          min={fitZoom}
           max={3}
           step={0.01}
           value={zoom}
@@ -144,7 +154,7 @@ export function PhotoCropper({
           disabled={imgAspect == null}
           className="mm-cta flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium text-[#F7F3EC] disabled:opacity-50"
         >
-          <Check className="h-3.5 w-3.5" /> Use this crop
+          <Check className="h-3.5 w-3.5" /> Use this framing
         </button>
       </div>
     </div>
