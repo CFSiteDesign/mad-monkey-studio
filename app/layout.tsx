@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, DM_Sans } from "next/font/google";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "@/components/convex-client-provider";
@@ -19,6 +19,15 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "Mad Monkey Studio",
   description: "AI-first design system for on-brand marketing assets.",
+};
+
+// Mobile: fit the device width, allow pinch-zoom (accessibility), and tint the
+// browser chrome to the app's charcoal so it feels native on a phone.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#1C1A18",
 };
 
 export default function RootLayout({

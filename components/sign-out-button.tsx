@@ -40,7 +40,7 @@ export function SignOutButton({
         aria-expanded={open}
         aria-label="Account menu"
         data-tour="account-menu"
-        className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-b from-[#D4866A] to-[#C06F51] text-xs font-medium text-[#F7F3EC] ring-1 ring-[rgba(242,238,230,0.16)] transition-transform hover:scale-105 cursor-pointer"
+        className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-b from-[#D4866A] to-[#C06F51] text-xs font-medium text-[#F7F3EC] ring-1 ring-[rgba(242,238,230,0.16)] transition-transform hover:scale-105 cursor-pointer lg:h-9 lg:w-9"
       >
         {initials}
       </button>
@@ -48,7 +48,7 @@ export function SignOutButton({
       {open && (
         <div
           role="menu"
-          className="mm-card absolute right-0 top-11 z-50 w-56 rounded-xl p-1.5 mm-fade-up"
+          className="mm-card absolute right-0 top-11 z-50 w-56 max-w-[calc(100vw-1.5rem)] rounded-xl p-1.5 mm-fade-up"
         >
           {email && (
             <div className="px-3 py-2.5 border-b border-[rgba(242,238,230,0.08)] mb-1">
@@ -62,7 +62,7 @@ export function SignOutButton({
               setOpen(false);
               router.push("/account");
             }}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[#F2EEE6] hover:bg-[rgba(242,238,230,0.05)] transition-colors cursor-pointer"
+            className="flex min-h-[40px] w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-[#F2EEE6] hover:bg-[rgba(242,238,230,0.05)] transition-colors cursor-pointer lg:min-h-0 lg:py-2"
           >
             <BarChart3 className="h-4 w-4 text-[#8C8278]" />
             My account
@@ -73,7 +73,7 @@ export function SignOutButton({
               setOpen(false);
               router.push("/bank");
             }}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[#F2EEE6] hover:bg-[rgba(242,238,230,0.05)] transition-colors cursor-pointer"
+            className="flex min-h-[40px] w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-[#F2EEE6] hover:bg-[rgba(242,238,230,0.05)] transition-colors cursor-pointer lg:min-h-0 lg:py-2"
           >
             <Images className="h-4 w-4 text-[#8C8278]" />
             Image bank
@@ -84,7 +84,7 @@ export function SignOutButton({
               await signOut();
               router.push("/sign-in");
             }}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[#F2EEE6] hover:bg-[rgba(242,238,230,0.05)] transition-colors cursor-pointer"
+            className="flex min-h-[40px] w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-[#F2EEE6] hover:bg-[rgba(242,238,230,0.05)] transition-colors cursor-pointer lg:min-h-0 lg:py-2"
           >
             <LogOut className="h-4 w-4 text-[#8C8278]" />
             Sign out

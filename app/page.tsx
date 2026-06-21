@@ -33,6 +33,7 @@ import {
   HelpCircle,
   Home,
   MessageSquare,
+  Menu,
   Paperclip,
   X,
 } from "lucide-react";
@@ -367,6 +368,9 @@ export default function StudioPage() {
   const deleteDeck = useMutation(api.decksInternal.deleteDeck);
   const [confirmDeleteDeckId, setConfirmDeleteDeckId] = useState<Id<"decks"> | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(true);
+  // Mobile only: the gallery becomes an off-canvas drawer (the desktop rail is
+  // always shown via lg: classes). Closed by default on a phone.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<Id<"threads"> | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -383,6 +387,7 @@ export default function StudioPage() {
     setUserPhotos([]);
     clearDoc();
     resetBriefFlow();
+    setMobileNavOpen(false);
   }
 
   function selectThread(id: Id<"threads">) {
@@ -392,6 +397,7 @@ export default function StudioPage() {
     setBrief("");
     setLocalError("");
     setUserPhotos([]);
+    setMobileNavOpen(false);
   }
 
   // Presentation: pull deck details from an uploaded document (PDF / Word / text).
@@ -626,49 +632,58 @@ export default function StudioPage() {
   const charCount = brief.length;
 
   return (
-    <div className="mm-ambient relative flex h-screen flex-col overflow-hidden">
+    <div className="mm-ambient relative flex min-h-[100svh] flex-col overflow-x-hidden lg:h-screen lg:overflow-hidden">
       {/* ── Header ── */}
-      <header className="z-20 flex shrink-0 items-center justify-between border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-6 py-3.5 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <BrandLogo className="h-8 w-auto" />
-          <span className="h-6 w-px bg-[rgba(242,238,230,0.12)]" />
+      <header className="mm-safe-t z-20 flex shrink-0 items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-3 py-3 backdrop-blur-md sm:px-4 lg:px-6 lg:py-3.5">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          {/* Mobile: open the gallery drawer */}
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Open gallery"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <BrandLogo className="h-7 w-auto sm:h-8" />
+          <span className="hidden h-6 w-px bg-[rgba(242,238,230,0.12)] sm:block" />
           <p
-            className="text-lg font-light leading-none text-[#F2EEE6]"
+            className="hidden text-lg font-light leading-none text-[#F2EEE6] sm:block"
             style={{ fontFamily: "var(--font-display)" }}
           >
             Studio
           </p>
           {user?.role && (
-            <span className="ml-1 rounded-full border border-[rgba(242,238,230,0.1)] px-2.5 py-0.5 text-[10px] uppercase tracking-widest text-[#8C8278]">
+            <span className="ml-1 hidden rounded-full border border-[rgba(242,238,230,0.1)] px-2.5 py-0.5 text-[10px] uppercase tracking-widest text-[#8C8278] sm:inline">
               {user.role}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={createNew}
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] px-3 py-1.5 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6]"
+            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3 sm:py-1.5"
             title="Start fresh — back to a new creation"
           >
-            <Home className="h-3.5 w-3.5" /> Home
+            <Home className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">Home</span>
           </button>
           <a
             href="https://docs.google.com/forms/d/e/1FAIpQLSdCGDQJTQHuj1OY3I8mAtQL7vyTAfK3Ym-gEmfQHjursAm1Vw/viewform"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] px-3 py-1.5 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6]"
+            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3 sm:py-1.5"
             title="Share feedback (opens a form in a new tab)"
           >
-            <MessageSquare className="h-3.5 w-3.5" /> Feedback
+            <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">Feedback</span>
           </a>
           <button
             type="button"
             onClick={() => setTourOpen(true)}
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] px-3 py-1.5 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6]"
+            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3 sm:py-1.5"
             title="Take the tour"
           >
-            <HelpCircle className="h-3.5 w-3.5" /> How it works
+            <HelpCircle className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">How it works</span>
           </button>
           <SignOutButton initials={initials} email={user?.email} />
         </div>
@@ -677,13 +692,21 @@ export default function StudioPage() {
       <Walkthrough steps={TOUR_STEPS} open={tourOpen} onClose={closeTour} />
 
       {/* ── Body ── */}
-      <div className="relative z-10 flex flex-1 overflow-hidden">
-        {/* ── Gallery sidebar (collapsible) ── */}
+      <div className="relative z-10 flex flex-1 flex-col overflow-visible lg:flex-row lg:overflow-hidden">
+        {/* Mobile: dim backdrop behind the gallery drawer */}
+        {mobileNavOpen && (
+          <div
+            onClick={() => setMobileNavOpen(false)}
+            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+            aria-hidden
+          />
+        )}
+        {/* ── Gallery sidebar — collapsible rail on desktop, slide-over drawer on mobile ── */}
         <aside
           data-tour="gallery"
-          className={`relative flex shrink-0 flex-col overflow-hidden border-r border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/60 transition-[width] duration-300 ease-in-out ${
-            galleryOpen ? "w-64" : "w-12"
-          }`}
+          className={`fixed inset-y-0 left-0 z-40 flex w-[17rem] shrink-0 flex-col overflow-hidden border-r border-[rgba(242,238,230,0.08)] bg-[#161412] shadow-2xl transition-transform duration-300 ease-in-out lg:relative lg:z-auto lg:translate-x-0 lg:bg-[#1C1A18]/60 lg:shadow-none lg:transition-[width] ${
+            mobileNavOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          } ${galleryOpen ? "lg:w-64" : "lg:w-12"}`}
         >
           {/* Persistent header — toggle always reachable */}
           <div className="flex shrink-0 items-center justify-between px-2.5 pb-1 pt-3.5">
@@ -696,10 +719,19 @@ export default function StudioPage() {
             >
               Gallery
             </p>
+            {/* Mobile: close the drawer */}
+            <button
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Close gallery"
+              className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] lg:hidden"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {/* Desktop: collapse the rail */}
             <button
               onClick={() => setGalleryOpen((o) => !o)}
               aria-label={galleryOpen ? "Collapse gallery" : "Expand gallery"}
-              className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6]"
+              className="hidden h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] lg:grid"
             >
               <ChevronLeft
                 className={`h-4 w-4 transition-transform duration-300 ${
@@ -718,7 +750,7 @@ export default function StudioPage() {
             disabled={loading && !galleryOpen}
             aria-label="Create something new"
             title="Create something new"
-            className={`mm-cta absolute left-1/2 top-[3.25rem] grid h-8 w-8 -translate-x-1/2 cursor-pointer place-items-center rounded-md text-[#F7F3EC] transition-opacity duration-200 disabled:opacity-40 ${
+            className={`mm-cta absolute left-1/2 top-[3.25rem] hidden h-8 w-8 -translate-x-1/2 cursor-pointer place-items-center rounded-md text-[#F7F3EC] transition-opacity duration-200 disabled:opacity-40 lg:grid ${
               galleryOpen ? "pointer-events-none opacity-0" : "opacity-100"
             }`}
           >
@@ -841,7 +873,10 @@ export default function StudioPage() {
                     {decks.map((d) => (
                       <li key={d._id} className="group relative">
                         <button
-                          onClick={() => router.push(`/presentation/${d._id}`)}
+                          onClick={() => {
+                            setMobileNavOpen(false);
+                            router.push(`/presentation/${d._id}`);
+                          }}
                           className="flex w-full items-center gap-2 rounded-lg border border-[rgba(242,238,230,0.08)] px-2.5 py-2 pr-8 text-left transition-colors hover:border-[rgba(242,238,230,0.25)] hover:bg-[rgba(242,238,230,0.02)]"
                         >
                           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[#CC7A5C]/15 text-[#CC7A5C]">
@@ -910,13 +945,13 @@ export default function StudioPage() {
         </aside>
 
         {/* ── Left control panel ── */}
-        <aside className="flex w-80 shrink-0 flex-col overflow-y-auto border-r border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/40">
+        <aside className="flex w-full shrink-0 flex-col border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/40 lg:w-80 lg:overflow-y-auto lg:border-b-0 lg:border-r">
           <form onSubmit={handleGenerate} className="flex flex-1 flex-col">
             {/* Locked while a generation is in flight — nothing about the
                 in-progress design can change mid-run. */}
             <fieldset
               disabled={loading}
-              className={`m-0 flex flex-1 flex-col gap-7 border-0 p-6 transition-opacity [min-inline-size:0] ${
+              className={`m-0 flex flex-1 flex-col gap-6 border-0 p-5 transition-opacity [min-inline-size:0] lg:gap-7 lg:p-6 ${
                 loading ? "pointer-events-none opacity-50" : ""
               }`}
             >
@@ -1341,7 +1376,7 @@ export default function StudioPage() {
             </div>
             )}
 
-            <div className="flex-1" />
+            <div className="hidden lg:block lg:flex-1" />
 
             {/* Generate */}
             <div className="space-y-3">
@@ -1411,7 +1446,7 @@ export default function StudioPage() {
 
         {/* ── Canvas: scrollable chat feed of every version ── */}
         <main
-          className="relative flex flex-1 flex-col overflow-y-auto bg-[#18160F] p-8"
+          className="relative flex min-h-[60svh] w-full flex-1 flex-col bg-[#18160F] p-4 sm:p-6 lg:min-h-0 lg:overflow-y-auto lg:p-8"
           style={{
             backgroundImage:
               "linear-gradient(rgba(242,238,230,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(242,238,230,0.04) 1px, transparent 1px)",
@@ -1449,7 +1484,7 @@ export default function StudioPage() {
               </div>
             </div>
           ) : (
-            <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-14 pb-8">
+            <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-10 pb-8 sm:gap-14">
               {feed.map((g, i) => (
                 <GenerationCard key={g.id} gen={g} version={i + 1} />
               ))}

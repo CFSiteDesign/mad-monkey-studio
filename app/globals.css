@@ -118,6 +118,19 @@
   }
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Mobile: force ≥16px form fields so iOS Safari never auto-zooms the page on
+     focus (any smaller and it zooms, then the layout is stuck shifted). Desktop
+     keeps the tighter type. */
+  @media (max-width: 1023px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
   }
 
   /* Warm selection */
@@ -157,6 +170,21 @@
 }
 
 @layer utilities {
+  /* Honour the iOS notch / home indicator on full-bleed bars */
+  .mm-safe-t {
+    padding-top: env(safe-area-inset-top);
+  }
+  .mm-safe-b {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Comfortable minimum touch target on touch devices */
+  @media (pointer: coarse) {
+    .mm-tap {
+      min-height: 44px;
+    }
+  }
+
   /* Atmospheric warmth: layered radial glows behind the shell */
   .mm-ambient {
     background-color: #1c1a18;

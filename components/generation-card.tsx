@@ -165,8 +165,7 @@ export function GenerationCard({
       {/* Artwork */}
       <div
         ref={canvasRef}
-        className={`${ASPECT[gen.format] ?? "aspect-square"} overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-[rgba(242,238,230,0.1)] [&>svg]:block [&>svg]:h-full [&>svg]:w-full`}
-        style={{ height: "calc(100vh - 280px)" }}
+        className={`${ASPECT[gen.format] ?? "aspect-square"} w-full max-w-full overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-[rgba(242,238,230,0.1)] [&>svg]:block [&>svg]:h-full [&>svg]:w-full lg:h-[calc(100svh_-_280px)] lg:w-auto lg:max-w-none`}
       >
         {safeSvg ? (
           <div
@@ -181,7 +180,7 @@ export function GenerationCard({
       </div>
 
       {/* Meta bar */}
-      <div className="mm-card flex items-center gap-4 rounded-full px-2 py-1.5 pl-4">
+      <div className="mm-card flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-2xl px-3 py-2 lg:flex-nowrap lg:gap-4 lg:rounded-full lg:px-2 lg:py-1.5 lg:pl-4">
         <span className="rounded-full bg-[rgba(242,238,230,0.06)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest text-[#8C8278]">
           v{version}
         </span>

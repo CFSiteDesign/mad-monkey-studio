@@ -27,10 +27,33 @@ export function PhotoCropper({
   onApply: (rect: CropRect) => void;
   onBack: () => void;
 }) {
-  let vpW = VP_W;
-  let vpH = VP_W / Math.max(0.2, frameAspect);
-  if (vpH > 380) {
-    vpH = 380;
+  // The viewport adapts to the space available so it never overflows a phone:
+  // width from the container, height from the screen. Falls back to the desktop
+  // 460×380 box when there's room.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [avail, setAvail] = useState(() =>
+    typeof window === "undefined"
+      ? { w: VP_W, h: 380 }
+      : { w: Math.min(VP_W, window.innerWidth - 56), h: Math.min(380, window.innerHeight - 240) },
+  );
+  useEffect(() => {
+    function measure() {
+      const cw = wrapRef.current?.clientWidth;
+      const w = cw ? cw - 40 : window.innerWidth - 56; // outer padding (p-5) = 40px
+      setAvail({
+        w: Math.max(200, Math.min(VP_W, w)),
+        h: Math.max(220, Math.min(380, window.innerHeight - 240)),
+      });
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  let vpW = avail.w;
+  let vpH = avail.w / Math.max(0.2, frameAspect);
+  if (vpH > avail.h) {
+    vpH = avail.h;
     vpW = vpH * frameAspect;
   }
   vpW = Math.round(vpW);
@@ -101,8 +124,8 @@ export function PhotoCropper({
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 p-5">
-      <p className="text-[12px] text-[#8C8278]">Drag the photo anywhere · zoom in or out — any part can sit in the frame</p>
+    <div ref={wrapRef} className="flex flex-col items-center gap-4 p-5">
+      <p className="px-2 text-center text-[12px] text-[#8C8278]">Drag the photo anywhere · zoom in or out — any part can sit in the frame</p>
 
       <div
         className="relative cursor-grab touch-none select-none overflow-hidden bg-[#0a0a0a] active:cursor-grabbing"

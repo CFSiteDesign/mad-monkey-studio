@@ -89,8 +89,23 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
   const [wrapSize, setWrapSize] = useState<{ w: number; h: number } | null>(null);
 
   // Fit the canvas in the current viewport at the design's aspect ratio.
+  // On phones (<1024px) the canvas is width-driven: it fills nearly the full
+  // screen width with comfortable side gutters and is bounded by the available
+  // height. On desktop the original height-led fit is preserved exactly.
   const fitWrap = useCallback((): { w: number; h: number } => {
     const ratio = dimsRef.current.w / dimsRef.current.h || 0.8;
+    const isDesktop = window.innerWidth >= 1024;
+    if (!isDesktop) {
+      // Leave room for side padding and the toolbar; cap by the vertical space.
+      let w = window.innerWidth - 32;
+      let h = w / ratio;
+      const maxH = window.innerHeight * 0.7;
+      if (h > maxH) {
+        h = maxH;
+        w = h * ratio;
+      }
+      return { w: Math.max(120, Math.round(w)), h: Math.max(150, Math.round(h)) };
+    }
     let h = Math.min(window.innerHeight * 0.74, 1000);
     let w = h * ratio;
     const maxW = window.innerWidth * 0.62;
@@ -512,9 +527,9 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
       : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#0a0a0a]/90 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex max-h-[100svh] flex-col bg-[#0a0a0a]/90 backdrop-blur-sm">
       {/* ── Toolbar ── */}
-      <div className="flex shrink-0 items-center justify-between border-b border-[rgba(242,238,230,0.1)] bg-[#1C1A18] px-5 py-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.1)] bg-[#1C1A18] px-4 py-3 lg:flex-nowrap lg:px-5">
         <div className="flex items-center gap-3">
           <p className="text-sm font-medium text-[#F2EEE6]">Quick fix</p>
           <p className="hidden items-center gap-1.5 text-[11px] text-[#8C8278] lg:flex">
@@ -522,8 +537,8 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
             click to select · drag to move · handles resize/rotate · double-click text to edit · arrows nudge · ⌫ delete · ⌘Z undo
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {error && <p className="mr-2 text-xs text-red-300">{error}</p>}
+        <div className="flex flex-1 items-center justify-end gap-2 lg:flex-none">
+          {error && <p className="mr-2 min-w-0 flex-1 truncate text-xs text-red-300 lg:flex-none">{error}</p>}
           <button
             onClick={() => {
               const snap = undoRef.current.pop();
@@ -541,21 +556,21 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
               }
             }}
             disabled={!canUndo || saving}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex min-h-[40px] cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-0"
           >
             <Undo2 className="h-3.5 w-3.5" /> Undo
           </button>
           <button
             onClick={onCancel}
             disabled={saving}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] disabled:opacity-40"
+            className="flex min-h-[40px] cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] disabled:opacity-40 lg:min-h-0"
           >
             <X className="h-3.5 w-3.5" /> Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving || !ready}
-            className="mm-cta flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium text-[#F7F3EC] disabled:cursor-wait disabled:opacity-60"
+            className="mm-cta flex min-h-[40px] cursor-pointer items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium text-[#F7F3EC] disabled:cursor-wait disabled:opacity-60 lg:min-h-0"
           >
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
             {saving ? "Saving…" : "Save as new version"}
@@ -564,7 +579,7 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
       </div>
 
       {/* ── Canvas ── */}
-      <div className="flex flex-1 items-center justify-center overflow-auto p-6">
+      <div className="flex flex-1 items-center justify-center overflow-auto p-4 lg:p-6">
         {!ready && !error && (
           <div className="flex items-center gap-2 text-sm text-[#8C8278]">
             <Loader2 className="h-4 w-4 animate-spin text-[#CC7A5C]" /> Preparing editor…
@@ -572,7 +587,7 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
         )}
         <div
           ref={wrapRef}
-          className="relative select-none rounded-lg bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.8)]"
+          className="relative max-w-full select-none rounded-lg bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.8)]"
           style={{
             width: wrapSize?.w,
             height: wrapSize?.h,

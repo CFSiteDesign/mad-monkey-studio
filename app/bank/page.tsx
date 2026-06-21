@@ -166,21 +166,21 @@ export default function ImageBankPage() {
   return (
     <div className="mm-ambient mm-grain relative min-h-screen overflow-y-auto">
       {/* ── Header ── */}
-      <header className="z-20 flex items-center justify-between border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-6 py-3.5 backdrop-blur-md">
-        <div className="flex items-center gap-3">
+      <header className="z-20 flex items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-4 py-3.5 backdrop-blur-md lg:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <BrandLogo className="h-8 w-auto" />
-          <span className="h-6 w-px bg-[rgba(242,238,230,0.12)]" />
-          <p className="text-lg font-light leading-none text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>
+          <span className="hidden h-6 w-px bg-[rgba(242,238,230,0.12)] sm:block" />
+          <p className="truncate text-lg font-light leading-none text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>
             Image Bank
           </p>
         </div>
-        <Link href="/" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#8C8278] transition-colors hover:text-[#F2EEE6]">
+        <Link href="/" className="flex shrink-0 items-center gap-2 rounded-lg px-2 py-2 text-sm text-[#8C8278] transition-colors hover:text-[#F2EEE6] lg:px-3">
           <ArrowLeft className="h-4 w-4" />
-          Back to Studio
+          <span className="hidden sm:inline">Back to Studio</span>
         </Link>
       </header>
 
-      <main className="relative z-10 mx-auto w-full max-w-5xl space-y-8 px-6 py-10">
+      <main className="relative z-10 mx-auto w-full max-w-5xl space-y-8 px-4 py-6 lg:px-6 lg:py-10">
         {/* ── Intro ── */}
         <div className="mm-fade-up max-w-2xl">
           <h1 className="text-2xl font-light text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>
@@ -199,7 +199,7 @@ export default function ImageBankPage() {
           onDragLeave={onDragLeave}
           onDrop={onDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`mm-fade-up flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-8 py-12 text-center transition-colors ${
+          className={`mm-fade-up flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors lg:px-8 lg:py-12 ${
             dragging
               ? "border-[#CC7A5C] bg-[#CC7A5C]/5"
               : "border-[rgba(242,238,230,0.12)] hover:border-[rgba(242,238,230,0.25)]"
@@ -249,9 +249,9 @@ export default function ImageBankPage() {
 
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {queue.map((item) => (
-                <li key={item.localId} className="mm-card flex gap-4 rounded-xl p-4">
+                <li key={item.localId} className="mm-card flex gap-3 rounded-xl p-3 lg:gap-4 lg:p-4">
                   {/* Thumbnail */}
-                  <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg lg:h-24 lg:w-24">
                     <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
                     {/* Status overlay */}
                     {(item.status === "uploading" || item.status === "describing") && (
@@ -355,7 +355,7 @@ export default function ImageBankPage() {
                     <button
                       onClick={() => deleteImage({ imageId: img.id })}
                       aria-label="Delete image"
-                      className="absolute right-2 top-2 grid h-7 w-7 cursor-pointer place-items-center rounded-full bg-[#1C1A18]/80 text-[#8C8278] opacity-0 backdrop-blur transition-opacity hover:text-red-300 group-hover:opacity-100"
+                      className="absolute right-2 top-2 grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-[#1C1A18]/80 text-[#8C8278] opacity-100 backdrop-blur transition-opacity hover:text-red-300 lg:h-7 lg:w-7 lg:opacity-0 lg:group-hover:opacity-100"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

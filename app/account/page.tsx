@@ -77,12 +77,12 @@ export default function AccountPage() {
   return (
     <div className="mm-ambient mm-grain relative min-h-screen overflow-y-auto">
       {/* ── Header ── */}
-      <header className="z-20 flex items-center justify-between border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-6 py-3.5 backdrop-blur-md">
-        <div className="flex items-center gap-3">
+      <header className="z-20 flex items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-4 py-3.5 backdrop-blur-md lg:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <BrandLogo className="h-8 w-auto" />
-          <span className="h-6 w-px bg-[rgba(242,238,230,0.12)]" />
+          <span className="hidden h-6 w-px bg-[rgba(242,238,230,0.12)] sm:block" />
           <p
-            className="text-lg font-light leading-none text-[#F2EEE6]"
+            className="truncate text-lg font-light leading-none text-[#F2EEE6]"
             style={{ fontFamily: "var(--font-display)" }}
           >
             Account
@@ -90,14 +90,14 @@ export default function AccountPage() {
         </div>
         <Link
           href="/"
-          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#8C8278] transition-colors hover:text-[#F2EEE6]"
+          className="flex shrink-0 items-center gap-2 rounded-lg px-2 py-2 text-sm text-[#8C8278] transition-colors hover:text-[#F2EEE6] lg:px-3"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Studio
+          <span className="hidden sm:inline">Back to Studio</span>
         </Link>
       </header>
 
-      <main className="relative z-10 mx-auto w-full max-w-3xl space-y-6 px-6 py-10">
+      <main className="relative z-10 mx-auto w-full max-w-3xl space-y-6 px-4 py-6 lg:px-6 lg:py-10">
         {/* ── Who ── */}
         <div className="mm-fade-up">
           <p className="mm-eyebrow">Signed in as</p>
@@ -116,10 +116,10 @@ export default function AccountPage() {
         </div>
 
         {/* ── Spend vs cap ── */}
-        <section className="mm-card mm-fade-up rounded-xl p-6">
-          <div className="flex items-start justify-between">
+        <section className="mm-card mm-fade-up rounded-xl p-4 lg:p-6">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <Wallet className="h-4 w-4 text-[#CC7A5C]" />
+              <Wallet className="h-4 w-4 shrink-0 text-[#CC7A5C]" />
               <h2 className="text-sm font-medium text-[#F2EEE6]">
                 Spend — {monthLabel}
               </h2>
@@ -129,7 +129,7 @@ export default function AccountPage() {
             </p>
           </div>
 
-          <div className="mt-5 flex items-baseline gap-2">
+          <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span
               className="text-4xl font-light text-[#F2EEE6]"
               style={{ fontFamily: "var(--font-display)" }}
@@ -163,7 +163,7 @@ export default function AccountPage() {
 
         {/* ── Stat cards ── */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <section className="mm-card mm-fade-up rounded-xl p-6">
+          <section className="mm-card mm-fade-up rounded-xl p-4 lg:p-6">
             <div className="flex items-center gap-2.5">
               <Images className="h-4 w-4 text-[#CC7A5C]" />
               <h2 className="text-sm font-medium text-[#F2EEE6]">Media created</h2>
@@ -179,7 +179,7 @@ export default function AccountPage() {
             </p>
           </section>
 
-          <section className="mm-card mm-fade-up rounded-xl p-6">
+          <section className="mm-card mm-fade-up rounded-xl p-4 lg:p-6">
             <div className="flex items-center gap-2.5">
               <Coins className="h-4 w-4 text-[#CC7A5C]" />
               <h2 className="text-sm font-medium text-[#F2EEE6]">Tokens used</h2>
@@ -199,7 +199,7 @@ export default function AccountPage() {
         </div>
 
         {/* ── Recent generations ── */}
-        <section className="mm-card mm-fade-up rounded-xl p-6">
+        <section className="mm-card mm-fade-up rounded-xl p-4 lg:p-6">
           <h2 className="text-sm font-medium text-[#F2EEE6]">Recent generations</h2>
           {stats.recent.length === 0 ? (
             <p className="mt-4 text-sm text-[#8C8278]">
@@ -210,9 +210,9 @@ export default function AccountPage() {
               {stats.recent.map((g) => (
                 <li
                   key={g.id}
-                  className="flex items-center justify-between py-2.5 text-sm"
+                  className="flex flex-col gap-1.5 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <span className="rounded-md border border-[rgba(242,238,230,0.1)] px-2 py-0.5 font-mono text-[11px] text-[#CFC8BD]">
                       {g.format}
                     </span>

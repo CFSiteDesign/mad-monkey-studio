@@ -49,6 +49,19 @@ export function Walkthrough({
     const el = document.querySelector(step.target) as HTMLElement | null;
     if (!el) return setBox(null);
     const r = el.getBoundingClientRect();
+    // Treat targets that are off-screen, hidden, or zero-sized as "missing" so the
+    // step degrades to a centred card instead of a broken/empty spotlight. This is
+    // common on mobile where targets can live inside a closed drawer or scroll out.
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const visible =
+      r.width > 0 &&
+      r.height > 0 &&
+      r.bottom > 0 &&
+      r.right > 0 &&
+      r.top < vh &&
+      r.left < vw;
+    if (!visible) return setBox(null);
     const pad = step.padding ?? 8;
     setBox({ left: r.left - pad, top: r.top - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
   }, []);
@@ -117,24 +130,46 @@ export function Walkthrough({
   const last = i === steps.length - 1;
 
   // Place the tooltip beside the spotlight (right → left → below), else centre it.
+  // On phones the card is viewport-width-bound, so we measure the real card width
+  // and clamp every placement to stay fully on-screen with a small margin; if it
+  // still can't sit beside the target, we fall back to a centred card.
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const cardW = 340;
-  let cardStyle: React.CSSProperties;
+  const margin = 16;
+  // Mirror the card's responsive width: min(viewport - 2rem, 340px) below `lg`.
+  const cardW = Math.min(vw - margin * 2, 340);
+  let cardStyle: React.CSSProperties = {};
+  let centered = false;
   if (!box) {
-    cardStyle = { left: "50%", top: "50%", transform: "translate(-50%,-50%)" };
+    centered = true;
   } else {
     const gap = 16;
-    let left: number;
+    let left: number | null = null;
     let top = box.top;
-    if (box.left + box.width + gap + cardW < vw) left = box.left + box.width + gap;
-    else if (box.left - gap - cardW > 0) left = box.left - gap - cardW;
-    else {
-      left = Math.min(Math.max(8, box.left), vw - cardW - 8);
-      top = box.top + box.height + gap;
+    if (box.left + box.width + gap + cardW <= vw - margin) {
+      left = box.left + box.width + gap;
+    } else if (box.left - gap - cardW >= margin) {
+      left = box.left - gap - cardW;
+    } else {
+      // Try below/above the target, clamped horizontally within the viewport.
+      const belowTop = box.top + box.height + gap;
+      const fitsBelow = belowTop + 240 <= vh - margin;
+      const fitsAbove = box.top - gap - 240 >= margin;
+      if (fitsBelow || fitsAbove) {
+        left = Math.min(Math.max(margin, box.left), vw - cardW - margin);
+        top = fitsBelow ? belowTop : Math.max(margin, box.top - gap - 240);
+      }
     }
-    top = Math.min(Math.max(8, top), vh - 250);
-    cardStyle = { left, top };
+    if (left === null) {
+      // No room beside/above/below on a small screen → centre the card.
+      centered = true;
+    } else {
+      top = Math.min(Math.max(margin, top), vh - 240 - margin);
+      cardStyle = { left, top };
+    }
+  }
+  if (centered) {
+    cardStyle = { left: "50%", top: "50%", transform: "translate(-50%,-50%)" };
   }
 
   const next = () => {
@@ -165,35 +200,35 @@ export function Walkthrough({
       )}
       {/* tooltip card */}
       <div
-        className="absolute w-[340px] rounded-2xl border border-[rgba(242,238,230,0.14)] bg-[#242220] p-4 shadow-2xl transition-all duration-300"
+        className="absolute w-[calc(100vw-2rem)] max-w-[340px] rounded-2xl border border-[rgba(242,238,230,0.14)] bg-[#242220] p-4 shadow-2xl transition-all duration-300 lg:w-[340px] lg:max-w-none"
         style={{ ...cardStyle, opacity: entering ? 0.7 : 1 }}
       >
         <div className="mb-1.5 flex items-center justify-between">
           <span className="text-[10px] font-medium uppercase tracking-widest text-[#CC7A5C]">
             Step {i + 1} of {steps.length}
           </span>
-          <button onClick={onClose} className="text-[#8C8278] transition-colors hover:text-[#F2EEE6]" aria-label="Close tour">
+          <button onClick={onClose} className="-m-2 grid h-10 w-10 place-items-center text-[#8C8278] transition-colors hover:text-[#F2EEE6] lg:m-0 lg:h-auto lg:w-auto" aria-label="Close tour">
             <X className="h-4 w-4" />
           </button>
         </div>
         <h3 className="text-sm font-semibold text-[#F2EEE6]">{step.title}</h3>
         <div className="mt-1.5 text-[12.5px] leading-relaxed text-[#CFC8BD]">{step.body}</div>
-        <div className="mt-3.5 flex items-center justify-between">
-          <button onClick={onClose} className="text-[11px] text-[#8C8278] transition-colors hover:text-[#CFC8BD]">
+        <div className="mt-3.5 flex items-center justify-between gap-2">
+          <button onClick={onClose} className="flex min-h-[40px] items-center text-[11px] text-[#8C8278] transition-colors hover:text-[#CFC8BD] lg:min-h-0">
             Skip tour
           </button>
           <div className="flex items-center gap-2">
             {i > 0 && (
               <button
                 onClick={() => setI((v) => Math.max(0, v - 1))}
-                className="flex items-center gap-1 rounded-lg border border-[rgba(242,238,230,0.12)] px-2.5 py-1.5 text-[11px] text-[#CFC8BD] transition-colors hover:border-[rgba(242,238,230,0.25)]"
+                className="flex min-h-[40px] items-center gap-1 rounded-lg border border-[rgba(242,238,230,0.12)] px-3 py-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[rgba(242,238,230,0.25)] lg:min-h-0 lg:px-2.5 lg:py-1.5"
               >
                 <ArrowLeft className="h-3 w-3" /> Back
               </button>
             )}
             <button
               onClick={next}
-              className="mm-cta flex items-center gap-1 rounded-lg px-3 py-1.5 text-[11px] font-medium text-[#F7F3EC]"
+              className="mm-cta flex min-h-[40px] items-center gap-1 rounded-lg px-4 py-2 text-[11px] font-medium text-[#F7F3EC] lg:min-h-0 lg:px-3 lg:py-1.5"
             >
               {last ? "Finish" : "Next"} {!last && <ArrowRight className="h-3 w-3" />}
             </button>

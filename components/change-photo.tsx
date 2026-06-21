@@ -243,8 +243,8 @@ export function ChangePhoto({
   const cropping = cropUrl != null && target?.box != null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0a0a0a]/85 p-6 backdrop-blur-sm">
-      <div className="mm-card flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0a0a0a]/85 p-0 backdrop-blur-sm sm:p-4 lg:p-6">
+      <div className="mm-card flex h-full max-h-[100svh] w-full flex-col overflow-hidden rounded-none sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-2xl">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-[rgba(242,238,230,0.1)] px-5 py-3.5">
           <p className="text-sm font-medium text-[#F2EEE6]">
@@ -264,7 +264,7 @@ export function ChangePhoto({
         )}
 
         {cropping ? (
-          <div className="overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             <PhotoCropper
               imageUrl={cropUrl!}
               frameAspect={target!.box!.w / target!.box!.h}

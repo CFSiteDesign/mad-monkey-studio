@@ -48,20 +48,20 @@ function Slide({
           <button
             onClick={onEdit}
             title="Move, resize and retype elements on this slide by hand"
-            className="absolute right-3 top-3 flex cursor-pointer items-center gap-1.5 rounded-full bg-[#1C1A18]/85 px-3 py-1.5 text-xs font-medium text-[#F2EEE6] opacity-0 ring-1 ring-[rgba(242,238,230,0.12)] backdrop-blur-sm transition-opacity hover:bg-[#1C1A18] group-hover:opacity-100 focus-visible:opacity-100"
+            className="absolute right-3 top-3 flex cursor-pointer items-center gap-1.5 rounded-full bg-[#1C1A18]/85 px-3 py-1.5 text-xs font-medium text-[#F2EEE6] opacity-100 ring-1 ring-[rgba(242,238,230,0.12)] backdrop-blur-sm transition-opacity hover:bg-[#1C1A18] focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
           >
             <Pencil className="h-3.5 w-3.5" />
             Quick fix
           </button>
         )}
       </div>
-      <div className="flex items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-widest text-[#8C8278]">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[#8C8278]">
         <span>Slide {index + 1}</span>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {onChangePhoto && (
             <button
               onClick={onChangePhoto}
-              className="flex cursor-pointer items-center gap-1 text-[#8C8278] transition-colors hover:text-[#F2EEE6]"
+              className="flex cursor-pointer items-center gap-1 py-1 text-[#8C8278] transition-colors hover:text-[#F2EEE6] lg:py-0"
             >
               <Images className="h-3 w-3" />
               Change photo
@@ -70,7 +70,7 @@ function Slide({
           {onEdit && (
             <button
               onClick={onEdit}
-              className="flex cursor-pointer items-center gap-1 text-[#8C8278] transition-colors hover:text-[#F2EEE6]"
+              className="flex cursor-pointer items-center gap-1 py-1 text-[#8C8278] transition-colors hover:text-[#F2EEE6] lg:py-0"
             >
               <Pencil className="h-3 w-3" />
               Quick fix
@@ -127,9 +127,9 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
 
   return (
     <main className="min-h-screen bg-[#1C1A18] text-[#F2EEE6]">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/90 px-6 py-3 backdrop-blur">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-1.5 text-sm text-[#8C8278] hover:text-[#F2EEE6]">
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/90 px-4 py-3 backdrop-blur lg:px-6">
+        <div className="flex min-w-0 items-center gap-4">
+          <Link href="/" className="flex shrink-0 items-center gap-1.5 text-sm text-[#8C8278] hover:text-[#F2EEE6]">
             <ChevronLeft className="h-4 w-4" /> Studio
           </Link>
           <BrandLogo />
@@ -137,14 +137,14 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
         <button
           onClick={exportPptx}
           disabled={exporting || !done || realSlides.length === 0}
-          className="mm-cta flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[#F7F3EC] disabled:cursor-not-allowed disabled:opacity-40"
+          className="mm-cta flex shrink-0 cursor-pointer items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[#F7F3EC] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          Export to PowerPoint
+          Export<span className="hidden sm:inline"> to PowerPoint</span>
         </button>
       </header>
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-5 lg:px-6 lg:py-8">
         {deck === undefined ? (
           <div className="grid place-items-center py-32">
             <Loader2 className="h-6 w-6 animate-spin text-[#8C8278]" />

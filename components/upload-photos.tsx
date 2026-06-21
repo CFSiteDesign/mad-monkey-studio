@@ -102,7 +102,7 @@ export function UploadPhotos({
         {images.map((it) => (
           <div
             key={it.localId}
-            className="relative h-16 w-16 overflow-hidden rounded-lg ring-1 ring-[rgba(242,238,230,0.12)]"
+            className="relative h-20 w-20 overflow-hidden rounded-lg ring-1 ring-[rgba(242,238,230,0.12)] lg:h-16 lg:w-16"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={it.previewUrl} alt="Your upload" className="h-full w-full object-cover" />
@@ -118,10 +118,10 @@ export function UploadPhotos({
             <button
               type="button"
               onClick={() => onChange(images.filter((x) => x.localId !== it.localId))}
-              className="absolute right-0.5 top-0.5 grid h-4 w-4 cursor-pointer place-items-center rounded-full bg-[#1C1A18]/85 text-[#F2EEE6] hover:bg-[#1C1A18]"
+              className="absolute right-0.5 top-0.5 grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-[#1C1A18]/85 text-[#F2EEE6] hover:bg-[#1C1A18] lg:h-4 lg:w-4"
               aria-label="Remove photo"
             >
-              <X className="h-2.5 w-2.5" />
+              <X className="h-3 w-3 lg:h-2.5 lg:w-2.5" />
             </button>
           </div>
         ))}
@@ -130,7 +130,7 @@ export function UploadPhotos({
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[rgba(242,238,230,0.2)] text-[#8C8278] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#CFC8BD]"
+            className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[rgba(242,238,230,0.2)] text-[#8C8278] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#CFC8BD] lg:h-16 lg:w-16"
             title="Upload up to 3 of your own photos"
           >
             <Upload className="h-4 w-4" />
