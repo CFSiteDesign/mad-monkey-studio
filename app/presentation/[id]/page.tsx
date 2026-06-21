@@ -10,7 +10,7 @@ import { inlineSvgImages } from "@/lib/inline-images";
 import { BrandLogo } from "@/components/brand-logo";
 import { PoweredBy } from "@/components/powered-by";
 import { QuickFixEditor } from "@/components/quick-fix-editor";
-import { ChangePhoto, photoTargetsOf, swapNthPhoto } from "@/components/change-photo";
+import { ChangePhoto, photoTargetsOf, placePhoto } from "@/components/change-photo";
 import { ChevronLeft, Download, Images, Loader2, Pencil, Presentation } from "lucide-react";
 
 function Slide({
@@ -217,11 +217,11 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
         <ChangePhoto
           targets={photoTargetsOf(deck.slides[photoIndex].outputCode)}
           onClose={() => setPhotoIndex(null)}
-          onSwap={async (idx, newUrl) => {
+          onSwap={async (idx, newUrl, placement) => {
             await saveSlideEdit({
               deckId: id as Id<"decks">,
               slideIndex: photoIndex,
-              outputCode: swapNthPhoto(deck.slides[photoIndex].outputCode, idx, newUrl),
+              outputCode: placePhoto(deck.slides[photoIndex].outputCode, idx, newUrl, placement),
             });
           }}
         />

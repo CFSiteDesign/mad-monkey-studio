@@ -5,6 +5,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Loader2, Search, Upload, X } from "lucide-react";
+import { PhotoCropper, type CropRect } from "@/components/photo-cropper";
 
 /** Downscale to ≤1200px JPEG before upload (matches the image-bank page so the
  *  Claude vision payload stays small). */
@@ -31,9 +32,43 @@ function resizeImage(file: File, maxPx = 1200): Promise<Blob> {
   });
 }
 
-export type PhotoTarget = { index: number; href: string };
+function numAttr(tag: string, name: string): number | null {
+  const m = tag.match(new RegExp(`\\b${name}\\s*=\\s*"\\s*(-?[\\d.]+)`));
+  return m ? parseFloat(m[1]) : null;
+}
 
-/** The swappable photos in a design = <image> elements that aren't brand logos. */
+export type PhotoBox = { x: number; y: number; w: number; h: number };
+export type PhotoTarget = {
+  index: number;
+  href: string;
+  box: PhotoBox | null; // the frame / clip window — enables repositioning
+  rx: number; // corner radius of that window
+  clipId: string | null; // existing clip-path id to reuse, if any
+};
+export type Placement = { x: number; y: number; w: number; h: number };
+
+/** A rounded <rect> roughly matching a box → its corner radius (for un-clipped images). */
+function frameRxFor(svg: string, box: PhotoBox): number {
+  let best = 0;
+  for (const r of svg.match(/<rect\b[^>]*>/gi) ?? []) {
+    const rx = numAttr(r, "rx");
+    if (rx == null || rx <= 0) continue;
+    const x = numAttr(r, "x"), y = numAttr(r, "y"), w = numAttr(r, "width"), h = numAttr(r, "height");
+    if (x == null || y == null || w == null || h == null) continue;
+    if (
+      Math.abs(x - box.x) < box.w * 0.12 &&
+      Math.abs(y - box.y) < box.h * 0.12 &&
+      Math.abs(w - box.w) < box.w * 0.18 &&
+      Math.abs(h - box.h) < box.h * 0.18
+    ) {
+      best = Math.max(best, rx);
+    }
+  }
+  return best;
+}
+
+/** The swappable photos = <image> elements that aren't brand logos, with their
+ *  frame geometry so they can be repositioned within the frame. */
 export function photoTargetsOf(svg: string): PhotoTarget[] {
   const out: PhotoTarget[] = [];
   let i = -1;
@@ -41,13 +76,29 @@ export function photoTargetsOf(svg: string): PhotoTarget[] {
     const tag = m[0];
     if (/\/mm-logo-/.test(tag)) continue;
     i++;
-    const href = tag.match(/(?:xlink:)?href="([^"]+)"/i)?.[1] ?? "";
-    out.push({ index: i, href });
+    const href = tag.match(/(?:xlink:)?href\s*=\s*"([^"]+)"/i)?.[1] ?? "";
+    const ix = numAttr(tag, "x"), iy = numAttr(tag, "y"), iw = numAttr(tag, "width"), ih = numAttr(tag, "height");
+    const clipId = tag.match(/clip-path\s*=\s*"url\(#([^)]+)\)"/i)?.[1] ?? null;
+    let box: PhotoBox | null =
+      ix != null && iy != null && iw != null && ih != null ? { x: ix, y: iy, w: iw, h: ih } : null;
+    let rx = 0;
+    if (clipId) {
+      const cp = svg.match(new RegExp(`<clipPath[^>]*\\bid="${clipId}"[^>]*>([\\s\\S]*?)</clipPath>`, "i"));
+      const rect = cp?.[1]?.match(/<rect\b[^>]*>/i)?.[0];
+      if (rect) {
+        const cx = numAttr(rect, "x"), cy = numAttr(rect, "y"), cw = numAttr(rect, "width"), ch = numAttr(rect, "height");
+        if (cx != null && cy != null && cw != null && ch != null) box = { x: cx, y: cy, w: cw, h: ch };
+        rx = numAttr(rect, "rx") ?? 0;
+      }
+    } else if (box) {
+      rx = frameRxFor(svg, box);
+    }
+    out.push({ index: i, href, box, rx, clipId });
   }
   return out;
 }
 
-/** Replace the href of the Nth non-logo <image> (same ordering as photoTargetsOf). */
+/** Replace just the href of the Nth non-logo <image> (no reposition). */
 export function swapNthPhoto(svg: string, n: number, newUrl: string): string {
   let i = -1;
   return svg.replace(/<image\b[^>]*>/gi, (tag) => {
@@ -58,10 +109,33 @@ export function swapNthPhoto(svg: string, n: number, newUrl: string): string {
   });
 }
 
+/** Swap or reposition the Nth non-logo photo. With a placement the image is
+ *  sized/offset to the chosen crop and clipped to the frame (corners stay
+ *  rounded, nothing spills); without, it just swaps the href. */
+export function placePhoto(svg: string, n: number, newUrl: string, placement: Placement | null): string {
+  if (!placement) return swapNthPhoto(svg, n, newUrl);
+  const t = photoTargetsOf(svg)[n];
+  if (!t || !t.box) return swapNthPhoto(svg, n, newUrl);
+  const r = (v: number) => Math.round(v * 10) / 10;
+  let clipId = t.clipId;
+  let injectClip = "";
+  if (!clipId) {
+    clipId = `mmcrop-${n}-${Math.round(t.box.x)}-${Math.round(t.box.y)}`;
+    injectClip = `<clipPath id="${clipId}"><rect x="${r(t.box.x)}" y="${r(t.box.y)}" width="${r(t.box.w)}" height="${r(t.box.h)}" rx="${r(t.rx)}"/></clipPath>`;
+  }
+  const newImg = `<image href="${newUrl}" x="${r(placement.x)}" y="${r(placement.y)}" width="${r(placement.w)}" height="${r(placement.h)}" preserveAspectRatio="none" clip-path="url(#${clipId})"/>`;
+  let i = -1;
+  return svg.replace(/<image\b[^>]*>/gi, (tag) => {
+    if (/\/mm-logo-/.test(tag)) return tag;
+    i++;
+    if (i !== n) return tag;
+    return injectClip + newImg;
+  });
+}
+
 /**
- * Modal to change a photo in a design: pick from the community image bank, or
- * upload your own (which is auto-described by Claude and added to the bank).
- * onSwap replaces the chosen photo with the new image's URL.
+ * Modal to change a photo: pick from the community bank or upload your own
+ * (auto-described + added to the bank), then drag/zoom to frame the exact shot.
  */
 export function ChangePhoto({
   targets,
@@ -69,7 +143,7 @@ export function ChangePhoto({
   onClose,
 }: {
   targets: PhotoTarget[];
-  onSwap: (index: number, newUrl: string) => Promise<void>;
+  onSwap: (index: number, newUrl: string, placement: Placement | null) => Promise<void>;
   onClose: () => void;
 }) {
   const images = useQuery(api.imageBank.listImages);
@@ -84,7 +158,10 @@ export function ChangePhoto({
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [cropUrl, setCropUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const target = targets.find((t) => t.index === targetIndex) ?? null;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -94,11 +171,11 @@ export function ChangePhoto({
     return () => document.removeEventListener("keydown", onKey);
   }, [busy, onClose]);
 
-  async function doSwap(url: string) {
+  async function applySwap(url: string, placement: Placement | null) {
     if (targetIndex == null) return;
     setBusy("Updating design…");
     try {
-      await onSwap(targetIndex, url);
+      await onSwap(targetIndex, url, placement);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't update the design.");
@@ -106,13 +183,21 @@ export function ChangePhoto({
     }
   }
 
-  // A freshly uploaded image lands in the bank reactively — swap to it once it appears.
+  // A chosen image goes to the reposition step if the photo sits in a frame;
+  // otherwise it's swapped straight in.
+  function chooseImage(url: string) {
+    if (target?.box) setCropUrl(url);
+    else void applySwap(url, null);
+  }
+
+  // A freshly uploaded image lands in the bank reactively — pick it up once it appears.
   useEffect(() => {
     if (!pendingId || !images || targetIndex == null) return;
     const row = images.find((im) => im.id === pendingId);
     if (row?.url) {
       setPendingId(null);
-      void doSwap(row.url);
+      setBusy("");
+      chooseImage(row.url);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images, pendingId, targetIndex]);
@@ -142,8 +227,7 @@ export function ChangePhoto({
       const description = await describeImage({ storageId });
       setBusy("Adding to the community bank…");
       const newId = await addImage({ storageId, description });
-      setBusy("Adding to your design…");
-      setPendingId(newId as unknown as string); // effect swaps once it appears in the bank
+      setPendingId(newId as unknown as string); // effect picks it up once it appears in the bank
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed.");
       setBusy("");
@@ -156,14 +240,15 @@ export function ChangePhoto({
   }, [images, query]);
 
   const picking = targetIndex == null && targets.length > 1;
+  const cropping = cropUrl != null && target?.box != null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0a0a0a]/85 p-6 backdrop-blur-sm">
-      <div className="mm-card flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl">
+      <div className="mm-card flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-[rgba(242,238,230,0.1)] px-5 py-3.5">
           <p className="text-sm font-medium text-[#F2EEE6]">
-            {picking ? "Which photo do you want to change?" : "Change photo"}
+            {cropping ? "Frame the shot" : picking ? "Which photo do you want to change?" : "Change photo"}
           </p>
           <button
             onClick={onClose}
@@ -178,8 +263,26 @@ export function ChangePhoto({
           <p className="shrink-0 border-b border-red-500/20 bg-red-500/5 px-5 py-2 text-xs text-red-300">{error}</p>
         )}
 
-        {/* Step 1 — choose which photo (only when the design has several) */}
-        {picking ? (
+        {cropping ? (
+          <div className="overflow-y-auto">
+            <PhotoCropper
+              imageUrl={cropUrl!}
+              frameAspect={target!.box!.w / target!.box!.h}
+              rxFrac={target!.rx / Math.min(target!.box!.w, target!.box!.h)}
+              onBack={() => setCropUrl(null)}
+              onApply={(rect: CropRect) => {
+                const b = target!.box!;
+                applySwap(cropUrl!, {
+                  x: b.x + rect.nx * b.w,
+                  y: b.y + rect.ny * b.h,
+                  w: rect.nw * b.w,
+                  h: rect.nh * b.h,
+                });
+              }}
+            />
+          </div>
+        ) : picking ? (
+          /* Choose which photo (only when the design has several) */
           <div className="grid grid-cols-3 gap-3 overflow-y-auto p-5 sm:grid-cols-4">
             {targets.map((t) => (
               <button
@@ -240,7 +343,7 @@ export function ChangePhoto({
                 filtered.map((im) => (
                   <button
                     key={im.id}
-                    onClick={() => doSwap(im.url!)}
+                    onClick={() => chooseImage(im.url!)}
                     disabled={!!busy}
                     title={im.description}
                     className="group relative aspect-square overflow-hidden rounded-lg ring-1 ring-[rgba(242,238,230,0.12)] transition hover:ring-[#CC7A5C] disabled:opacity-50"

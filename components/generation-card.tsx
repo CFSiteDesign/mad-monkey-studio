@@ -16,7 +16,7 @@ import {
   type ExportKind,
 } from "@/lib/export";
 import { QuickFixEditor } from "@/components/quick-fix-editor";
-import { ChangePhoto, photoTargetsOf, swapNthPhoto } from "@/components/change-photo";
+import { ChangePhoto, photoTargetsOf, placePhoto } from "@/components/change-photo";
 import {
   Check,
   ChevronDown,
@@ -322,10 +322,10 @@ export function GenerationCard({
         <ChangePhoto
           targets={photoTargets}
           onClose={() => setChanging(false)}
-          onSwap={async (index, newUrl) => {
+          onSwap={async (index, newUrl, placement) => {
             await saveManualEdit({
               generationId: gen.id as Id<"generations">,
-              outputCode: swapNthPhoto(gen.outputCode, index, newUrl),
+              outputCode: placePhoto(gen.outputCode, index, newUrl, placement),
             });
           }}
         />
