@@ -29,12 +29,77 @@ type Props = {
 };
 
 type Corners = { x: number; y: number }[];
+type FrameBox = { x: number; y: number; w: number; h: number };
 type Gesture =
   | { kind: "move"; el: SVGGraphicsElement; base: string; startX: number; startY: number }
   | { kind: "resize"; el: SVGGraphicsElement; base: string; cx: number; cy: number; startDist: number }
-  | { kind: "rotate"; el: SVGGraphicsElement; base: string; cx: number; cy: number; startAngle: number };
+  | { kind: "rotate"; el: SVGGraphicsElement; base: string; cx: number; cy: number; startAngle: number }
+  // Canva-style: pan/zoom a framed photo *inside* its frame (cover-clamped).
+  | { kind: "panImage"; el: SVGGraphicsElement; frame: FrameBox; nat: number; w: number; h: number; baseX: number; baseY: number; startX: number; startY: number }
+  | { kind: "pinchImage"; el: SVGGraphicsElement; frame: FrameBox; nat: number; baseZ: number; startDist: number };
 
 const BG_COVERAGE = 0.88; // elements covering ≥88% of both axes = background, not selectable
+
+const getNum = (el: Element, name: string): number | null => {
+  const v = el.getAttribute(name);
+  if (v == null) return null;
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+/** The clip-frame (window) bounding box of a clipped <image>, in root user units. */
+function frameBoxOf(root: SVGSVGElement, imgEl: Element): FrameBox | null {
+  const id = imgEl.getAttribute("clip-path")?.match(/url\(#([^)]+)\)/)?.[1];
+  if (!id) return null;
+  let clip: Element | null = null;
+  try {
+    clip = root.querySelector(`clipPath[id="${CSS.escape(id)}"]`);
+  } catch {
+    clip = null;
+  }
+  // Only userSpaceOnUse clips have absolute coords we can pan against;
+  // objectBoundingBox clips use 0–1 fractions, so skip them (fall back to move).
+  if ((clip?.getAttribute("clipPathUnits") || "").includes("objectBoundingBox")) return null;
+  const shape = clip?.querySelector("rect,circle,ellipse,path,polygon") ?? null;
+  if (!shape) return null;
+  const t = shape.tagName.toLowerCase();
+  if (t === "rect") {
+    const x = getNum(shape, "x") ?? 0, y = getNum(shape, "y") ?? 0;
+    const w = getNum(shape, "width"), h = getNum(shape, "height");
+    if (w && h) return { x, y, w, h };
+  } else if (t === "circle") {
+    const cx = getNum(shape, "cx") ?? 0, cy = getNum(shape, "cy") ?? 0, r = getNum(shape, "r");
+    if (r) return { x: cx - r, y: cy - r, w: 2 * r, h: 2 * r };
+  } else if (t === "ellipse") {
+    const cx = getNum(shape, "cx") ?? 0, cy = getNum(shape, "cy") ?? 0;
+    const rx = getNum(shape, "rx"), ry = getNum(shape, "ry");
+    if (rx && ry) return { x: cx - rx, y: cy - ry, w: 2 * rx, h: 2 * ry };
+  }
+  try {
+    const b = (shape as SVGGraphicsElement).getBBox();
+    if (b.width && b.height) return { x: b.x, y: b.y, w: b.width, h: b.height };
+  } catch {
+    /* getBBox can throw inside <defs> */
+  }
+  return null;
+}
+
+/** Photo size that exactly covers the frame at zoom 1, scaled by z. */
+function coverSize(frame: FrameBox, natAspect: number, z: number) {
+  const fa = frame.w / frame.h;
+  return {
+    w: (natAspect > fa ? frame.h * natAspect : frame.w) * z,
+    h: (natAspect > fa ? frame.h : frame.w / natAspect) * z,
+  };
+}
+
+/** Keep the photo covering the frame (drag never exposes a gap). */
+function clampCover(frame: FrameBox, x: number, y: number, w: number, h: number) {
+  return {
+    x: Math.min(frame.x, Math.max(frame.x + frame.w - w, x)),
+    y: Math.min(frame.y, Math.max(frame.y + frame.h - h, y)),
+  };
+}
 
 /**
  * Element corners in pixels relative to the wrapper's top-left, via
@@ -78,10 +143,11 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
   const dimsRef = useRef<{ w: number; h: number; widthAttr: string | null; heightAttr: string | null }>({ w: 1080, h: 1080, widthAttr: null, heightAttr: null });
   const undoRef = useRef<string[]>([]);
   const gestureRef = useRef<Gesture | null>(null);
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
 
   const [ready, setReady] = useState(false);
   const [selected, setSelected] = useState<SVGGraphicsElement | null>(null);
-  const [overlay, setOverlay] = useState<{ corners: Corners; box: ReturnType<typeof aabb> } | null>(null);
+  const [overlay, setOverlay] = useState<{ corners: Corners; box: ReturnType<typeof aabb>; photo: boolean } | null>(null);
   const [editingText, setEditingText] = useState<{ el: SVGTextElement; value: string } | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -177,6 +243,20 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
       live.style.display = "block";
       hostRef.current.appendChild(live);
       rootRef.current = live;
+      // Record each photo's natural pixel size (hrefs are inlined data URLs, so
+      // these load instantly) — needed to pan/zoom a photo inside its frame.
+      Array.from(live.querySelectorAll("image")).forEach((img) => {
+        const href = img.getAttribute("href");
+        if (!href) return;
+        const probe = new window.Image();
+        probe.onload = () => {
+          if (probe.naturalWidth && probe.naturalHeight) {
+            img.setAttribute("data-nat-w", String(probe.naturalWidth));
+            img.setAttribute("data-nat-h", String(probe.naturalHeight));
+          }
+        };
+        probe.src = href;
+      });
       setWrapSize(fitWrap());
       setReady(true);
     })();
@@ -196,6 +276,10 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
         img.setAttribute("href", img.getAttribute("data-orig-href")!);
         img.removeAttribute("data-orig-href");
       });
+      clone.querySelectorAll("image[data-nat-w]").forEach((img) => {
+        img.removeAttribute("data-nat-w");
+        img.removeAttribute("data-nat-h");
+      });
       const { widthAttr, heightAttr } = dimsRef.current;
       if (widthAttr) clone.setAttribute("width", widthAttr);
       if (heightAttr) clone.setAttribute("height", heightAttr);
@@ -209,14 +293,86 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
     setCanUndo(true);
   }, [serialize]);
 
+  // A framed photo = an un-transformed clipped <image> whose natural size is
+  // known, so we can pan/zoom it inside its frame.
+  const framedPhotoInfo = useCallback((el: Element | null): { frame: FrameBox; nat: number } | null => {
+    const root = rootRef.current;
+    if (!root || !el || el.tagName.toLowerCase() !== "image") return null;
+    if (el.getAttribute("transform")) return null;
+    const nw = getNum(el, "data-nat-w"), nh = getNum(el, "data-nat-h");
+    if (!nw || !nh) return null;
+    const frame = frameBoxOf(root, el);
+    return frame ? { frame, nat: nw / nh } : null;
+  }, []);
+
+  // Frame box → wrapper-pixel corners (via the image's screen CTM).
+  const frameCornersPx = useCallback((el: SVGGraphicsElement, frame: FrameBox): Corners | null => {
+    const m = el.getScreenCTM();
+    const wrapEl = wrapRef.current;
+    if (!m || !wrapEl) return null;
+    const r = wrapEl.getBoundingClientRect();
+    return ([
+      [frame.x, frame.y],
+      [frame.x + frame.w, frame.y],
+      [frame.x + frame.w, frame.y + frame.h],
+      [frame.x, frame.y + frame.h],
+    ] as const).map(([x, y]) => ({ x: m.a * x + m.c * y + m.e - r.left, y: m.b * x + m.d * y + m.f - r.top }));
+  }, []);
+
+  // Put the photo into "none + cover-rect" form (so it can be freely panned),
+  // returning its current rect and zoom. Slice-cover centred looks identical.
+  const normalizePhoto = useCallback((el: SVGGraphicsElement, frame: FrameBox, nat: number) => {
+    const cover1 = coverSize(frame, nat, 1);
+    const pa = (el.getAttribute("preserveAspectRatio") || "").toLowerCase();
+    const cx = getNum(el, "x"), cy = getNum(el, "y"), cw = getNum(el, "width"), ch = getNum(el, "height");
+    let w = cover1.w, h = cover1.h, x: number, y: number, z = 1;
+    if (pa.includes("none") && cw && ch && Math.abs(cw / ch - cover1.w / cover1.h) < 0.02) {
+      z = Math.max(1, cw / cover1.w);
+      w = cw; h = ch;
+      x = cx ?? frame.x; y = cy ?? frame.y;
+    } else {
+      x = frame.x + (frame.w - w) / 2;
+      y = frame.y + (frame.h - h) / 2;
+    }
+    const c = clampCover(frame, x, y, w, h);
+    el.setAttribute("preserveAspectRatio", "none");
+    el.setAttribute("x", c.x.toFixed(1));
+    el.setAttribute("y", c.y.toFixed(1));
+    el.setAttribute("width", w.toFixed(1));
+    el.setAttribute("height", h.toFixed(1));
+    return { x: c.x, y: c.y, w, h, z };
+  }, []);
+
+  // Zoom the photo within its frame, anchored on the frame centre.
+  const applyZoom = useCallback((el: SVGGraphicsElement, frame: FrameBox, nat: number, z: number) => {
+    const curX = getNum(el, "x") ?? frame.x, curY = getNum(el, "y") ?? frame.y;
+    const curW = getNum(el, "width") ?? frame.w, curH = getNum(el, "height") ?? frame.h;
+    const { w, h } = coverSize(frame, nat, z);
+    const fcx = frame.x + frame.w / 2, fcy = frame.y + frame.h / 2;
+    const nx = (fcx - curX) / curW, ny = (fcy - curY) / curH;
+    const c = clampCover(frame, fcx - nx * w, fcy - ny * h, w, h);
+    el.setAttribute("width", w.toFixed(1));
+    el.setAttribute("height", h.toFixed(1));
+    el.setAttribute("x", c.x.toFixed(1));
+    el.setAttribute("y", c.y.toFixed(1));
+  }, []);
+
   const refreshOverlay = useCallback((el: SVGGraphicsElement | null) => {
     if (!el) {
       setOverlay(null);
       return;
     }
+    const info = framedPhotoInfo(el);
+    if (info) {
+      const corners = frameCornersPx(el, info.frame);
+      if (corners) {
+        setOverlay({ corners, box: aabb(corners), photo: true });
+        return;
+      }
+    }
     const corners = cornersOf(el, wrapRef.current);
-    setOverlay(corners ? { corners, box: aabb(corners) } : null);
-  }, []);
+    setOverlay(corners ? { corners, box: aabb(corners), photo: false } : null);
+  }, [framedPhotoInfo, frameCornersPx]);
 
   const select = useCallback(
     (el: SVGGraphicsElement | null) => {
@@ -284,6 +440,14 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
       return textEl;
     }
 
+    // A clipped <image> (framed photo) is ALWAYS individually selectable so it
+    // can be panned/zoomed inside its frame — otherwise the wrapper-expansion
+    // logic below would select its enclosing group instead.
+    const imgEl = (node.closest?.("image") ?? null) as SVGGraphicsElement | null;
+    if (imgEl && root.contains(imgEl) && imgEl.getAttribute("clip-path") && cornersOf(imgEl, wrapRef.current)) {
+      return imgEl;
+    }
+
     // Ancestor chain from the leaf up to (excluding) the root svg.
     const chain: Element[] = [];
     let n: Element | null = node;
@@ -333,10 +497,53 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
   const onCanvasPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (editingText) return;
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      // Second finger on an active photo-pan → pinch-zoom the photo in its frame.
+      const active = gestureRef.current;
+      if (pointersRef.current.size >= 2 && active && active.kind === "panImage") {
+        const pts = [...pointersRef.current.values()];
+        const dist = Math.max(8, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y));
+        const cover1 = coverSize(active.frame, active.nat, 1);
+        gestureRef.current = {
+          kind: "pinchImage",
+          el: active.el,
+          frame: active.frame,
+          nat: active.nat,
+          baseZ: Math.max(1, active.w / cover1.w),
+          startDist: dist,
+        };
+        e.preventDefault();
+        return;
+      }
+
       const el = selectableAt(e.clientX, e.clientY);
       select(el);
       if (!el) return;
       e.preventDefault();
+
+      // Framed photo → pan it inside its frame (Canva-style), not move the element.
+      const photo = framedPhotoInfo(el);
+      if (photo) {
+        pushUndo();
+        const norm = normalizePhoto(el, photo.frame, photo.nat);
+        const p = toUserPoint(e.clientX, e.clientY);
+        gestureRef.current = {
+          kind: "panImage",
+          el,
+          frame: photo.frame,
+          nat: photo.nat,
+          w: norm.w,
+          h: norm.h,
+          baseX: norm.x,
+          baseY: norm.y,
+          startX: p.x,
+          startY: p.y,
+        };
+        refreshOverlay(el);
+        return;
+      }
+
       const p = toUserPoint(e.clientX, e.clientY);
       pushUndo();
       gestureRef.current = {
@@ -347,7 +554,7 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
         startY: p.y,
       };
     },
-    [editingText, selectableAt, select, toUserPoint, pushUndo],
+    [editingText, selectableAt, select, framedPhotoInfo, normalizePhoto, toUserPoint, pushUndo, refreshOverlay],
   );
 
   const startHandleGesture = useCallback(
@@ -382,8 +589,26 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
 
   useEffect(() => {
     function onMove(e: PointerEvent) {
+      if (pointersRef.current.has(e.pointerId)) pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       const g = gestureRef.current;
       if (!g) return;
+      // Photo gestures move the image's geometry within its frame (no transform).
+      if (g.kind === "panImage") {
+        const p = toUserPoint(e.clientX, e.clientY);
+        const c = clampCover(g.frame, g.baseX + (p.x - g.startX), g.baseY + (p.y - g.startY), g.w, g.h);
+        g.el.setAttribute("x", c.x.toFixed(1));
+        g.el.setAttribute("y", c.y.toFixed(1));
+        refreshOverlay(g.el);
+        return;
+      }
+      if (g.kind === "pinchImage") {
+        const pts = [...pointersRef.current.values()];
+        if (pts.length < 2) return;
+        const dist = Math.max(8, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y));
+        applyZoom(g.el, g.frame, g.nat, Math.max(1, Math.min(6, g.baseZ * (dist / g.startDist))));
+        refreshOverlay(g.el);
+        return;
+      }
       const p = toUserPoint(e.clientX, e.clientY);
       let prefix = "";
       if (g.kind === "move") {
@@ -398,16 +623,46 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
       g.el.setAttribute("transform", `${prefix} ${g.base}`.trim());
       refreshOverlay(g.el);
     }
-    function onUp() {
+    function onUp(e: PointerEvent) {
+      pointersRef.current.delete(e.pointerId);
       gestureRef.current = null;
     }
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     };
-  }, [toUserPoint, refreshOverlay]);
+  }, [toUserPoint, refreshOverlay, applyZoom]);
+
+  // Desktop scroll-to-zoom on a selected framed photo. Native non-passive
+  // listener so we can preventDefault the page/canvas scroll.
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap || !ready) return;
+    let lastUndo = 0;
+    function onWheel(e: WheelEvent) {
+      const el = selected;
+      const info = el ? framedPhotoInfo(el) : null;
+      if (!el || !info) return;
+      e.preventDefault();
+      const now = Date.now();
+      if (now - lastUndo > 350) pushUndo();
+      lastUndo = now;
+      const cover1 = coverSize(info.frame, info.nat, 1);
+      if (!(el.getAttribute("preserveAspectRatio") || "").toLowerCase().includes("none")) {
+        normalizePhoto(el, info.frame, info.nat);
+      }
+      const curW = getNum(el, "width") ?? cover1.w;
+      const z = Math.max(1, Math.min(6, (curW / cover1.w) * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
+      applyZoom(el, info.frame, info.nat, z);
+      refreshOverlay(el);
+    }
+    wrap.addEventListener("wheel", onWheel, { passive: false });
+    return () => wrap.removeEventListener("wheel", onWheel);
+  }, [ready, selected, framedPhotoInfo, normalizePhoto, applyZoom, refreshOverlay, pushUndo]);
 
   // ── Text editing ───────────────────────────────────────────────────────────
   const onCanvasDoubleClick = useCallback(
@@ -534,7 +789,7 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
           <p className="text-sm font-medium text-[#F2EEE6]">Quick fix</p>
           <p className="hidden items-center gap-1.5 text-[11px] text-[#8C8278] lg:flex">
             <MousePointerClick className="h-3.5 w-3.5" />
-            click to select · drag to move · handles resize/rotate · double-click text to edit · arrows nudge · ⌫ delete · ⌘Z undo
+            click to select · drag to move · drag a photo to reframe it (scroll/pinch to zoom) · handles resize/rotate · double-click text to edit · ⌫ delete · ⌘Z undo
           </p>
         </div>
         <div className="flex flex-1 items-center justify-end gap-2 lg:flex-none">
@@ -612,37 +867,49 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
                 strokeWidth={2.5}
                 strokeDasharray="8 5"
               />
-              {/* Resize handle — bottom-right */}
-              <circle
-                cx={overlay.box.x2}
-                cy={overlay.box.y2}
-                r={handleR}
-                fill="#CC7A5C"
-                stroke="#ffffff"
-                strokeWidth={2.5}
-                style={{ pointerEvents: "all", cursor: "nwse-resize" }}
-                onPointerDown={startHandleGesture("resize")}
-              />
-              {/* Rotate handle — above top-centre */}
-              <line
-                x1={overlay.box.cx}
-                y1={overlay.box.y1}
-                x2={overlay.box.cx}
-                y2={overlay.box.y1 - handleR * 2.4}
-                stroke="#CC7A5C"
-                strokeWidth={2}
-              />
-              <circle
-                cx={overlay.box.cx}
-                cy={overlay.box.y1 - handleR * 2.4}
-                r={handleR * 0.85}
-                fill="#ffffff"
-                stroke="#CC7A5C"
-                strokeWidth={2.5}
-                style={{ pointerEvents: "all", cursor: "grab" }}
-                onPointerDown={startHandleGesture("rotate")}
-              />
+              {/* Photos zoom via scroll/pinch — no resize/rotate handles. */}
+              {!overlay.photo && (
+                <>
+                  {/* Resize handle — bottom-right */}
+                  <circle
+                    cx={overlay.box.x2}
+                    cy={overlay.box.y2}
+                    r={handleR}
+                    fill="#CC7A5C"
+                    stroke="#ffffff"
+                    strokeWidth={2.5}
+                    style={{ pointerEvents: "all", cursor: "nwse-resize" }}
+                    onPointerDown={startHandleGesture("resize")}
+                  />
+                  {/* Rotate handle — above top-centre */}
+                  <line
+                    x1={overlay.box.cx}
+                    y1={overlay.box.y1}
+                    x2={overlay.box.cx}
+                    y2={overlay.box.y1 - handleR * 2.4}
+                    stroke="#CC7A5C"
+                    strokeWidth={2}
+                  />
+                  <circle
+                    cx={overlay.box.cx}
+                    cy={overlay.box.y1 - handleR * 2.4}
+                    r={handleR * 0.85}
+                    fill="#ffffff"
+                    stroke="#CC7A5C"
+                    strokeWidth={2.5}
+                    style={{ pointerEvents: "all", cursor: "grab" }}
+                    onPointerDown={startHandleGesture("rotate")}
+                  />
+                </>
+              )}
             </svg>
+          )}
+
+          {/* Photo selected → Canva-style reposition hint */}
+          {overlay?.photo && (
+            <div className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#1C1A18]/85 px-3 py-1 text-[11px] text-[#F2EEE6] ring-1 ring-[rgba(242,238,230,0.15)] backdrop-blur-sm">
+              Drag to reposition · scroll or pinch to zoom
+            </div>
           )}
 
           {/* Floating text editor */}
