@@ -41,9 +41,10 @@ export type PhotoBox = { x: number; y: number; w: number; h: number };
 export type PhotoTarget = {
   index: number;
   href: string;
-  box: PhotoBox | null; // the frame / clip window — enables repositioning
-  rx: number; // corner radius of that window
+  box: PhotoBox | null; // the frame / clip window's bounding box — enables repositioning
+  rx: number; // corner radius (rect frames)
   clipId: string | null; // existing clip-path id to reuse, if any
+  clipShape: string | null; // the actual clip shape markup (rect/circle/ellipse/path…) so the cropper window matches the frame
 };
 export type Placement = { x: number; y: number; w: number; h: number };
 
@@ -82,18 +83,31 @@ export function photoTargetsOf(svg: string): PhotoTarget[] {
     let box: PhotoBox | null =
       ix != null && iy != null && iw != null && ih != null ? { x: ix, y: iy, w: iw, h: ih } : null;
     let rx = 0;
+    let clipShape: string | null = null;
     if (clipId) {
       const cp = svg.match(new RegExp(`<clipPath[^>]*\\bid="${clipId}"[^>]*>([\\s\\S]*?)</clipPath>`, "i"));
-      const rect = cp?.[1]?.match(/<rect\b[^>]*>/i)?.[0];
-      if (rect) {
-        const cx = numAttr(rect, "x"), cy = numAttr(rect, "y"), cw = numAttr(rect, "width"), ch = numAttr(rect, "height");
-        if (cx != null && cy != null && cw != null && ch != null) box = { x: cx, y: cy, w: cw, h: ch };
-        rx = numAttr(rect, "rx") ?? 0;
+      const inner = cp?.[1] ?? "";
+      const sm = inner.match(/<(rect|circle|ellipse|path|polygon)\b[^>]*\/?>/i);
+      if (sm) {
+        clipShape = sm[0];
+        const kind = sm[1].toLowerCase();
+        if (kind === "rect") {
+          const cx = numAttr(sm[0], "x"), cy = numAttr(sm[0], "y"), cw = numAttr(sm[0], "width"), ch = numAttr(sm[0], "height");
+          if (cx != null && cy != null && cw != null && ch != null) box = { x: cx, y: cy, w: cw, h: ch };
+          rx = numAttr(sm[0], "rx") ?? 0;
+        } else if (kind === "circle") {
+          const cc = numAttr(sm[0], "cx"), cd = numAttr(sm[0], "cy"), cr = numAttr(sm[0], "r");
+          if (cc != null && cd != null && cr != null) box = { x: cc - cr, y: cd - cr, w: cr * 2, h: cr * 2 };
+        } else if (kind === "ellipse") {
+          const cc = numAttr(sm[0], "cx"), cd = numAttr(sm[0], "cy"), erx = numAttr(sm[0], "rx"), ery = numAttr(sm[0], "ry");
+          if (cc != null && cd != null && erx != null && ery != null) box = { x: cc - erx, y: cd - ery, w: erx * 2, h: ery * 2 };
+        }
+        // path / polygon: keep the <image> box as an approximate bounding box
       }
     } else if (box) {
       rx = frameRxFor(svg, box);
     }
-    out.push({ index: i, href, box, rx, clipId });
+    out.push({ index: i, href, box, rx, clipId, clipShape });
   }
   return out;
 }
@@ -269,6 +283,8 @@ export function ChangePhoto({
               imageUrl={cropUrl!}
               frameAspect={target!.box!.w / target!.box!.h}
               rxFrac={target!.rx / Math.min(target!.box!.w, target!.box!.h)}
+              clipShape={target!.clipShape}
+              clipBox={target!.box}
               onBack={() => setCropUrl(null)}
               onApply={(rect: CropRect) => {
                 const b = target!.box!;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, Loader2, ZoomIn } from "lucide-react";
 
 /** Result as a rect relative to the cut-out window ([0,0,1,1] = the window
@@ -20,12 +20,16 @@ export function PhotoCropper({
   imageUrl,
   frameAspect,
   rxFrac = 0,
+  clipShape = null,
+  clipBox = null,
   onApply,
   onBack,
 }: {
   imageUrl: string;
   frameAspect: number; // windowW / windowH
   rxFrac?: number; // corner radius as a fraction of the window's short side
+  clipShape?: string | null; // actual frame clip shape markup (circle/path/…)
+  clipBox?: { x: number; y: number; w: number; h: number } | null; // that shape's bounding box
   onApply: (rect: CropRect) => void;
   onBack: () => void;
 }) {
@@ -160,6 +164,31 @@ export function PhotoCropper({
 
   const radius = rxFrac * Math.min(geo.WW, geo.WH);
 
+  // The cut-out hole matches the design's ACTUAL frame shape (circle, arch,
+  // rounded rect…), not just a rectangle. We scale the real clip geometry into
+  // the window rect; if there's no shape we fall back to a rounded rect.
+  const rawId = useId();
+  const maskId = "mmhole-" + rawId.replace(/[^a-zA-Z0-9]/g, "");
+  const shapeWith = (shape: string, extra: string) =>
+    shape
+      .replace(/\s(fill|stroke|stroke-width|vector-effect|opacity|style|clip-path|mask)\s*=\s*"[^"]*"/gi, "")
+      .replace(/^(<[a-zA-Z]+)/, `$1 ${extra} `);
+  const hole = (extra: string) => {
+    if (clipShape && clipBox && clipBox.w > 0 && clipBox.h > 0) {
+      const s = geo.WW / clipBox.w;
+      const tf = `translate(${geo.WX} ${geo.WY}) scale(${s}) translate(${-clipBox.x} ${-clipBox.y})`;
+      return `<g transform="${tf}">${shapeWith(clipShape, extra)}</g>`;
+    }
+    return `<rect x="${geo.WX}" y="${geo.WY}" width="${geo.WW}" height="${geo.WH}" rx="${radius}" ${extra}/>`;
+  };
+  const overlaySvg =
+    `<defs><mask id="${maskId}" maskUnits="userSpaceOnUse" x="0" y="0" width="${geo.SW}" height="${geo.SH}">` +
+    `<rect width="${geo.SW}" height="${geo.SH}" fill="#fff"/>` +
+    hole('fill="#000"') +
+    `</mask></defs>` +
+    `<rect width="${geo.SW}" height="${geo.SH}" fill="rgba(12,11,9,0.62)" mask="url(#${maskId})"/>` +
+    hole('fill="none" stroke="#F2EEE6" stroke-width="2" vector-effect="non-scaling-stroke"');
+
   return (
     <div ref={wrapRef} className="flex flex-col items-center gap-4 p-5">
       <p className="px-2 text-center text-[12px] text-[#8C8278]">
@@ -193,17 +222,13 @@ export function PhotoCropper({
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
             />
-            {/* Cut-out window: dims everything outside, bright frame on top */}
-            <div
-              className="pointer-events-none absolute border-2 border-[#F2EEE6]"
-              style={{
-                left: geo.WX,
-                top: geo.WY,
-                width: geo.WW,
-                height: geo.WH,
-                borderRadius: radius,
-                boxShadow: "0 0 0 9999px rgba(12,11,9,0.62)",
-              }}
+            {/* Cut-out window in the frame's real shape: dims outside, bright outline on top */}
+            <svg
+              className="pointer-events-none absolute inset-0"
+              width={geo.SW}
+              height={geo.SH}
+              aria-hidden
+              dangerouslySetInnerHTML={{ __html: overlaySvg }}
             />
             <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/45 px-2 py-1 text-[11px] text-[#F2EEE6]">
               The bright window is your post
