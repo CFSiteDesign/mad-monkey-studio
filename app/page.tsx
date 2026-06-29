@@ -634,7 +634,7 @@ export default function StudioPage() {
   return (
     <div className="mm-ambient relative flex min-h-[100svh] flex-col dt:h-screen dt:overflow-hidden">
       {/* ── Header ── */}
-      <header className="mm-safe-t z-20 flex min-h-[3.5rem] shrink-0 items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-3 py-2 backdrop-blur-md sm:px-4 lg:min-h-0 lg:px-6 lg:py-3.5">
+      <header className="z-20 flex shrink-0 items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-3 py-2.5 backdrop-blur-md sm:px-4 sm:py-3 lg:px-6 lg:py-3.5">
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           {/* Mobile: open the gallery drawer */}
           <button
