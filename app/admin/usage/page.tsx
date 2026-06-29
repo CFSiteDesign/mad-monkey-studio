@@ -111,7 +111,7 @@ export default function AdminUsagePage() {
 
   return (
     <div className="mm-ambient min-h-[100svh] text-[#F2EEE6]">
-      <header className="mm-safe-t sticky top-0 z-10 flex min-h-[3.5rem] items-center justify-between gap-3 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/85 px-4 py-2.5 backdrop-blur-md lg:px-6">
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/85 px-4 py-3 backdrop-blur-md lg:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/" className="flex shrink-0 items-center gap-1.5 text-sm text-[#8C8278] hover:text-[#F2EEE6]">
             <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Studio</span>
