@@ -21,12 +21,13 @@ export const metadata: Metadata = {
   description: "AI-first design system for on-brand marketing assets.",
 };
 
-// Mobile: fit the device width, allow pinch-zoom (accessibility), and tint the
-// browser chrome to the app's charcoal so it feels native on a phone.
+// Fit the device width and tint the browser chrome / safe-area to the app's
+// charcoal. Note: NOT viewport-fit:cover — covering would extend the page under
+// a notch and leave headers with asymmetric top safe-area padding (content
+// pushed down, black band on top), especially in desktop fullscreen.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  viewportFit: "cover",
   themeColor: "#1C1A18",
 };
 
