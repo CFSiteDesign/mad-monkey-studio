@@ -3,14 +3,16 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Images, LogOut } from "lucide-react";
+import { BarChart3, Images, LogOut, Wallet } from "lucide-react";
 
 export function SignOutButton({
   initials,
   email,
+  role,
 }: {
   initials: string;
   email?: string;
+  role?: string;
 }) {
   const { signOut } = useAuthActions();
   const router = useRouter();
@@ -78,6 +80,22 @@ export function SignOutButton({
             <Images className="h-4 w-4 text-[#8C8278]" />
             Image bank
           </button>
+          {role === "admin" && (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                router.push("/admin/usage");
+              }}
+              className="flex min-h-[40px] w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-[#F2EEE6] hover:bg-[rgba(242,238,230,0.05)] transition-colors cursor-pointer lg:min-h-0 lg:py-2"
+            >
+              <Wallet className="h-4 w-4 text-[#8C8278]" />
+              Usage dashboard
+              <span className="ml-auto rounded-full border border-[rgba(242,238,230,0.1)] px-1.5 py-0.5 text-[8px] uppercase tracking-widest text-[#8C8278]">
+                admin
+              </span>
+            </button>
+          )}
           <button
             role="menuitem"
             onClick={async () => {

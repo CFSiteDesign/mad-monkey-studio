@@ -167,3 +167,128 @@ export const listMembers = query({
     };
   },
 });
+
+// ── Admin usage dashboard ──────────────────────────────────────────────────
+// Everyone's spend at a glance: per-person month/all-time spend, creation
+// counts, average cost per creation, cap usage, plus brand-wide totals and a
+// format breakdown. Spend covers BOTH single creations (generations table) and
+// presentations (decks table), which each carry their own cost.
+export const usageOverview = query({
+  args: {},
+  handler: async (ctx) => {
+    const adminId = await requireAdmin(ctx);
+    const admin = await ctx.db.get(adminId);
+    const brandId = admin?.brandId;
+    const periodMonth = new Date(Date.now()).toISOString().slice(0, 7); // "YYYY-MM"
+    const inMonth = (ts: number) => new Date(ts).toISOString().slice(0, 7) === periodMonth;
+
+    const members = (await ctx.db.query("users").collect()).filter(
+      (u) => !brandId || u.brandId === brandId,
+    );
+    const gens = brandId
+      ? await ctx.db.query("generations").withIndex("by_brand", (q) => q.eq("brandId", brandId)).collect()
+      : await ctx.db.query("generations").collect();
+    const decks = (await ctx.db.query("decks").collect()).filter(
+      (d) => !brandId || d.brandId === brandId,
+    );
+
+    type Agg = {
+      gens: number; completed: number; failed: number; decks: number;
+      spendAll: number; tokensAll: number; spendMonth: number; unitsMonth: number; lastAt: number;
+    };
+    const blank = (): Agg => ({ gens: 0, completed: 0, failed: 0, decks: 0, spendAll: 0, tokensAll: 0, spendMonth: 0, unitsMonth: 0, lastAt: 0 });
+    const by = new Map<string, Agg>();
+    const bucket = (id: unknown): Agg => {
+      const k = String(id);
+      let e = by.get(k);
+      if (!e) { e = blank(); by.set(k, e); }
+      return e;
+    };
+
+    for (const g of gens) {
+      const e = bucket(g.userId);
+      e.gens++;
+      if (g.status === "complete") e.completed++;
+      else if (g.status === "failed") e.failed++;
+      e.spendAll += g.costUsd ?? 0;
+      e.tokensAll += (g.inputTokens ?? 0) + (g.outputTokens ?? 0);
+      if (inMonth(g.createdAt)) { e.spendMonth += g.costUsd ?? 0; e.unitsMonth++; }
+      if (g.createdAt > e.lastAt) e.lastAt = g.createdAt;
+    }
+    for (const d of decks) {
+      const e = bucket(d.userId);
+      e.decks++;
+      if (d.status === "complete") e.completed++;
+      else if (d.status === "failed") e.failed++;
+      e.spendAll += d.costUsd ?? 0;
+      e.tokensAll += (d.inputTokens ?? 0) + (d.outputTokens ?? 0);
+      if (inMonth(d.createdAt)) { e.spendMonth += d.costUsd ?? 0; e.unitsMonth++; }
+      if (d.createdAt > e.lastAt) e.lastAt = d.createdAt;
+    }
+
+    const rows = members
+      .map((u) => {
+        const e = by.get(String(u._id)) ?? blank();
+        const cap = u.monthlyCapUsd ?? DEFAULT_CAP_USD;
+        const units = e.gens + e.decks;
+        return {
+          userId: u._id,
+          name: u.name ?? "",
+          email: u.email ?? "",
+          role: u.role === "admin" ? "admin" : "user",
+          capUsd: cap,
+          monthSpendUsd: e.spendMonth,
+          monthUnits: e.unitsMonth,
+          capPct: cap > 0 ? Math.min(100, (e.spendMonth / cap) * 100) : 0,
+          allTimeSpendUsd: e.spendAll,
+          generations: e.gens,
+          decks: e.decks,
+          completed: e.completed,
+          failed: e.failed,
+          tokens: e.tokensAll,
+          avgCostUsd: units > 0 ? e.spendAll / units : 0,
+          lastActiveAt: e.lastAt || null,
+        };
+      })
+      .sort((a, b) => b.allTimeSpendUsd - a.allTimeSpendUsd);
+
+    const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((s, r) => s + f(r), 0);
+    const allUnits = sum((r) => r.generations + r.decks);
+    const allSpend = sum((r) => r.allTimeSpendUsd);
+
+    // Format breakdown (generations carry a format; decks are 16:9 presentations).
+    const fmt = new Map<string, { count: number; spend: number }>();
+    for (const g of gens) {
+      const e = fmt.get(g.format) ?? { count: 0, spend: 0 };
+      e.count++; e.spend += g.costUsd ?? 0; fmt.set(g.format, e);
+    }
+    if (decks.length) {
+      const e = fmt.get("presentation") ?? { count: 0, spend: 0 };
+      for (const d of decks) { e.count++; e.spend += d.costUsd ?? 0; }
+      fmt.set("presentation", e);
+    }
+    const byFormat = [...fmt.entries()]
+      .map(([format, e]) => ({ format, count: e.count, spendUsd: e.spend, avgCostUsd: e.count ? e.spend / e.count : 0 }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      periodMonth,
+      memberCount: rows.length,
+      activeThisMonth: rows.filter((r) => r.monthUnits > 0).length,
+      totals: {
+        monthSpendUsd: sum((r) => r.monthSpendUsd),
+        monthUnits: sum((r) => r.monthUnits),
+        allTimeSpendUsd: allSpend,
+        units: allUnits,
+        generations: sum((r) => r.generations),
+        decks: sum((r) => r.decks),
+        completed: sum((r) => r.completed),
+        failed: sum((r) => r.failed),
+        tokens: sum((r) => r.tokens),
+        avgCostUsd: allUnits > 0 ? allSpend / allUnits : 0,
+      },
+      members: rows,
+      byFormat,
+    };
+  },
+});

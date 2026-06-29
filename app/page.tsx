@@ -685,7 +685,7 @@ export default function StudioPage() {
           >
             <HelpCircle className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">How it works</span>
           </button>
-          <SignOutButton initials={initials} email={user?.email} />
+          <SignOutButton initials={initials} email={user?.email} role={user?.role} />
         </div>
       </header>
 
