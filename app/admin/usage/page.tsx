@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
@@ -63,6 +63,15 @@ export default function AdminUsagePage() {
   const data = useQuery(api.admin.usageOverview, isAdmin ? {} : "skip");
   const router = useRouter();
 
+  const [sortBy, setSortBy] = useState<"spend" | "name" | "month">("spend");
+  const sortedMembers = useMemo(() => {
+    const arr = [...(data?.members ?? [])];
+    if (sortBy === "name")
+      return arr.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email, undefined, { sensitivity: "base" }));
+    if (sortBy === "month") return arr.sort((a, b) => b.monthSpendUsd - a.monthSpendUsd);
+    return arr.sort((a, b) => b.allTimeSpendUsd - a.allTimeSpendUsd);
+  }, [data, sortBy]);
+
   useEffect(() => {
     if (me && me.role !== "admin") router.replace("/account");
   }, [me, router]);
@@ -102,7 +111,7 @@ export default function AdminUsagePage() {
 
   return (
     <div className="mm-ambient min-h-[100svh] text-[#F2EEE6]">
-      <header className="mm-safe-t z-10 flex items-center justify-between gap-3 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-4 py-3 backdrop-blur-md lg:px-6">
+      <header className="mm-safe-t sticky top-0 z-10 flex min-h-[3.5rem] items-center justify-between gap-3 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/85 px-4 py-2.5 backdrop-blur-md lg:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/" className="flex shrink-0 items-center gap-1.5 text-sm text-[#8C8278] hover:text-[#F2EEE6]">
             <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Studio</span>
@@ -144,9 +153,31 @@ export default function AdminUsagePage() {
             </section>
 
             {/* ── Per-member ── */}
-            <h3 className="mb-2 mt-8 text-sm font-medium">Per member <span className="text-[#8C8278]">({data.memberCount})</span></h3>
+            <div className="mb-2 mt-8 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-medium">Per member <span className="text-[#8C8278]">({data.memberCount})</span></h3>
+              <div className="flex items-center gap-0.5 rounded-lg border border-[rgba(242,238,230,0.1)] p-0.5 text-[11px]">
+                <span className="px-1.5 text-[10px] uppercase tracking-wide text-[#8C8278]">Sort</span>
+                {(
+                  [
+                    ["spend", "Spend"],
+                    ["month", "This month"],
+                    ["name", "A–Z"],
+                  ] as const
+                ).map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => setSortBy(k)}
+                    className={`cursor-pointer rounded-md px-2.5 py-1 transition-colors ${
+                      sortBy === k ? "bg-[#CC7A5C]/20 text-[#E0936F]" : "text-[#8C8278] hover:text-[#CFC8BD]"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="space-y-2.5">
-              {data.members.map((m) => (
+              {sortedMembers.map((m) => (
                 <div key={String(m.userId)} className="mm-card rounded-xl p-4">
                   <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                     {/* Identity */}
