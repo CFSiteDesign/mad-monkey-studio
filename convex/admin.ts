@@ -292,3 +292,74 @@ export const usageOverview = query({
     };
   },
 });
+
+// ── Admin: view one member's creations ─────────────────────────────────────
+// The designs + presentations a given user has made, so an admin can click a
+// name on the usage dashboard and see their actual output. One entry per
+// thread (latest version), mirroring that user's own gallery.
+export const userCreations = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const adminId = await requireAdmin(ctx);
+    const admin = await ctx.db.get(adminId);
+    const brandId = admin?.brandId;
+    const target = await ctx.db.get(userId);
+    if (!target || (brandId && target.brandId && target.brandId !== brandId)) {
+      throw new Error("User not found in your brand.");
+    }
+
+    const gens = await ctx.db
+      .query("generations")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    // Latest generation per thread = one "creation" (matches the gallery).
+    const latest = new Map<string, (typeof gens)[number]>();
+    for (const g of gens) {
+      const k = String(g.threadId);
+      const cur = latest.get(k);
+      if (!cur || g.createdAt > cur.createdAt) latest.set(k, g);
+    }
+    const creations = [...latest.values()]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 60)
+      .map((g) => ({
+        id: g._id,
+        outputCode: g.outputCode ?? "",
+        format: g.format,
+        designSystem: g.designSystem,
+        status: g.status,
+        costUsd: g.costUsd ?? 0,
+        createdAt: g.createdAt,
+        prompt: (g.prompt ?? "").slice(0, 140),
+      }));
+
+    const decks = (
+      await ctx.db
+        .query("decks")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect()
+    )
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 30)
+      .map((d) => ({
+        id: d._id,
+        title: d.title,
+        status: d.status,
+        slideCount: d.slideCount,
+        costUsd: d.costUsd ?? 0,
+        createdAt: d.createdAt,
+        thumb: d.slides?.[0]?.outputCode ?? "",
+      }));
+
+    return {
+      name: target.name ?? "",
+      email: target.email ?? "",
+      role: target.role === "admin" ? "admin" : "user",
+      creationCount: creations.length,
+      deckCount: decks.length,
+      creations,
+      decks,
+    };
+  },
+});
