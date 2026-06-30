@@ -629,6 +629,23 @@ export default function StudioPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [feed.length, loading]);
 
+  // Resize an existing design for another channel — Claude re-lays-out the same
+  // design/copy/photos for the new format as a NEW asset. Brand marks are
+  // carried over from whatever the original actually used.
+  function handleResize(g: FeedGeneration, targetFormat: string) {
+    if (loading || targetFormat === g.format) return;
+    const code = g.outputCode;
+    void runAsset({
+      adaptFrom: { outputCode: code, fromFormat: g.format },
+      format: targetFormat,
+      designSystem: g.designSystem,
+      includeLogo: /mm-logo-/.test(code),
+      includeAllIn: /mm-allin\.png/.test(code),
+      includeAllInMonkey: /mm-allin-monkey\.png/.test(code),
+      includeStamp: /mm-stamp/.test(code),
+    });
+  }
+
   const charCount = brief.length;
 
   return (
@@ -1486,7 +1503,12 @@ export default function StudioPage() {
           ) : (
             <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-10 pb-8 sm:gap-14">
               {feed.map((g, i) => (
-                <GenerationCard key={g.id} gen={g} version={i + 1} />
+                <GenerationCard
+                  key={g.id}
+                  gen={g}
+                  version={i + 1}
+                  onResize={(fmt) => handleResize(g, fmt)}
+                />
               ))}
               {loading && (
                 <div className="py-6">

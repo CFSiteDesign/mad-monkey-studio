@@ -56,6 +56,8 @@ export type RunAssetArgs = {
   includeAllIn: boolean;
   includeAllInMonkey: boolean;
   includeStamp: boolean;
+  /** Resize: re-lay-out this existing design into `format` (a new asset). */
+  adaptFrom?: { outputCode: string; fromFormat: string };
 };
 
 type GenerationCtx = {
@@ -112,6 +114,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
           includeAllIn: args.includeAllIn,
           includeAllInMonkey: args.includeAllInMonkey,
           includeStamp: args.includeStamp,
+          adaptFrom: args.adaptFrom,
         });
         const full: GenResult = { ...res, format: args.format, designSystem: args.designSystem };
         setResult(full);

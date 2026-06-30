@@ -26,9 +26,18 @@ import {
   FileText,
   Images,
   Loader2,
+  Maximize2,
   PenTool,
   Pencil,
 } from "lucide-react";
+
+// Channels a single design can be resized into (re-laid-out by Claude).
+const RESIZE_FORMATS: { id: string; label: string }[] = [
+  { id: "1:1", label: "Square · 1:1" },
+  { id: "4:5", label: "Insta post · 4:5" },
+  { id: "9:16", label: "Story / Reel / TikTok · 9:16" },
+  { id: "A4", label: "Poster · A4" },
+];
 
 const EXPORT_ICONS: Record<ExportKind, typeof FileImage> = {
   png: FileImage,
@@ -74,17 +83,22 @@ export type FeedGeneration = {
 export function GenerationCard({
   gen,
   version,
+  onResize,
 }: {
   gen: FeedGeneration;
   version: number;
+  /** Resize this exact design into another format (creates a new asset). */
+  onResize?: (format: string) => void;
 }) {
   const [svg, setSvg] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState<ExportKind | null>(null);
   const [editing, setEditing] = useState(false);
   const [changing, setChanging] = useState(false);
+  const [resizeOpen, setResizeOpen] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
+  const resizeRef = useRef<HTMLDivElement>(null);
   const saveManualEdit = useMutation(api.edits.saveManualEdit);
   const rasterize = useAction(api.render.rasterize);
 
@@ -168,6 +182,23 @@ export function GenerationCard({
       document.removeEventListener("keydown", onKey);
     };
   }, [exportOpen]);
+
+  // Close resize menu on outside click / Escape
+  useEffect(() => {
+    if (!resizeOpen) return;
+    function onClick(e: MouseEvent) {
+      if (resizeRef.current && !resizeRef.current.contains(e.target as Node)) setResizeOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setResizeOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [resizeOpen]);
 
   return (
     <div className="flex w-full flex-col items-center gap-4 mm-fade-up">
@@ -259,6 +290,46 @@ export function GenerationCard({
             <Images className="h-3.5 w-3.5" />
             Change photo
           </button>
+        )}
+
+        {/* Resize for another channel — re-laid-out by Claude as a new asset */}
+        {onResize && (
+          <div ref={resizeRef} className="relative">
+            <button
+              onClick={() => setResizeOpen((o) => !o)}
+              aria-haspopup="menu"
+              aria-expanded={resizeOpen}
+              title="Make a version of this design for another channel / size"
+              className="flex cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(242,238,230,0.06)] px-3.5 py-1.5 text-xs font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.12)]"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+              Resize
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${resizeOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {resizeOpen && (
+              <div role="menu" className="mm-card absolute bottom-11 right-0 z-50 w-60 rounded-xl p-1.5 mm-fade-up">
+                <p className="mm-eyebrow px-2.5 pb-1.5 pt-1">Resize for another channel</p>
+                {RESIZE_FORMATS.filter((f) => f.id !== gen.format).map((f) => (
+                  <button
+                    key={f.id}
+                    role="menuitem"
+                    onClick={() => {
+                      setResizeOpen(false);
+                      onResize(f.id);
+                    }}
+                    className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.06)]"
+                  >
+                    <Maximize2 className="h-4 w-4 text-[#8C8278]" />
+                    {f.label}
+                  </button>
+                ))}
+                <p className="px-2.5 pb-1 pt-1.5 text-[10px] leading-relaxed text-[#8C8278]">
+                  Claude re-lays-out the same design, copy &amp; photos for the new size — saved as a new creation.
+                </p>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Export menu */}

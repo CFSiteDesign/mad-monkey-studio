@@ -165,6 +165,8 @@ export const generateAsset = action({
     includeAllIn:       v.optional(v.boolean()),
     includeAllInMonkey: v.optional(v.boolean()),
     includeStamp:       v.optional(v.boolean()),
+    // Resize: adapt an existing design into a new format — its SVG is the basis.
+    adaptFrom:          v.optional(v.object({ outputCode: v.string(), fromFormat: v.string() })),
   },
   // Explicit return type breaks the api self-reference cycle (ctx.runQuery(api…)
   // inside an action whose own type is part of `api`) that otherwise degrades
@@ -259,17 +261,37 @@ export const generateAsset = action({
         });
       });
     }
-    messages.push({ role: "user", content: brief });
+    // Resize: feed Claude the existing design as the basis, but keep the STORED
+    // brief a short clean label so the giant SVG never pollutes the thread
+    // history, colour-exception extraction, or the starburst placement check.
+    const adaptFrom = args.adaptFrom;
+    const fmtLabel = FORMAT_DIMENSIONS[format]?.useCase ?? FORMAT_DIMENSIONS[format]?.label ?? format;
+    const storedBrief = adaptFrom
+      ? brief.trim()
+        ? `Resized for ${fmtLabel} — ${brief.trim()}`
+        : `Resized for ${fmtLabel}`
+      : brief;
+    const claudeBrief = adaptFrom
+      ? [
+          `Recreate the EXISTING on-brand design below as a ${format} asset (${fmtLabel}). It was originally designed for ${adaptFrom.fromFormat}.`,
+          `Keep it the SAME design: identical headline, sub-copy, any offer/price, the SAME photographs (reuse the exact same image href URLs that appear in the SVG below), the same colours and the same brand marks.`,
+          `Your only job is to RE-LAY-OUT, re-scale and re-flow the composition so it fills the new ${format} canvas and aspect ratio perfectly — do NOT crop, stretch or letterbox. Rebalance type scale, spacing and focal placement for the new proportions.`,
+          brief.trim() ? `Also apply: ${brief.trim()}` : "",
+          "",
+          `EXISTING DESIGN (${adaptFrom.fromFormat}) TO ADAPT:`,
+          adaptFrom.outputCode,
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : brief;
+    messages.push({ role: "user", content: claudeBrief });
 
-    // Colours the marketer explicitly named across this thread's briefs become
-    // permitted exceptions to the brand palette (hex codes + CSS colour words).
-    const statedColors = [
-      ...new Set(
-        messages
-          .filter((m) => m.role === "user")
-          .flatMap((m) => extractStatedColors(m.content)),
-      ),
-    ];
+    // Permitted palette exceptions come from the marketer's words — for a resize
+    // read them from the short brief, never from the injected reference SVG.
+    const colorTexts = messages.map((m, i) =>
+      m.role === "user" ? (adaptFrom && i === messages.length - 1 ? storedBrief : m.content) : "",
+    );
+    const statedColors = [...new Set(colorTexts.flatMap((t) => extractStatedColors(t)))];
 
     // Build the constrained system prompt
     const systemPrompt = buildSystemPrompt(
@@ -314,11 +336,7 @@ export const generateAsset = action({
     // Starbursts default to the top-right corner — but if any brief in this
     // thread explicitly positions one ("starburst bottom left"), the brief
     // wins and the placement check is waived. Never-over-text still applies.
-    const allBriefs = messages
-      .filter((m) => m.role === "user")
-      .map((m) => m.content)
-      .join(" ")
-      .toLowerCase();
+    const allBriefs = colorTexts.join(" ").toLowerCase();
     const starburstAnywhere =
       /star\s*burst/.test(allBriefs) &&
       /\b(top|bottom|left|right|centre|center|middle|corner)\b/.test(allBriefs);
@@ -531,7 +549,7 @@ export const generateAsset = action({
       {
         userId,
         brandId:            user.brandId,
-        brief,
+        brief:              storedBrief,
         outputCode,
         brandConfigVersion: brandData.config.version,
         format,
