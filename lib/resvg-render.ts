@@ -30,6 +30,10 @@ let fontFilesPromise: Promise<string[]> | null = null;
 const FONT_URLS = [
   "https://raw.githubusercontent.com/google/fonts/main/ofl/baloo2/Baloo2%5Bwght%5D.ttf",
   "https://raw.githubusercontent.com/google/fonts/main/ofl/caveat/Caveat%5Bwght%5D.ttf",
+  // Girly Pop faces — hero script + elegant postcard serif (regular + italic)
+  "https://raw.githubusercontent.com/google/fonts/main/ofl/pacifico/Pacifico-Regular.ttf",
+  "https://raw.githubusercontent.com/google/fonts/main/ofl/dmserifdisplay/DMSerifDisplay-Regular.ttf",
+  "https://raw.githubusercontent.com/google/fonts/main/ofl/dmserifdisplay/DMSerifDisplay-Italic.ttf",
 ];
 
 const BUNDLED_BUFFERS: Buffer[] = [

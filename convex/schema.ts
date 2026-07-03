@@ -40,11 +40,32 @@ export default defineSchema({
   // ── Design Systems & Templates ────────────────────────────────────────────
   design_systems: defineTable({
     brandId: v.id("brands"),
-    name: v.string(),        // "internal" | "social" | "brand"
+    name: v.string(),        // "internal" | "social" | "brand" | "girly-pop" | …
     label: v.string(),       // Human-readable: "Internal", "Social", "Brand"
     description: v.string(), // One-line purpose shown in the system picker
     guidelines: v.string(),  // Kyle's rules — injected into Claude alongside brand claudeMd
     baseCssVars: v.string(), // JSON string of CSS custom property defaults for this system
+    // Per-system governance overrides — when present they REPLACE the brand
+    // defaults in the prompt + validator (e.g. Girly Pop's pinks, not terracotta).
+    palette: v.optional(
+      v.object({
+        primary: v.array(v.string()),
+        secondary: v.array(v.string()),
+        neutral: v.array(v.string()),
+      }),
+    ),
+    fontsAllowed: v.optional(v.array(v.string())), // validator allow-list for this system
+    fontRules: v.optional(v.string()),             // FONT ENFORCEMENT prompt text for this system
+    effects: v.optional(
+      v.object({
+        maxLinearGradients: v.optional(v.number()),
+        allowRadialGradients: v.optional(v.boolean()),
+        forbidBlur: v.optional(v.boolean()),
+        // Text may never cross a photo (e.g. Girly Pop collages: headlines
+        // live on clear background, photos are framed items) — HARD when set.
+        noTextOnImages: v.optional(v.boolean()),
+      }),
+    ),
     isActive: v.boolean(),
     createdAt: v.number(),
   }).index("by_brand", ["brandId"]),

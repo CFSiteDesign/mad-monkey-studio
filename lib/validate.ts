@@ -24,6 +24,9 @@ export interface ValidateOptions {
   checkContainers?: boolean;
   /** Brief explicitly placed the starburst — skip the top-right default check. */
   starburstAnywhere?: boolean;
+  /** Per-system (e.g. Girly Pop collages): NO text may cross a photo — text
+   *  lives on clear background. HARD violation when set. */
+  forbidTextOnImages?: boolean;
 }
 
 type Box = { x1: number; y1: number; x2: number; y2: number; label: string };
@@ -227,6 +230,31 @@ function starburstViolations(
         .replace(/<polygon\b[^>]*>/gi, "")
         .replace(/<use\b[^>]*>/gi, "");
       if (!/<text\b/i.test(inner) && !/<image\b/i.test(inner)) empties++;
+
+      // ── Label must FIT INSIDE the star ──────────────────────────────────
+      // The canonical star/sawtooth is a 100-unit-radius shape with valleys
+      // around 85 local units; text is safe inside a ~80-unit inner circle.
+      // Text + shape share the group's transform, so checking in local units
+      // is scale- and rotation-invariant. Estimated width: chars × fs × 0.58.
+      const SAFE_R = 80;
+      const textRe = /<text\b([^>]*)>([\s\S]*?)<\/text>/gi;
+      let tm: RegExpExecArray | null;
+      while ((tm = textRe.exec(content))) {
+        const attrs = tm[1];
+        if (/transform\s*=/.test(attrs)) continue; // its own transform — unresolvable
+        const label = tm[2].replace(/<[^>]+>/g, "").trim();
+        if (!label) continue;
+        const fs = numFrom(attrs, "font-size");
+        if (fs === null) continue;
+        const ty = numFrom(attrs, "y") ?? 0;
+        const halfW = label.length * fs * 0.29; // ≈ (chars × fs × 0.58) / 2
+        const vert = Math.abs(ty) + fs / 2;
+        if (Math.hypot(halfW, vert) > SAFE_R) {
+          out.push(
+            `Text "${label}" doesn't fit inside its ${dev.sawtooth ? "sawtooth badge" : "starburst"} — every label line must stay within the shape's inner circle (≈${SAFE_R} local units of its 100-unit radius; this line needs ≈${Math.round(Math.hypot(halfW, vert))}). Use at most 2 SHORT lines, shrink the font-size, or shorten the words so nothing pokes past the shape's edge — or scale the whole badge up.`,
+          );
+        }
+      }
     }
 
     // Non-uniform scaling distorts the tooth/spike geometry — flag squash.
@@ -604,12 +632,164 @@ export function normalizeSvgRoot(svg: string): string {
   });
 }
 
+/**
+ * Brand marks (ALL IN stickers, stamp, wordmark) must never cover a photo's
+ * SUBJECT. Claude can't see pixels, so this is geometric: a mark may touch a
+ * photo only in its outer 15% edge band — intruding into the central region
+ * (where people are framed) is a violation. Deterministic: resolves the tag's
+ * translate() and inflates for rotate(); unresolvable boxes are skipped.
+ */
+const MARK_HREF = /mm-(?:logo-(?:white|black)|allin(?:-monkey)?|stamp)[^"']*\.png/i;
+
+export function markOverPhotoViolations(svg: string): string[] {
+  const out: string[] = [];
+  const tags = svg.match(/<image\b[^>]*>/gi) ?? [];
+
+  const marks: { box: Box; label: string }[] = [];
+  const photos: Box[] = [];
+  for (const tag of tags) {
+    const href = tag.match(/(?:xlink:)?href\s*=\s*"([^"]+)"/i)?.[1] ?? "";
+    const w = numFrom(tag, "width");
+    if (w === null) continue;
+    const isMark = MARK_HREF.test(href);
+    const h = numFrom(tag, "height") ?? (isMark ? w * 0.35 : null);
+    if (h === null) continue;
+    let x = numFrom(tag, "x") ?? 0;
+    let y = numFrom(tag, "y") ?? 0;
+    const tf = tag.match(/transform\s*=\s*"([^"]*)"/i)?.[1] ?? "";
+    if (tf) {
+      const tr = tf.match(/translate\(\s*(-?[\d.]+)[ ,]+(-?[\d.]+)/);
+      if (tr) {
+        x += parseFloat(tr[1]);
+        y += parseFloat(tr[2]);
+      }
+      // Anything beyond translate+rotate (scale/matrix/nested) → unresolvable.
+      if (/scale|matrix|skew/i.test(tf)) continue;
+    }
+    let box: Box = { x1: x, y1: y, x2: x + w, y2: y + h, label: href };
+    if (/rotate\(/i.test(tf)) {
+      // A ±15° AABB grows by ≈0.26× the cross dimension — inflate to be safe.
+      const dx = h * 0.26, dy = w * 0.26;
+      box = { ...box, x1: box.x1 - dx, x2: box.x2 + dx, y1: box.y1 - dy, y2: box.y2 + dy };
+    }
+    if (isMark) {
+      const label = /allin-monkey/i.test(href)
+        ? "ALL IN Mad Monkey Hostels sticker"
+        : /allin/i.test(href)
+        ? "ALL IN sticker"
+        : /stamp/i.test(href)
+        ? "Mad Monkey stamp"
+        : "Mad Monkey wordmark";
+      marks.push({ box, label });
+    } else if (!href.startsWith("#") && !/^data:/.test(href)) {
+      // A real photograph (bank URL or inlined later) — subjects live here.
+      photos.push(box);
+    }
+  }
+
+  for (const { box: m, label } of marks) {
+    for (const p of photos) {
+      const bandX = (p.x2 - p.x1) * 0.15;
+      const bandY = (p.y2 - p.y1) * 0.15;
+      const ix1 = p.x1 + bandX, iy1 = p.y1 + bandY, ix2 = p.x2 - bandX, iy2 = p.y2 - bandY;
+      if (m.x1 < ix2 && m.x2 > ix1 && m.y1 < iy2 && m.y2 > iy1) {
+        out.push(
+          `${label} intrudes into the central subject area of a photo — brand marks may only touch a photo's outer 15% edge band (or sit off the photo entirely); never place one across the middle where the people are. Move it to empty background or a photo corner.`,
+        );
+        break; // one violation per mark is enough signal
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Brand marks must never sit ACROSS text (e.g. an ALL IN sticker dropped on a
+ * headline). Hard-flagged only when the mark's CENTRE lands inside a text
+ * box — blatant coverage — so text-width estimation noise can't misfire it.
+ */
+export function markOverTextViolations(svg: string): string[] {
+  const out: string[] = [];
+  const texts = estimateTextBoxes(svg);
+  if (!texts.length) return out;
+  for (const tag of svg.match(/<image\b[^>]*>/gi) ?? []) {
+    const href = tag.match(/(?:xlink:)?href\s*=\s*"([^"]+)"/i)?.[1] ?? "";
+    if (!MARK_HREF.test(href)) continue;
+    const w = numFrom(tag, "width");
+    if (w === null) continue;
+    const h = numFrom(tag, "height") ?? w * 0.35;
+    let x = numFrom(tag, "x") ?? 0;
+    let y = numFrom(tag, "y") ?? 0;
+    const tf = tag.match(/transform\s*=\s*"([^"]*)"/i)?.[1] ?? "";
+    if (/scale|matrix|skew/i.test(tf)) continue;
+    const tr = tf.match(/translate\(\s*(-?[\d.]+)[ ,]+(-?[\d.]+)/);
+    if (tr) {
+      x += parseFloat(tr[1]);
+      y += parseFloat(tr[2]);
+    }
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    for (const t of texts) {
+      if (cx > t.x1 && cx < t.x2 && cy > t.y1 && cy < t.y2) {
+        out.push(
+          `A brand mark (${href.split("/").pop()}) sits across the text "${t.label}" — stickers, stamps and the wordmark must be placed in CLEAR space, never across any text. Move the mark to empty background.`,
+        );
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Empty photo frame: a WHITE polaroid frame group that carries a caption but
+ * no photo inside (e.g. no bank image matched the brief and the frame was left
+ * blank). Scoped to white frames so the cream note paper never false-flags.
+ */
+export function emptyPhotoFrameViolations(svg: string): string[] {
+  const out: string[] = [];
+  const body = svg.replace(/<defs[\s\S]*?<\/defs>/gi, "");
+  const openRe = /<g\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = openRe.exec(body))) {
+    // Balanced slice for this group.
+    let depth = 1;
+    let i = openRe.lastIndex;
+    while (i < body.length && depth > 0) {
+      const no = body.indexOf("<g", i);
+      const nc = body.indexOf("</g>", i);
+      if (nc === -1) break;
+      if (no !== -1 && no < nc) { depth++; i = no + 2; } else { depth--; i = nc + 4; }
+    }
+    const inner = body.slice(openRe.lastIndex, i - 4);
+    // A white frame rect (polaroid), decent size, with a caption, but no photo.
+    const whiteRect = /<rect\b[^>]*\bfill\s*=\s*["']?\s*(#fff(?:fff)?|white)\b[^>]*>/i;
+    const rect = inner.match(whiteRect)?.[0];
+    if (!rect) continue;
+    const rw = numFrom(rect, "width");
+    const rh = numFrom(rect, "height");
+    if (rw === null || rh === null || rw < 150 || rh < 150) continue;
+    const hasText = /<text\b/i.test(inner);
+    const hasPhoto = /<image\b/i.test(inner);
+    if (hasText && !hasPhoto) {
+      out.push(
+        `An empty polaroid frame (${Math.round(rw)}×${Math.round(rh)}) has a caption but NO photo inside — every white frame must contain a real bank photo. If no photo fits the brief, delete the whole frame and use motifs instead; never leave a blank frame.`,
+      );
+    }
+  }
+  return out;
+}
+
 export function validateSvg(svg: string, opts: ValidateOptions): string[] {
   const violations = new Set<string>();
 
   // Strip fragment references (url(#id), href="#id") so hex-looking ids
-  // like url(#fade) don't false-positive as colours.
+  // like url(#fade) don't false-positive as colours — and strip the injected
+  // canonical craft kit (<defs id="mm-kit">): its trusted primitives carry
+  // fixed colours (#0a0a0a shadows/grain) that must not fail a design system
+  // whose own palette bans them. Claude-authored colours are still scanned.
   const scrubbed = svg
+    .replace(/<defs id="mm-kit">[\s\S]*?<\/defs>/i, "<defs/>")
     .replace(/url\(\s*#[^)]*\)/g, "url(REF)")
     .replace(/(xlink:)?href\s*=\s*"#[^"]*"/g, 'href="REF"')
     .replace(/(xlink:)?href\s*=\s*'#[^']*'/g, "href='REF'");
@@ -785,6 +965,54 @@ export function validateSvg(svg: string, opts: ValidateOptions): string[] {
       for (const v of emptyPanelViolations(svg, opts.canvas)) violations.add(v);
       for (const v of occlusionViolations(svg, opts.canvas)) violations.add(v);
     }
+  }
+
+  // ── Brand marks over photo subjects / across text (always on — HARD) ─────
+  for (const v of markOverPhotoViolations(svg)) violations.add(v);
+  for (const v of markOverTextViolations(svg)) violations.add(v);
+
+  // ── Per-system: text never crosses a photo (HARD, e.g. Girly Pop collage) ──
+  // Meaningful intrusion only (≥10px depth on both axes) so a caption sitting
+  // on a polaroid's white border can't false-flag against the photo itself.
+  if (opts.forbidTextOnImages) {
+    const markRe = MARK_HREF;
+    const photoBoxes: Box[] = [];
+    for (const tag of svg.match(/<image\b[^>]*>/gi) ?? []) {
+      const href = tag.match(/(?:xlink:)?href\s*=\s*"([^"]+)"/i)?.[1] ?? "";
+      if (markRe.test(href) || href.startsWith("#")) continue;
+      if (/transform\s*=/i.test(tag)) continue;
+      const w = numFrom(tag, "width");
+      const h = numFrom(tag, "height");
+      if (w === null || h === null) continue;
+      const x = numFrom(tag, "x") ?? 0;
+      const y = numFrom(tag, "y") ?? 0;
+      photoBoxes.push({ x1: x, y1: y, x2: x + w, y2: y + h, label: "photo" });
+    }
+    const body = svg.replace(/<defs[\s\S]*?<\/defs>/gi, ""); // parseTexts .at indexes into this
+    for (const t of parseTexts(svg)) {
+      // Plated labels are exempt: text drawn on its own opaque plate/pill
+      // (a rect/path earlier in the same group) may legitimately kiss a
+      // photo's edge — only RAW text directly over a photo is banned.
+      const open = body.lastIndexOf("<g", t.at);
+      if (open !== -1) {
+        const openEnd = body.indexOf(">", open);
+        if (openEnd !== -1 && openEnd < t.at) {
+          const between = body.slice(openEnd + 1, t.at);
+          if (!between.includes("</g>") && /<rect\b|<path\b/i.test(between)) continue;
+        }
+      }
+      for (const p of photoBoxes) {
+        const ix = Math.min(t.box.x2, p.x2) - Math.max(t.box.x1, p.x1);
+        const iy = Math.min(t.box.y2, p.y2) - Math.max(t.box.y1, p.y1);
+        if (ix > 10 && iy > 10) {
+          violations.add(
+            `Text "${t.box.label}" crosses a photo — raw text never sits over a photo in this design system. Put it on clear background in its own zone, or give it an opaque plate/pill.`,
+          );
+          break;
+        }
+      }
+    }
+    for (const v of emptyPhotoFrameViolations(svg)) violations.add(v);
   }
 
   return [...violations];

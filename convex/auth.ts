@@ -10,6 +10,19 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       const email = (args.profile.email ?? "").trim().toLowerCase();
       const name = args.profile.name ?? email.split("@")[0] ?? "User";
 
+      // ── Password recovery re-link ──
+      // If a user row already exists for this email but has NO password
+      // account (an admin wiped the stale credential), attach the new
+      // credentials to the existing user instead of creating a duplicate —
+      // keeps their role, gallery and history. Unreachable for hijacking:
+      // sign-up on an email whose credential still exists fails earlier in
+      // the provider, and brand-new emails still hit the invite gate below.
+      const existingUser = await ctx.db
+        .query("users")
+        .filter((q) => q.eq(q.field("email"), email))
+        .first();
+      if (existingUser) return existingUser._id;
+
       // ── Invite-only registration ──
       // A new account may only be created if an admin pre-authorised this
       // email via an invite. No invite → hard reject.

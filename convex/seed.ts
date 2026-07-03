@@ -379,3 +379,114 @@ MM wordmark required. Hard shadows permitted on accent elements only.`,
     };
   },
 });
+
+// ── Girly Pop design system — seed/update (idempotent by name) ──────────────
+// Governance approved 2026-06: own palette REPLACES terracotta; MM wordmark +
+// ALL IN stickers stay. Run: npx convex run seed:seedGirlyPop
+export const seedGirlyPop = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const brand = await ctx.db
+      .query("brands")
+      .withIndex("by_slug", (q) => q.eq("slug", "mad-monkey"))
+      .first();
+    if (!brand) throw new Error("Run seedMadMonkey first.");
+
+    const doc = {
+      brandId: brand._id,
+      name: "girly-pop",
+      label: "Girly Pop",
+      description: "Dreamy, playful, feminine — retro-pop script meets travel scrapbook.",
+      guidelines: `GIRLY POP SYSTEM — dreamy, playful, feminine. Retro-pop meets travel scrapbook. This system REPLACES the default Mad Monkey colour and tone direction: NO charcoal-dark bases, NO terracotta, NO neon-rave energy. Soft, warm, sun-washed.
+
+PALETTE ROLES (exact hexes are in COLOUR ENFORCEMENT): hot pink #F24C8E = hero/headline colour · punch orange #EF5130 = script accents & energy words · periwinkle #948BE6 and lilac #C9BCF3 = flat backgrounds · cherry red #E1352B = cherries/hearts/bows · peach #F9C6A2 + sky teal #84C9D4 = sunset gradient fills · cream #FBF3E6 = paper & light base · plum #5E2038 = handwritten/body text · leaf green #5B8A47 = stems/leaves · white #FFFFFF = polaroid frames.
+
+THREE LAYOUT MODES — pick ONE per asset by the content. Mode C (HALFTONE PHOTO-POP) is the HOUSE FAVOURITE and the DEFAULT whenever the design features a photo; use A only when the brief explicitly wants a multi-photo scrapbook, and B when there is no photo:
+A) DREAMY COLLAGE (photo-led events/promos): polaroid & postcard photo frames (white borders, slight ±3–8° rotations), pressed tropical flowers, a torn lined-paper note carrying the offer/details in handwriting, soft sunset sky (peach→pink→periwinkle linear gradient), film-grain overlay. Curated, airy scrapbook — every element fully visible, nothing buried.
+   COLLAGE ZONES (hard): divide the canvas into three NON-OVERLAPPING zones — (1) the script HEADLINE in its own clear horizontal band directly on the gradient background (top of canvas, or a clear band between photos and note), (2) the POLAROID CLUSTER — max 3 photos and the frames NEVER overlap: every polaroid fully separate with ≥30px of background between frames (the rotation alone gives the scrapbook feel), every caption fully visible, (3) the NOTE + small motifs. The headline must NEVER cross a polaroid, caption, sticker or the note — geometrically enforced: any text crossing a photo is auto-rejected. Keep ≥30px clearance between zones so every word is instantly readable.
+B) CLEAN FLAT GIRLY (announcements/type-led): ONE solid pastel background (periwinkle, lilac or cream), a GIANT Pacifico script headline as the centrepiece (lowercase-friendly, can bounce across 2–3 stacked lines), small Montserrat letter-spaced caps for supporting lines, 2–4 cherry/heart/sparkle motifs, generous negative space.
+C) HALFTONE PHOTO-POP (DEFAULT for photo-led events): pink/periwinkle gradient overlaid with a subtle halftone dot-grid texture; ONE hero photo in a thick rounded hot-pink frame; the script headline stacked top-left (2–3 lines, alternating pink/cream/orange, dark plum offset shadow); the event perks as PLATED label stickers (plum or lilac rounded plates, slight ±3–6° lean) arranged around the photo's right/bottom edges — plates may kiss the photo's frame; one starburst top-right with a 2-word label; wordmark/ALL IN bottom-right on clear background.
+
+PLATED LABELS & PILLS — build every one as a proper sticker (never a flat pastel blob): (1) OUTLINE — every plate/pill gets a 3px plum #5E2038 stroke around its shape; light fills (lilac #C9BCF3, periwinkle #948BE6, cream #FBF3E6) MUST have this outline, dark plum #5E2038 plates may skip it. (2) SHADOW — every plate/pill also gets a hard offset shadow (filter="url(#hs-plum)" or an 8px plum offset duplicate of the shape). (3) FIT — the shape is sized to its text with ≥0.7× font-size padding on ALL sides; text NEVER touches or crosses the edge. (4) MULTI-PART labels ("2-FOR-1" over "SPRITZ", "EVERY TUESDAY" over "7AM") stack on SEPARATE lines with a clear vertical gap (≥0.4× font-size) — lines must never overlap or collide; make the pill taller rather than cramming. One short phrase per line. If two words don't fit on one line at a sensible size, widen the pill.
+
+STICKER/LABEL PLACEMENT (hard discipline — planned, structured, neat, NEVER scattered): treat labels as a deliberate system anchored to the photo frame, not confetti. RULES: (1) each plated label is anchored to a photo EDGE or CORNER and overlaps the frame by a consistent small amount (~40–60px) — pick corners/edges, never floating in dead space; (2) use at most 3–4 labels total; (3) give them a clear hierarchy — one primary offer label (largest), the rest smaller and aligned to it; (4) balance the composition — if one label sits top-left of the photo, put the next bottom-right, so weight is even (diagonal balance); (5) consistent rotation rhythm — alternate gentle ±3–6° leans, never wild angles; (6) the starburst lives top-right of the CANVAS, the ALL IN sticker bottom-left/right on clear background, the MM wordmark bottom-right — these four fixed anchors first, then place event labels on the photo corners. Every label fully legible, none overlapping another label or the headline. Look at the whole layout as a grid: everything lines up to the photo's edges.
+
+MOTIFS — use ONLY the craft kit's ready-made shapes, NEVER hand-draw them (hand-drawn cherries/hearts come out malformed and are rejected): <use href="#mm-cherry"/> (two-tone, fixed colours), <use href="#mm-heart" color="#E1352B or #F24C8E"/>, <use href="#mm-daisy"/>, <use href="#mm-sparkle" color="…"/> — position with transform="translate(x y) scale(s) rotate(a)". Plus polaroid frames, torn paper notes and bows built from simple rects/paths. This list is EXCLUSIVE — no other decorative doodles. Specifically BANNED: postage stamps of any kind, squiggly/wavy line flourishes, zigzag strokes, and random curved swash paths — they read as clutter. Use a sparkle or heart instead, or leave the space empty.
+
+CRAFT RULES (hard):
+- Lined-paper notes: ruled lines sit in the GAPS between handwriting lines, NEVER through the words — omit a line rather than strike through text.
+- Polaroids NEVER overlap: every frame fully separate with ≥30px of clear background between frames — nothing may cover any part of another polaroid or its caption.
+- Photo INSIDE its frame: build each polaroid as one <g> — white frame rect first, then the photo <image> clipped with a clipPath to the inner window (inset from the frame). The photo must never extend past or hang over the white frame's edge.
+- Polaroid anatomy is FIXED: the white frame has thin borders (≈20px) on the top/sides and a DEEP white strip (≈90px) at the bottom — the handwritten caption sits ON that white strip, centred, and NEVER on the photo itself. No caption may touch the photo's pixels.
+- The paper note is the TOP layer over background only: nothing readable (venue lines, captions, headlines) may sit underneath or poke out from behind it — move the element fully clear instead.
+- NEVER draw an empty polaroid or postcard frame: every frame MUST contain a real bank photo <image>. If no photo fits, drop the frame entirely and use motifs instead.
+
+EFFECTS: soft linear sunset gradients ALLOWED. A gentle radial glow ALLOWED. Film grain welcome. NO heavy black drop-shadows (soft or none), NO dark vignettes.
+
+LEGIBILITY (hard — text readable on ANY background, the CLEAN way — NEVER big solid panels):
+- SCRIPT HEADLINE and every script line: apply a hard offset shadow filter="url(#hs-plum)" to that single <text> and let it sit DIRECTLY on the gradient (exactly like pink-party-friday). NEVER draw a filled rectangle or panel behind the headline — the shadow alone does the job. A solid block behind the headline is a FAILURE.
+- Supporting UPPERCASE caps / offer labels / captions: sit on a plate or pill sized TIGHTLY to the text (its own text width + ~0.7x font-size padding all round) — small neat stickers, NEVER oversized, NEVER full-width, and they must not overlap each other, the photo, or the headline.
+- Detail lines sit on the single cream note strip.
+- If the canvas looks like large plum blocks are covering it, that is WRONG. Only ONE modestly-sized backing per label; when unsure, use the shadow, not a backing.
+
+TONE OF VOICE: playful, warm, inclusive, a little cheeky. Lowercase-friendly ("come exactly as you are", "hey babe", "ALL IN"). Never aggressive or shouty.
+
+BRAND MARKS: the Mad Monkey wordmark + ALL IN stickers still apply exactly per the BRAND MARKS section — and in this system the ALL IN sticker's home is clear background near the bottom-left, NEVER in the headline band or touching any text.
+
+PHOTO VARIETY (hard): never use the same bank photo twice in one asset — every polaroid/frame gets a DIFFERENT photo. If only one photo matches the brief, use one polaroid and fill the space with motifs instead.`,
+      baseCssVars: JSON.stringify({
+        "--bg": "#948BE6",
+        "--ink": "#5E2038",
+        "--pop": "#F24C8E",
+        "--accent": "#EF5130",
+        "--paper": "#FBF3E6",
+      }),
+      palette: {
+        primary: ["#F24C8E", "#EF5130", "#948BE6", "#E1352B"],
+        secondary: ["#C9BCF3", "#F9C6A2", "#84C9D4", "#5B8A47"],
+        neutral: ["#FBF3E6", "#5E2038", "#FFFFFF"],
+      },
+      fontsAllowed: ["Pacifico", "Montserrat", "Caveat", "DM Serif Display", "Baloo 2"],
+      fontRules: `Hero headline: "Pacifico" — fat retro script, the signature face (lowercase-friendly; one script hero per asset).
+Labels & small caps: "Montserrat" weight 800 with generous letter-spacing (0.12–0.2em).
+Handwritten scrapbook notes (offers, details on paper scraps): "Caveat" weight 700.
+Elegant postcard lines ("Greetings from …"): "DM Serif Display" italic.
+Rounded friendly body (optional): "Baloo 2" weight 800.
+Never use Anton, Archivo Black, Titan One, Bungee or Permanent Marker in this system.`,
+      effects: { maxLinearGradients: 4, allowRadialGradients: true, forbidBlur: false, noTextOnImages: true },
+      isActive: true,
+      createdAt: Date.now(),
+    };
+
+    const existing = await ctx.db
+      .query("design_systems")
+      .withIndex("by_brand", (q) => q.eq("brandId", brand._id))
+      .filter((q) => q.eq(q.field("name"), "girly-pop"))
+      .first();
+    if (existing) {
+      const { createdAt: _keep, ...update } = doc;
+      await ctx.db.patch(existing._id, update);
+      return { id: existing._id, status: "updated" };
+    }
+    const id = await ctx.db.insert("design_systems", doc);
+    return { id, status: "created" };
+  },
+});
+
+// ── Local recovery: wipe a stale password credential ─────────────────────────
+// Deletes the authAccounts row for an email so the person can re-register via
+// /sign-up with a fresh password; createOrUpdateUser re-links them to their
+// existing user row (role/gallery kept). Run:
+//   npx convex run seed:wipePasswordAccount '{"email":"x@madmonkeyhostels.com"}'
+export const wipePasswordAccount = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const target = email.trim().toLowerCase();
+    const accounts = await ctx.db.query("authAccounts").collect();
+    const mine = accounts.filter(
+      (a) => a.provider === "password" && (a.providerAccountId ?? "").toLowerCase() === target,
+    );
+    for (const a of mine) await ctx.db.delete(a._id);
+    return { deleted: mine.length, email: target };
+  },
+});

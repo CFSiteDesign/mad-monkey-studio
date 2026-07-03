@@ -14,12 +14,14 @@ const SAWTOOTH =
   "0,-100 9.6,-85.5 22.3,-97.5 28.4,-81.2 43.4,-90.1 45.8,-72.8 62.3,-78.2 60.8,-60.8 78.2,-62.3 72.8,-45.8 90.1,-43.4 81.2,-28.4 97.5,-22.3 85.5,-9.6 100,0 85.5,9.6 97.5,22.3 81.2,28.4 90.1,43.4 72.8,45.8 78.2,62.3 60.8,60.8 62.3,78.2 45.8,72.8 43.4,90.1 28.4,81.2 22.3,97.5 9.6,85.5 0,100 -9.6,85.5 -22.3,97.5 -28.4,81.2 -43.4,90.1 -45.8,72.8 -62.3,78.2 -60.8,60.8 -78.2,62.3 -72.8,45.8 -90.1,43.4 -81.2,28.4 -97.5,22.3 -85.5,9.6 -100,0 -85.5,-9.6 -97.5,-22.3 -81.2,-28.4 -90.1,-43.4 -72.8,-45.8 -78.2,-62.3 -60.8,-60.8 -62.3,-78.2 -45.8,-72.8 -43.4,-90.1 -28.4,-81.2 -22.3,-97.5 -9.6,-85.5";
 
 const FONT_IMPORT_CSS =
-  "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;900&amp;family=Bungee&amp;family=Anton&amp;family=Archivo+Black&amp;family=Titan+One&amp;family=Baloo+2:wght@800&amp;family=Caveat:wght@700&amp;family=Permanent+Marker&amp;display=swap');";
+  "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&amp;family=Bungee&amp;family=Anton&amp;family=Archivo+Black&amp;family=Titan+One&amp;family=Baloo+2:wght@800&amp;family=Caveat:wght@700&amp;family=Permanent+Marker&amp;family=Pacifico&amp;family=DM+Serif+Display:ital@0;1&amp;display=swap');";
 
 /** The canonical kit, injected into every output SVG right after <svg …>. */
 export const BRAND_KIT_DEFS = `<defs id="mm-kit"><style>${FONT_IMPORT_CSS}</style>` +
   // Hard offset shadow — zero blur (feDropShadow with stdDeviation 0).
   `<filter id="hs" x="-30%" y="-30%" width="170%" height="170%"><feDropShadow dx="7" dy="7" stdDeviation="0" flood-color="#0a0a0a" flood-opacity="1"/></filter>` +
+  // Girly Pop plum hard shadow — same zero-blur offset, plum flood for legibility on pastel/photo.
+  `<filter id="hs-plum" x="-30%" y="-30%" width="170%" height="170%"><feDropShadow dx="6" dy="6" stdDeviation="0" flood-color="#5E2038" flood-opacity="1"/></filter>` +
   // Film grain.
   `<filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.35 0"/></filter>` +
   // Duotone photo (blue shadow → lime highlight by default; recolour by editing the table values inline if needed).
@@ -32,6 +34,11 @@ export const BRAND_KIT_DEFS = `<defs id="mm-kit"><style>${FONT_IMPORT_CSS}</styl
   `<g id="mm-star12"><polygon points="${STAR12}" fill="currentColor"/></g>` +
   `<g id="mm-sawtooth"><polygon points="${SAWTOOTH}" fill="currentColor"/></g>` +
   `<g id="mm-sparkle"><path d="M0,-14 L3,-3 L14,0 L3,3 L0,14 L-3,3 L-14,0 L-3,-3 Z" fill="currentColor"/></g>` +
+  // Girly Pop motifs — correct anatomy, never hand-drawn. Cherry: both stems
+  // join at ONE point with a leaf; scale/rotate via <use transform>.
+  `<g id="mm-cherry"><path d="M-13,6 Q-8,-22 6,-34" stroke="#5B8A47" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M15,10 Q14,-16 6,-34" stroke="#5B8A47" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M6,-34 q14,-10 24,-4 q-12 10 -24 4 Z" fill="#5B8A47"/><circle cx="-13" cy="18" r="13" fill="#E1352B"/><circle cx="15" cy="22" r="13" fill="#E1352B"/></g>` +
+  `<g id="mm-heart"><path d="M0,16 C-4,8 -20,-2 -20,-12 A11,11 0 0 1 0,-16 A11,11 0 0 1 20,-12 C20,-2 4,8 0,16 Z" fill="currentColor"/></g>` +
+  `<g id="mm-daisy"><g fill="#FFFFFF"><ellipse cx="0" cy="-13" rx="5.5" ry="10"/><ellipse cx="0" cy="13" rx="5.5" ry="10"/><ellipse cx="-13" cy="0" rx="10" ry="5.5"/><ellipse cx="13" cy="0" rx="10" ry="5.5"/><ellipse cx="-9.5" cy="-9.5" rx="5.5" ry="10" transform="rotate(-45 -9.5 -9.5)"/><ellipse cx="9.5" cy="9.5" rx="5.5" ry="10" transform="rotate(-45 9.5 9.5)"/><ellipse cx="9.5" cy="-9.5" rx="5.5" ry="10" transform="rotate(45 9.5 -9.5)"/><ellipse cx="-9.5" cy="9.5" rx="5.5" ry="10" transform="rotate(45 -9.5 9.5)"/></g><circle r="6.5" fill="#F9C6A2"/></g>` +
   `</defs>`;
 
 /**

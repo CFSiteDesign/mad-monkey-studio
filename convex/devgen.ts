@@ -61,7 +61,7 @@ const TIERS = {
   standard: { model: "claude-sonnet-4-6", inCost: 3 / 1_000_000, outCost: 15 / 1_000_000 },
   extra: { model: "claude-opus-4-8", inCost: 5 / 1_000_000, outCost: 25 / 1_000_000 },
 } as const;
-const MAX_RETRIES = 1;
+const MAX_RETRIES = 2;
 
 export const devGenerate = internalAction({
   args: {
@@ -98,10 +98,12 @@ export const devGenerate = internalAction({
       brandId,
     });
 
-    const palette = brandData.config.palette;
+    // Per-system governance: a system with its own palette/fonts/effects
+    // replaces the brand defaults (e.g. Girly Pop pinks, script faces, soft fx).
+    const palette = ds?.palette ?? brandData.config.palette;
     const statedColors = extractStatedColors(brief);
     const allowedColors = [...palette.primary, ...palette.secondary, ...palette.neutral, ...statedColors];
-    const allowedFonts = [
+    const allowedFonts = ds?.fontsAllowed ?? [
       ...new Set([
         brandData.config.fonts.display,
         brandData.config.fonts.body,
@@ -117,16 +119,17 @@ export const devGenerate = internalAction({
         ds,
         format,
         imageManifest,
-        { includeLogo: true, includeAllIn: false, includeAllInMonkey: false },
+        { includeLogo: true, includeAllIn: true, includeAllInMonkey: false },
         statedColors,
       ) +
       (format === "16:9" ? "\n\n" + COUNTRY_KIT_DOC : "");
     const validateOpts = {
       allowedColors,
       allowedFonts,
-      maxLinearGradients: 1,
-      allowRadialGradients: false,
-      forbidBlur: true,
+      maxLinearGradients: ds?.effects?.maxLinearGradients ?? 1,
+      allowRadialGradients: ds?.effects?.allowRadialGradients ?? false,
+      forbidBlur: ds?.effects?.forbidBlur ?? true,
+      forbidTextOnImages: ds?.effects?.noTextOnImages ?? false,
       canvas: fmtDim ? { w: fmtDim.w, h: fmtDim.h } : undefined,
     } as const;
 
@@ -154,8 +157,12 @@ export const devGenerate = internalAction({
       outTok += res.usage.output_tokens;
       const raw = res.content[0].type === "text" ? res.content[0].text : "";
       const outputCode = escapeStrayAmpersands(injectCountryKit(injectBrandKit(stripFences(raw))));
-      const soft = validateSvg(outputCode, { ...validateOpts, checkTextOverlap: true, checkContainers: true });
-      const hard = validateSvg(outputCode, validateOpts).filter((vv) => !soft.includes(vv));
+      // Base-run violations are HARD (brand/palette/marks/text-on-photo);
+      // extras that only appear with the layout estimators on are SOFT.
+      const hard = validateSvg(outputCode, validateOpts);
+      const soft = validateSvg(outputCode, { ...validateOpts, checkTextOverlap: true, checkContainers: true }).filter(
+        (vv) => !hard.includes(vv),
+      );
       if (!/mm-logo-(white|black)\.png/.test(outputCode)) {
         hard.push("missing logo");
       }

@@ -304,7 +304,9 @@ export const generateAsset = action({
     );
 
     // ── Validation gate: generate → validate → auto-correct (hard gate) ──
-    const palette = brandData.config.palette;
+    // Per-system governance: a design system with its own palette/fonts/effects
+    // (e.g. Girly Pop) replaces the brand defaults for prompt + validator.
+    const palette = ds?.palette ?? brandData.config.palette;
     const allowedColors = [
       ...palette.primary,
       ...palette.secondary,
@@ -313,7 +315,7 @@ export const generateAsset = action({
     ];
     // Bungee is the sticker-accent font; DISPLAY_FONTS are the matched
     // headline faces (Anton / Archivo Black / Titan One / Baloo 2 / Montserrat).
-    const allowedFonts = [
+    const allowedFonts = ds?.fontsAllowed ?? [
       ...new Set([
         brandData.config.fonts.display,
         brandData.config.fonts.body,
@@ -391,9 +393,9 @@ export const generateAsset = action({
       soft = validateSvg(outputCode, {
         allowedColors,
         allowedFonts,
-        maxLinearGradients:   1,
-        allowRadialGradients: false,
-        forbidBlur:           true,
+        maxLinearGradients:   ds?.effects?.maxLinearGradients ?? 1,
+        allowRadialGradients: ds?.effects?.allowRadialGradients ?? false,
+        forbidBlur:           ds?.effects?.forbidBlur ?? true,
         checkTextOverlap:     true,
         checkContainers:      true,
         starburstAnywhere,
@@ -403,9 +405,10 @@ export const generateAsset = action({
       hard.push(...validateSvg(outputCode, {
         allowedColors,
         allowedFonts,
-        maxLinearGradients:   1,
-        allowRadialGradients: false,
-        forbidBlur:           true,
+        maxLinearGradients:   ds?.effects?.maxLinearGradients ?? 1,
+        allowRadialGradients: ds?.effects?.allowRadialGradients ?? false,
+        forbidBlur:           ds?.effects?.forbidBlur ?? true,
+        forbidTextOnImages:   ds?.effects?.noTextOnImages ?? false,
       }).filter((v) => !isSoftViolation(v)));
 
       // Brand marks: enforce exactly what the user ticked (HARD).

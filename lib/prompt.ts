@@ -76,6 +76,10 @@ type BrandConfig = {
 type DesignSystem = {
   label: string;
   guidelines: string;
+  // Per-system governance overrides — when present they REPLACE the brand
+  // defaults (palette hexes in the prompt, the FONT ENFORCEMENT block).
+  palette?: Palette | null;
+  fontRules?: string | null;
 } | null | undefined;
 
 export type BankImage = { url: string; description: string };
@@ -108,11 +112,9 @@ export function buildSystemPrompt(
   extraColors: string[] = [],
 ): string {
   const dim = FORMAT_DIMENSIONS[format];
-  const allColours = [
-    ...config.palette.primary,
-    ...config.palette.secondary,
-    ...config.palette.neutral,
-  ];
+  // A design system with its own palette replaces the brand colours outright.
+  const pal = ds?.palette ?? config.palette;
+  const allColours = [...pal.primary, ...pal.secondary, ...pal.neutral];
 
   const w = dim?.w ?? 1080;
   const h = dim?.h ?? 1080;
@@ -190,6 +192,9 @@ export function buildSystemPrompt(
     (includeLogo || stickerCount > 0)
       ? `EVERY brand mark must sit fully inside the canvas with ≥40px padding from all four edges (x ≥ 40, y ≥ 40, x+width ≤ ${w - 40}, y+height ≤ ${h - 40}). Anchor each toward a corner; its full box including rotation stays on-canvas. NEVER let a mark hang off or touch an edge — the ALL IN Mad Monkey Hostels sticker is large, leave room at the bottom and right.`
       : "",
+    (includeLogo || stickerCount > 0)
+      ? `MARKS NEVER COVER PHOTO SUBJECTS (hard rule, geometrically enforced): you cannot see the pixels, and the people are framed in the MIDDLE of every photo — so no sticker, stamp or wordmark may intrude into a photo's central region. A mark may only touch a photo within its outer 15% edge band (a corner nibble), and the best placement is off the photo entirely, on empty background. A sticker across someone's face or body is an automatic rejection.`
+      : "",
     "",
   );
 
@@ -203,16 +208,20 @@ export function buildSystemPrompt(
       : "",
     "",
     `━━ FONT ENFORCEMENT ━━`,
-    `Display/headline faces (UPPERCASE, pick the one that fits the mood):`,
-    `  • "Anton" — tall condensed impact (default loud headline, e.g. "DEALS?", "HAPPY HOUR")`,
-    `  • "Archivo Black" — wide heavy grotesque (chunky stacked headlines, e.g. "BAR OLYMPICS")`,
-    `  • "Titan One" — rounded bubble display (playful, e.g. quiz/throwback posters)`,
-    `  • "Baloo 2" weight 800 — soft rounded geometric (friendly headlines & pill labels)`,
-    `  • "Montserrat" weight 900 — clean geometric fallback`,
-    `Body/subtext: "Montserrat" weights 400–600, sentence-case.`,
-    `Sticker accent only: "Bungee" — bold sticker-style labels, never headlines or body.`,
-    `Handwritten accents: "Permanent Marker" (brushy scribble layer — big background words like "hello"/"hola") and "Caveat" weight 700 (casual script for "Mad Monkey x Partner" credit lines). Accents only — never the main headline or body.`,
-    `No other font families permitted. One display face per asset — don't mix headline faces.`,
+    ...(ds?.fontRules
+      ? [ds.fontRules, `No other font families permitted.`]
+      : [
+          `Display/headline faces (UPPERCASE, pick the one that fits the mood):`,
+          `  • "Anton" — tall condensed impact (default loud headline, e.g. "DEALS?", "HAPPY HOUR")`,
+          `  • "Archivo Black" — wide heavy grotesque (chunky stacked headlines, e.g. "BAR OLYMPICS")`,
+          `  • "Titan One" — rounded bubble display (playful, e.g. quiz/throwback posters)`,
+          `  • "Baloo 2" weight 800 — soft rounded geometric (friendly headlines & pill labels)`,
+          `  • "Montserrat" weight 900 — clean geometric fallback`,
+          `Body/subtext: "Montserrat" weights 400–600, sentence-case.`,
+          `Sticker accent only: "Bungee" — bold sticker-style labels, never headlines or body.`,
+          `Handwritten accents: "Permanent Marker" (brushy scribble layer — big background words like "hello"/"hola") and "Caveat" weight 700 (casual script for "Mad Monkey x Partner" credit lines). Accents only — never the main headline or body.`,
+          `No other font families permitted. One display face per asset — don't mix headline faces.`,
+        ]),
     "",
     `━━ OUTPUT ━━`,
     `Return ONLY the raw SVG element. No markdown fences. No explanation. No preamble.`,
@@ -229,6 +238,7 @@ export function buildSystemPrompt(
     `The headline band is RESERVED for the headline. Do NOT drop pills, tag boxes or bubbles into the same horizontal strip the big headline occupies — they will collide with the lettering. Scatter call-out stickers into genuinely empty regions of the photo/background (different corners and mid-edges), each rotated slightly and clearly spaced from the next. If there isn't a clear empty patch for a sticker, drop the sticker rather than overlap something.`,
     `BEFORE FINALISING, list every sticker + text block and its bounding box, and confirm no two boxes overlap. Typical count: 2–4 small call-out stickers MAX, spread across the canvas — not a cluster.`,
     `STRICT CENTRING: any text inside a pill, badge, button or starburst MUST use text-anchor="middle" with x at the shape's exact centre AND dominant-baseline="central" with y at the shape's exact centre. Never centre text by guessing the baseline y — that leaves it sitting high or low and will be rejected. It must also fit: text width ≈ chars × font-size × 0.6 ≤ the shape's inner width; otherwise shorten the text or shrink the font. Off-centre text, or text overflowing its container or the canvas, is a hard failure.`,
+    `STARBURST LABELS FIT THE STAR (geometrically enforced): the star is 100 local units in radius and text is only safe inside a ~80-unit inner circle — every line must satisfy √((chars × font-size × 0.29)² + (|y| + font-size/2)²) ≤ 80 in the star's local coordinates. Practically: at most 2 SHORT lines (e.g. "FREE" / "ENTRY"), font-size ≈ 26–32 for words of 4–6 characters, smaller if longer. A third line or a long word WILL poke past the points and be rejected — put overflow copy in a pill instead, or scale the whole starburst group up.`,
     `BOLD CONTAINERS: every piece of text sitting inside or on a box, card, pill, tag, badge, button or starburst MUST be BOLD — font-weight="700" (or a heavy display face like Anton/Bungee). Container labels are never thin or regular weight. The text must also sit fully inside the shape with padding on all sides — never touching or spilling past its edges.`,
     `Fonts and the craft-kit filters/patterns/shapes are PRE-LOADED (see CRAFT KIT above) — reference them by id; do NOT emit an @import or redefine kit filters.`,
   );

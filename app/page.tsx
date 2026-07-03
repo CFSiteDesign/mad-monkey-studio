@@ -30,6 +30,7 @@ import {
   Presentation,
   ArrowRight,
   FileText,
+  Heart,
   HelpCircle,
   Home,
   MessageSquare,
@@ -51,6 +52,12 @@ const DESIGN_SYSTEMS = [
     label: "Brand",
     desc: "One universal system — posts, stories, print & decks",
     Icon: Megaphone,
+  },
+  {
+    name: "girly-pop",
+    label: "Girly Pop",
+    desc: "Dreamy retro-pop script + travel scrapbook — pinks & pastels",
+    Icon: Heart,
   },
 ] as const;
 
