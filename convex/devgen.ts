@@ -113,15 +113,13 @@ export const devGenerate = internalAction({
       ]),
     ];
     const fmtDim = FORMAT_DIMENSIONS[format];
+    // Minimal Bold is wordmark-only (no ALL IN sticker); others test with the sticker.
+    const marks =
+      designSystem === "minimal-bold"
+        ? { includeLogo: true, includeAllIn: false, includeAllInMonkey: false }
+        : { includeLogo: true, includeAllIn: true, includeAllInMonkey: false };
     const systemPrompt =
-      buildSystemPrompt(
-        brandData.config,
-        ds,
-        format,
-        imageManifest,
-        { includeLogo: true, includeAllIn: true, includeAllInMonkey: false },
-        statedColors,
-      ) +
+      buildSystemPrompt(brandData.config, ds, format, imageManifest, marks, statedColors) +
       (format === "16:9" ? "\n\n" + COUNTRY_KIT_DOC : "");
     const validateOpts = {
       allowedColors,
@@ -130,6 +128,8 @@ export const devGenerate = internalAction({
       allowRadialGradients: ds?.effects?.allowRadialGradients ?? false,
       forbidBlur: ds?.effects?.forbidBlur ?? true,
       forbidTextOnImages: ds?.effects?.noTextOnImages ?? false,
+      forbidSmallTextOnImages: ds?.effects?.noSmallTextOnImages ?? false,
+      greyscalePhotos: ds?.effects?.greyscalePhotos ?? false,
       canvas: fmtDim ? { w: fmtDim.w, h: fmtDim.h } : undefined,
     } as const;
 
@@ -160,9 +160,15 @@ export const devGenerate = internalAction({
       // Base-run violations are HARD (brand/palette/marks/text-on-photo);
       // extras that only appear with the layout estimators on are SOFT.
       const hard = validateSvg(outputCode, validateOpts);
-      const soft = validateSvg(outputCode, { ...validateOpts, checkTextOverlap: true, checkContainers: true }).filter(
+      let soft = validateSvg(outputCode, { ...validateOpts, checkTextOverlap: true, checkContainers: true }).filter(
         (vv) => !hard.includes(vv),
       );
+      // Per-system: text-overlap violations escalate to HARD (Minimal Bold).
+      if (ds?.effects?.strictTextOverlap) {
+        const overlaps = soft.filter((vv) => /^Text ".*" overlaps text /.test(vv));
+        hard.push(...overlaps);
+        soft = soft.filter((vv) => !overlaps.includes(vv));
+      }
       if (!/mm-logo-(white|black)\.png/.test(outputCode)) {
         hard.push("missing logo");
       }

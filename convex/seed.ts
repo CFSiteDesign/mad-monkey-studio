@@ -490,3 +490,77 @@ export const wipePasswordAccount = internalMutation({
     return { deleted: mine.length, email: target };
   },
 });
+
+// ── Minimal Bold design system — seed/update (idempotent by name) ───────────
+// Bold editorial: black canvas + giant white Archivo Black type sandwiching a
+// FULL-COLOUR photo. Tiny white MM wordmark. Run: npx convex run seed:seedMinimalBold
+export const seedMinimalBold = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const brand = await ctx.db
+      .query("brands")
+      .withIndex("by_slug", (q) => q.eq("slug", "mad-monkey"))
+      .first();
+    if (!brand) throw new Error("Run seedMadMonkey first.");
+
+    const doc = {
+      brandId: brand._id,
+      name: "minimal-bold",
+      label: "Minimal Bold",
+      description: "Bold editorial — black canvas, giant white type over a full-colour photo.",
+      guidelines: `MINIMAL BOLD SYSTEM — bold editorial. This REPLACES all Mad Monkey sticker/party energy with restraint: PURE BLACK background (#0A0A0A), PURE WHITE type (#FFFFFF), ONE heavy grotesque headline face. The photograph runs in FULL NATURAL COLOUR — it is the ONLY colour on the page, and it does all the colour work. Confident, cool, deadpan — the opposite of loud. NO stickers, NO starbursts, NO cherries/hearts/motifs, NO gradients, NO drop-shadows, NO rounded party pills, NO script fonts, NO outlines, and NO recolouring the photo (no greyscale, no duotone, no tint — leave it exactly as shot). If it looks fun or busy, it is WRONG.
+
+LAYOUT — the signature "type sandwich":
+- Full-bleed black #0A0A0A canvas.
+- ONE photograph as a near-full-bleed band (roughly y 20%–85% of the canvas, full width — the photo dominates; the black shows only as slim top/bottom margins). CHOOSE A PHOTO OF PEOPLE — a shot with one clear subject or a small group whose faces read (judge from the bank descriptions; prefer close/portrait 'people' shots over aerial or empty scenes). Render it in FULL NATURAL COLOUR — NO filter on the <image> at all: NO greyscale/saturate matrix, and do NOT use the kit's colour filters filter="url(#duo)" or filter="url(#post)" (they tint it blue/lime/duotone). The photo appears exactly as shot. Black margins show above and below it. The photo may bleed to the left/right edges.
+- A GIANT uppercase Archivo Black headline SPLIT into two DENSE BLOCKS with FIXED CORNER ANCHORS (hard — this is the layout, no variations):
+  • HALF-1 is ALWAYS anchored TOP-LEFT: left-aligned at the left margin, starting at the top margin. Only its LAST line may straddle the photo's TOP edge (≈half cap-height on black, half on photo); earlier lines sit fully on the black above.
+  • HALF-2 is ALWAYS anchored BOTTOM-RIGHT: right-aligned at the right margin (text-anchor="end" at x = canvas width − margin), sitting at the photo's BOTTOM — its last line straddles the photo's bottom edge; at most one line above it inside the photo's bottom quarter.
+  • NEVER place any headline line in the vertical MIDDLE of the canvas or the photo — the photo's middle band (~25% to ~70% of its height) contains ZERO headline letterforms. The two corner blocks + clear middle is the signature: top-left speaks, bottom-right answers, the photo breathes between them.
+  • Within each block the lines are TIGHTLY STACKED (gap ≤ 0.15× font-size) and every line fills 85–92% of the width.
+  • CAPS/META PLACEMENT: date+time top-RIGHT (the only thing allowed opposite half-1). ALL other caps blocks (stats, perks, qualifiers) live on the BLACK MARGINS — in the bottom meta row or right-aligned under the date. The top-left corner belongs to the headline ALONE — no caps above or under it. Caps NEVER sit on the photo — geometrically enforced: any small text crossing the photo is auto-rejected. All caps live on the black margins, full stop. And no caps block may touch the headline: keep ≥40px clearance from every headline letterform (also enforced — overlapping text is auto-rejected). Left-aligned, hugging the left margin, each line filling 85–92% of the width, tight leading (line-height ≈ 0.88) and tight tracking (letter-spacing ≈ -0.02em). One or two lines per half. HEADLINE SIZE IS NON-NEGOTIABLE: compute the font-size per line as (0.9 × canvas width) ÷ (0.72 × characters in that line) — Archivo Black is WIDE; on a 1080-wide canvas short words like PITCH land around 230–270px, longer words like SINGLES around 170–200px. Then double-check: chars × font-size × 0.72 must be ≤ 90% of the canvas width or letters WILL clip off the edge. If the headline doesn't feel almost too big, it is too small.
+- Small tracked caps anchored in the CORNERS on the black margin: DATE stacked top-right (e.g. "16" / "JULY" / "2026"), a stats/descriptor block top-left or upper-left (e.g. "100 SINGLES" / "REALITY DATING CHAOS"), a qualifier upper-right (e.g. "FOR SINGLES 25-40 ONLY"), the VENUE bottom-left, the TIME bottom-right. Inter weight 600, small, letter-spacing ≈ 0.14em. VERTICAL LANES (hard): the canvas is divided into exclusive lanes — top meta lane (date top-right + one stats block top-left, both INSIDE the top ~9%), headline half-1 lane, photo band, headline half-2 lane, bottom meta lane (venue left + time right, bottom ~8%). The GIANT HEADLINE'S LANES BELONG TO IT ALONE: no caps block may sit inside or touch either headline's bounding box. ALL small caps blocks live on the BLACK MARGINS ONLY — never on the colour photo (white caps drown on a colour image, and it is auto-rejected). Keep every caps block ≥40px clear of the headline's letters. If a caps block would touch the headline or land on the photo, drop it.
+- DENSE, LOCKED COMPOSITION — no large empty black voids anywhere mid-canvas: the photo + the two headline blocks + corner caps fill the frame edge to edge. Everything left-aligned or corner-anchored to a clean margin grid (≈5-6% inset). FLAT — no shadows; the black/white contrast carries it.
+
+WHITE TEXT CROSSING THE PHOTO EDGES (this is the style): the straddling headline lines read because they sit over the photo's DARKER edge regions. NEVER draw scrim/overlay rectangles across the photo — no semi-transparent bands of ANY colour (black, white, grey), no darkening or lightening layers, no rects with opacity over the photo, full stop; the photo stays completely untouched. If an edge of the photo is too bright for white type, shift the headline line further onto the black margin instead.
+
+TYPE: Headline = "Archivo Black", UPPERCASE. Supporting caps / stats / date / venue / time = "Inter" weight 600, UPPERCASE, letter-spaced. Body (rare) = "Inter" weight 400, sentence case. Never introduce a second font.
+
+TONE: editorial, deadpan, minimal words, all-caps. No exclamation marks. EVERY fact appears EXACTLY ONCE on the canvas — never repeat a perk/time/line in two places. The bottom-right corner is RESERVED for the tiny wordmark alone; the time goes bottom-right of the meta row only if the wordmark sits clear above/beside it — never stack text on the wordmark. "FOR SINGLES 25-40 ONLY", "REAL CONNECTIONS", "GUIDED ROUNDS", "REALITY DATING CHAOS".
+
+BRAND MARK: a tiny WHITE Mad Monkey wordmark only — small and quiet in a bottom corner, attribution scale, never large. NO ALL IN stickers, NO stamp, NO starburst.`,
+      baseCssVars: JSON.stringify({
+        "--bg": "#0A0A0A",
+        "--ink": "#FFFFFF",
+        "--muted": "#8A8A8A",
+      }),
+      palette: {
+        primary: ["#FFFFFF", "#0A0A0A"],
+        secondary: ["#8A8A8A", "#B0B0B0"],
+        neutral: ["#000000", "#F5F5F5"],
+      },
+      fontsAllowed: ["Archivo Black", "Inter"],
+      fontRules: `TWO faces, fixed roles:
+Headline: "Archivo Black" (its single native weight — do NOT set font-weight), UPPERCASE, tight tracking (letter-spacing about -0.01em), tight leading (line-height about 0.88), left-aligned, MASSIVE (each line fills 85-92% of the width). This is the slab-heavy display black of the references — never substitute Inter for the headline.
+Supporting caps / stats / date / venue / time: "Inter" weight 600, UPPERCASE, small, letter-spacing about 0.14em.
+Body (rare): "Inter" weight 400, sentence case.
+Never use any other font family (no Anton, Montserrat, Pacifico, Bungee, etc.).`,
+      effects: { maxLinearGradients: 0, allowRadialGradients: false, forbidBlur: true, noTextOnImages: false, greyscalePhotos: false, noSmallTextOnImages: true, strictTextOverlap: true },
+      isActive: true,
+      createdAt: Date.now(),
+    };
+
+    const existing = await ctx.db
+      .query("design_systems")
+      .withIndex("by_brand", (q) => q.eq("brandId", brand._id))
+      .filter((q) => q.eq(q.field("name"), "minimal-bold"))
+      .first();
+    if (existing) {
+      const { createdAt: _keep, ...update } = doc;
+      await ctx.db.patch(existing._id, update);
+      return { id: existing._id, status: "updated" };
+    }
+    const id = await ctx.db.insert("design_systems", doc);
+    return { id, status: "created" };
+  },
+});

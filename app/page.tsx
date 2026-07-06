@@ -22,6 +22,7 @@ import {
   Megaphone,
   ImageOff,
   Check,
+  Contrast,
   Plus,
   Trash2,
   Wand2,
@@ -58,6 +59,12 @@ const DESIGN_SYSTEMS = [
     label: "Girly Pop",
     desc: "Dreamy retro-pop script + travel scrapbook — pinks & pastels",
     Icon: Heart,
+  },
+  {
+    name: "minimal-bold",
+    label: "Minimal Bold",
+    desc: "Monochrome editorial — giant type over a black & white photo",
+    Icon: Contrast,
   },
 ] as const;
 

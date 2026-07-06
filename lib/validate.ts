@@ -27,6 +27,12 @@ export interface ValidateOptions {
   /** Per-system (e.g. Girly Pop collages): NO text may cross a photo — text
    *  lives on clear background. HARD violation when set. */
   forbidTextOnImages?: boolean;
+  /** Per-system (e.g. Minimal Bold): photos must be greyscale — bans the kit's
+   *  colour duotone/posterise filters. HARD violation when set. */
+  greyscalePhotos?: boolean;
+  /** Per-system (Minimal Bold): small text (font-size < 60) may never sit on a
+   *  photo — giant headlines cross photos by design, small caps drown. HARD. */
+  forbidSmallTextOnImages?: boolean;
 }
 
 type Box = { x1: number; y1: number; x2: number; y2: number; label: string };
@@ -125,7 +131,10 @@ function parseTexts(svg: string): TextEl[] {
     const anchor = (attrs.match(/text-anchor\s*[:=]\s*["']?\s*(middle|end|start)/i)?.[1] ??
       "start").toLowerCase() as "start" | "middle" | "end";
     const baseline = (attrs.match(/dominant-baseline\s*[:=]\s*["']?\s*([a-z-]+)/i)?.[1] ?? "").toLowerCase();
-    const width = content.length * fontSize * 0.6;
+    // Wide display faces (Archivo Black) run ~0.7em/char — a 0.6 estimate lets
+    // giant headlines clip off-canvas undetected.
+    const wide = /archivo/i.test(attrs.match(/font-family\s*=\s*["']([^"']*)["']/i)?.[1] ?? "");
+    const width = content.length * fontSize * (wide ? 0.7 : 0.6);
     const x1 = anchor === "middle" ? x - width / 2 : anchor === "end" ? x - width : x;
     els.push({
       x, y, fontSize, anchor, baseline, content, at: m.index, attrs,
@@ -971,6 +980,36 @@ export function validateSvg(svg: string, opts: ValidateOptions): string[] {
   for (const v of markOverPhotoViolations(svg)) violations.add(v);
   for (const v of markOverTextViolations(svg)) violations.add(v);
 
+  // ── Per-system: photos must be greyscale (Minimal Bold) ──────────────────
+  if (opts.greyscalePhotos) {
+    if (/url\(\s*#(duo|post)\b/i.test(svg)) {
+      violations.add(
+        `A photo uses the colour duotone/posterise filter — in this design system photos MUST be greyscale. Apply <feColorMatrix type="saturate" values="0"/> to the <image> instead of filter="url(#duo)" or "url(#post)". No colour anywhere.`,
+      );
+    }
+    // Provable desaturation: every photo must reference a filter whose def
+    // actually contains a saturate-0 colour matrix — skipping the filter
+    // entirely (a full-colour photo) is a violation too.
+    const gsIds = new Set<string>();
+    for (const fm of svg.matchAll(/<filter\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/filter>/gi)) {
+      const body = fm[2];
+      if (/<feColorMatrix\b[^>]*saturate[^>]*>/i.test(body) && /values\s*=\s*["']0(?:\.0*)?["']/i.test(body)) {
+        gsIds.add(fm[1]);
+      }
+    }
+    for (const tag of svg.match(/<image\b[^>]*>/gi) ?? []) {
+      const href = tag.match(/(?:xlink:)?href\s*=\s*"([^"]+)"/i)?.[1] ?? "";
+      if (MARK_HREF.test(href) || href.startsWith("#")) continue;
+      const fid = tag.match(/filter\s*=\s*["']url\(#([^)]+)\)/i)?.[1];
+      if (!fid || !gsIds.has(fid)) {
+        violations.add(
+          `A photo is not desaturated — in this design system EVERY photo must be greyscale: define <filter id="gs"><feColorMatrix type="saturate" values="0"/></filter> and put filter="url(#gs)" on every <image>. A full-colour photo is a hard failure.`,
+        );
+        break;
+      }
+    }
+  }
+
   // ── Per-system: text never crosses a photo (HARD, e.g. Girly Pop collage) ──
   // Meaningful intrusion only (≥10px depth on both axes) so a caption sitting
   // on a polaroid's white border can't false-flag against the photo itself.
@@ -1013,6 +1052,35 @@ export function validateSvg(svg: string, opts: ValidateOptions): string[] {
       }
     }
     for (const v of emptyPhotoFrameViolations(svg)) violations.add(v);
+  }
+
+  // ── Per-system: SMALL text never sits on a photo (HARD, Minimal Bold) ─────
+  if (opts.forbidSmallTextOnImages) {
+    const photoBoxes: Box[] = [];
+    for (const tag of svg.match(/<image\b[^>]*>/gi) ?? []) {
+      const href = tag.match(/(?:xlink:)?href\s*=\s*"([^"]+)"/i)?.[1] ?? "";
+      if (MARK_HREF.test(href) || href.startsWith("#")) continue;
+      if (/transform\s*=/i.test(tag)) continue;
+      const w = numFrom(tag, "width");
+      const h = numFrom(tag, "height");
+      if (w === null || h === null) continue;
+      const x = numFrom(tag, "x") ?? 0;
+      const y = numFrom(tag, "y") ?? 0;
+      photoBoxes.push({ x1: x, y1: y, x2: x + w, y2: y + h, label: "photo" });
+    }
+    for (const t of parseTexts(svg)) {
+      if (t.fontSize >= 60) continue; // giant display type crosses photos by design
+      for (const p of photoBoxes) {
+        const ix = Math.min(t.box.x2, p.x2) - Math.max(t.box.x1, p.x1);
+        const iy = Math.min(t.box.y2, p.y2) - Math.max(t.box.y1, p.y1);
+        if (ix > 10 && iy > 10) {
+          violations.add(
+            `Small text "${t.box.label}" sits on a photo — small caps/labels are illegible over photography in this design system. Move it onto the black margins (top meta row, bottom meta row, or under the date). Only the giant headline may cross the photo.`,
+          );
+          break;
+        }
+      }
+    }
   }
 
   return [...violations];

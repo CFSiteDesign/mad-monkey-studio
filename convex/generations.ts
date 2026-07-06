@@ -409,7 +409,16 @@ export const generateAsset = action({
         allowRadialGradients: ds?.effects?.allowRadialGradients ?? false,
         forbidBlur:           ds?.effects?.forbidBlur ?? true,
         forbidTextOnImages:   ds?.effects?.noTextOnImages ?? false,
+        greyscalePhotos:      ds?.effects?.greyscalePhotos ?? false,
+        forbidSmallTextOnImages: ds?.effects?.noSmallTextOnImages ?? false,
       }).filter((v) => !isSoftViolation(v)));
+
+      // Per-system: text-overlap estimates escalate to HARD (Minimal Bold).
+      if (ds?.effects?.strictTextOverlap) {
+        const overlaps = soft.filter((v) => /^Text ".*" overlaps text /.test(v));
+        hard.push(...overlaps);
+        soft = soft.filter((v) => !overlaps.includes(v));
+      }
 
       // Brand marks: enforce exactly what the user ticked (HARD).
       const hasLogo        = /mm-logo-(white|black)\.png/.test(outputCode);

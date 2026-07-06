@@ -64,6 +64,14 @@ export default defineSchema({
         // Text may never cross a photo (e.g. Girly Pop collages: headlines
         // live on clear background, photos are framed items) — HARD when set.
         noTextOnImages: v.optional(v.boolean()),
+        // Small text (<60px) may never sit on a photo (Minimal Bold: giant
+        // headlines cross photos by design, small caps are illegible there).
+        noSmallTextOnImages: v.optional(v.boolean()),
+        // Text-overlaps-text becomes a HARD violation (default: soft estimate).
+        strictTextOverlap: v.optional(v.boolean()),
+        // Photos must be greyscale (e.g. Minimal Bold): bans the kit's colour
+        // duotone/posterise filters — HARD when set.
+        greyscalePhotos: v.optional(v.boolean()),
       }),
     ),
     isActive: v.boolean(),

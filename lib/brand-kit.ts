@@ -14,7 +14,7 @@ const SAWTOOTH =
   "0,-100 9.6,-85.5 22.3,-97.5 28.4,-81.2 43.4,-90.1 45.8,-72.8 62.3,-78.2 60.8,-60.8 78.2,-62.3 72.8,-45.8 90.1,-43.4 81.2,-28.4 97.5,-22.3 85.5,-9.6 100,0 85.5,9.6 97.5,22.3 81.2,28.4 90.1,43.4 72.8,45.8 78.2,62.3 60.8,60.8 62.3,78.2 45.8,72.8 43.4,90.1 28.4,81.2 22.3,97.5 9.6,85.5 0,100 -9.6,85.5 -22.3,97.5 -28.4,81.2 -43.4,90.1 -45.8,72.8 -62.3,78.2 -60.8,60.8 -78.2,62.3 -72.8,45.8 -90.1,43.4 -81.2,28.4 -97.5,22.3 -85.5,9.6 -100,0 -85.5,-9.6 -97.5,-22.3 -81.2,-28.4 -90.1,-43.4 -72.8,-45.8 -78.2,-62.3 -60.8,-60.8 -62.3,-78.2 -45.8,-72.8 -43.4,-90.1 -28.4,-81.2 -22.3,-97.5 -9.6,-85.5";
 
 const FONT_IMPORT_CSS =
-  "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&amp;family=Bungee&amp;family=Anton&amp;family=Archivo+Black&amp;family=Titan+One&amp;family=Baloo+2:wght@800&amp;family=Caveat:wght@700&amp;family=Permanent+Marker&amp;family=Pacifico&amp;family=DM+Serif+Display:ital@0;1&amp;display=swap');";
+  "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&amp;family=Bungee&amp;family=Anton&amp;family=Archivo+Black&amp;family=Titan+One&amp;family=Baloo+2:wght@800&amp;family=Caveat:wght@700&amp;family=Permanent+Marker&amp;family=Pacifico&amp;family=DM+Serif+Display:ital@0;1&amp;family=Inter:wght@400;600;900&amp;display=swap');";
 
 /** The canonical kit, injected into every output SVG right after <svg …>. */
 export const BRAND_KIT_DEFS = `<defs id="mm-kit"><style>${FONT_IMPORT_CSS}</style>` +

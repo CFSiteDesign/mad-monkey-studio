@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encode as jpegEncode } from "jpeg-js";
-import { MONTSERRAT_FONTS_B64, DISPLAY_FONTS_B64, MONT_FAMILY } from "./brand-fonts";
+import { MONTSERRAT_FONTS_B64, DISPLAY_FONTS_B64, MONT_FAMILY, INTER_FONTS_B64, INTER_FAMILY } from "./brand-fonts";
 import { normalizeSvgRoot } from "./validate";
 
 let fontsPromise: Promise<Buffer[]> | null = null;
@@ -39,6 +39,7 @@ const FONT_URLS = [
 const BUNDLED_BUFFERS: Buffer[] = [
   ...Object.values(MONTSERRAT_FONTS_B64),
   ...Object.values(DISPLAY_FONTS_B64),
+  ...Object.values(INTER_FONTS_B64),
 ].map((b64) => Buffer.from(b64, "base64"));
 
 /** All brand font buffers, loaded once per process. Headline/label/sticker fonts
@@ -76,13 +77,16 @@ export function loadBrandFonts(): Promise<Buffer[]> {
 function remapMontserratWeights(svg: string): string {
   return svg.replace(/<(?:text|tspan)\b[^>]*>/gi, (tag) => {
     const ff = tag.match(/font-family\s*=\s*["']([^"']*)["']/i);
-    if (!ff || ff[1].trim().toLowerCase() !== "montserrat") return tag;
+    if (!ff) return tag;
+    const family = ff[1].trim().toLowerCase();
+    const table = family === "montserrat" ? MONT_FAMILY : family === "inter" ? INTER_FAMILY : null;
+    if (!table) return tag;
     const fw = tag.match(/font-weight\s*=\s*["']([^"']+)["']/i);
     let wt = fw ? fw[1].trim().toLowerCase() : "400";
-    if (wt === "bold") wt = "700";
+    if (wt === "bold") wt = family === "inter" ? "900" : "700";
     if (wt === "normal" || wt === "regular") wt = "400";
-    const fam = MONT_FAMILY[wt];
-    if (!fam || fam === "Montserrat") return tag;
+    const fam = table[wt] ?? (family === "inter" ? (parseInt(wt) >= 700 ? "MMInter900" : parseInt(wt) >= 500 ? "MMInter600" : "Inter") : null);
+    if (!fam || fam.toLowerCase() === family) return tag;
     return tag.replace(/font-family\s*=\s*["'][^"']*["']/i, `font-family="${fam}"`);
   });
 }
