@@ -1,7 +1,7 @@
 "use node";
 
 import { action } from "./_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -39,6 +39,21 @@ type OutlineSlide = {
   visual: string;
 };
 
+// ── The one presentation style ──────────────────────────────────────────────
+// Presentations always use THIS deck aesthetic — never the Girly Pop / Minimal
+// Bold poster systems. It keeps every slide in a deck visually consistent and
+// on-brand (the Mad Monkey design-guide look), independent of any per-user
+// design-system pick. Appended to the system prompt for every slide.
+const DECK_STYLE_DOC = `━━ PRESENTATION STYLE (the one deck look — apply to EVERY slide) ━━
+This is a Mad Monkey PRESENTATION deck, not a social poster and not the Girly Pop or Minimal Bold poster styles. Every slide in this deck MUST share one consistent system so the deck reads as a single cohesive presentation:
+- BASE: warm off-white/bone (#f5efe2) or clean paper (#ffffff) as the default slide background, OR Mad Black (#0a0a0a) for section-break / cover / stat slides — pick ONE background rhythm and keep it consistent across the deck (e.g. light content slides with occasional black section breaks). Do NOT switch base colours slide-to-slide at random.
+- TYPE: Montserrat throughout. Headings Montserrat 900 (bold, confident, editorial — never thin/corporate). Body & bullets Montserrat 400/600. One clear type scale reused on every slide.
+- ACCENT: at most ONE pop colour per slide used sparingly (a rule, a highlight word, a small shape) — presentations are calmer and more editorial than posters. No sticker-bombing, no dense collage, no film-grain-heavy poster treatment.
+- PHOTOGRAPHY: lead with real brand photography where it fits (from the image bank), cleanly cropped into a panel/band with a generous gutter to the text — never behind the text.
+- LAYOUT: confident whitespace, strong left-aligned hierarchy, calm density. Reads in 3 seconds from across a room.
+- BRAND: the Mad Monkey wordmark sits small and consistent (same corner) on every slide. ALL IN energy in the voice, but restrained in the decoration.
+Consistency across the deck is the #1 goal: same fonts, same margins, same accent, same logo placement on every slide.`;
+
 function anthropic() {
   return new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -74,11 +89,21 @@ Rules:
     messages: [{ role: "user", content: brief }],
   });
   const text = res.content[0].type === "text" ? res.content[0].text : "";
+  const cleaned = stripFences(text).trim();
+  // Prefer a straight parse; fall back to slicing the outermost { … } object
+  // out of any surrounding prose the model may have added.
   let parsed: { title?: string; slides?: OutlineSlide[] };
   try {
-    parsed = JSON.parse(stripFences(text).replace(/^[^{]*/, "").replace(/[^}]*$/, ""));
+    parsed = JSON.parse(cleaned);
   } catch {
-    throw new Error("Couldn't plan the deck — try rephrasing the brief.");
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    try {
+      if (start === -1 || end === -1 || end <= start) throw new Error("no json");
+      parsed = JSON.parse(cleaned.slice(start, end + 1));
+    } catch {
+      throw new Error("Couldn't plan the deck — try rephrasing the brief.");
+    }
   }
   const slides = (parsed.slides ?? [])
     .filter((s) => s && s.heading)
@@ -215,12 +240,19 @@ export const generateDeck = action({
   },
   handler: async (ctx, { brief, designSystem, slideCount }): Promise<{ deckId: Id<"decks"> }> => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    if (!userId) throw new ConvexError("You're signed out — sign in and try again.");
     const user = await ctx.runQuery(api.users.getCurrentUser);
-    if (!user?.brandId) throw new Error("No brand assigned.");
+    if (!user?.brandId) throw new ConvexError("No brand assigned to your account.");
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new ConvexError("The presentation engine isn't configured (missing API key). Ping an admin.");
+    }
+    if (!brief.trim()) {
+      throw new ConvexError("Add a topic or a document before building the presentation.");
+    }
 
     const brandData = await ctx.runQuery(api.brands.getActiveBrandConfig, { slug: "mad-monkey" });
-    if (!brandData) throw new Error("No active brand config found.");
+    if (!brandData) throw new ConvexError("No active brand config found.");
     const ds = await ctx.runQuery(internal.generationsInternal.getDesignSystem, {
       brandId: user.brandId,
       name: designSystem,
@@ -231,8 +263,26 @@ export const generateDeck = action({
 
     const client = anthropic();
 
-    // 1) Outline (Haiku) — exactly the number of slides the user asked for
-    const outline = await composeOutline(client, brief, ds?.description ?? "", slideCount ?? DEFAULT_SLIDES);
+    // 1) Outline (Haiku) — exactly the number of slides the user asked for.
+    // The outline runs BEFORE the deck shell exists, so a failure here has no
+    // deck to mark "failed" — it throws straight to the client. Retry once for a
+    // transient model hiccup, then surface a readable ConvexError (a plain Error
+    // would reach the client masked as a generic "Server Error").
+    let outline;
+    try {
+      outline = await composeOutline(client, brief, ds?.description ?? "", slideCount ?? DEFAULT_SLIDES);
+    } catch {
+      try {
+        outline = await composeOutline(client, brief, ds?.description ?? "", slideCount ?? DEFAULT_SLIDES);
+      } catch (retryErr) {
+        const msg = retryErr instanceof Error ? retryErr.message : "Couldn't plan the deck.";
+        throw new ConvexError(
+          /couldn't plan|empty|rephras|fuller brief/i.test(msg)
+            ? msg
+            : "Couldn't plan the presentation just now — try again in a moment, or give a fuller brief.",
+        );
+      }
+    }
 
     // 2) Create the deck shell (UI shows progress as slides land). The Haiku
     // outline cost is seeded here so it's metered without a junk slide.
@@ -285,6 +335,8 @@ export const generateDeck = action({
             { includeLogo, includeAllIn: false, includeAllInMonkey: false },
             statedColors,
           ) +
+          "\n\n" +
+          DECK_STYLE_DOC +
           "\n\n" +
           COUNTRY_KIT_DOC;
         const result = await generateSlide(
