@@ -11,41 +11,38 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encode as jpegEncode } from "jpeg-js";
 import { MONTSERRAT_FONTS_B64, DISPLAY_FONTS_B64, MONT_FAMILY, INTER_FONTS_B64, INTER_FAMILY } from "./brand-fonts";
+import { GIRLY_FONTS_B64 } from "./girly-fonts";
 import { normalizeSvgRoot } from "./validate";
 
 let fontsPromise: Promise<Buffer[]> | null = null;
 let fontFilesPromise: Promise<string[]> | null = null;
 
-// Every load-bearing brand font is BUNDLED (base64, subset) so server-side export
-// never depends on a runtime GitHub fetch — a flaky/blocked fetch used to leave the
-// per-process font cache permanently missing Anton (headline) so headlines exported
-// in a wide thin fallback. resvg-js (2.6) also can't weight-match Montserrat's
-// "RIBBI" static TTFs (every heavy weight claims subfamily "Regular", so resvg
-// renders them all at Regular), so each heavy Montserrat weight is bundled RENAMED
-// to a unique single-member family ("MMMont900" etc.) and the SVG's font-weight is
-// rewritten to that family (remapMontserratWeights). Only the two VARIABLE-weight
-// accents (Baloo 2, Caveat) are still fetched — no clean static to bundle — so a
-// failed fetch only ever degrades rare script/handwritten accents, never the
-// headline, labels or stickers.
-const FONT_URLS = [
-  "https://raw.githubusercontent.com/google/fonts/main/ofl/baloo2/Baloo2%5Bwght%5D.ttf",
-  "https://raw.githubusercontent.com/google/fonts/main/ofl/caveat/Caveat%5Bwght%5D.ttf",
-  // Girly Pop faces — hero script + elegant postcard serif (regular + italic)
-  "https://raw.githubusercontent.com/google/fonts/main/ofl/pacifico/Pacifico-Regular.ttf",
-  "https://raw.githubusercontent.com/google/fonts/main/ofl/dmserifdisplay/DMSerifDisplay-Regular.ttf",
-  "https://raw.githubusercontent.com/google/fonts/main/ofl/dmserifdisplay/DMSerifDisplay-Italic.ttf",
-];
+// EVERY brand + design-system font is BUNDLED (base64, subset) so server-side
+// export never depends on a runtime GitHub fetch. A flaky/blocked fetch used to
+// leave the per-process font cache missing fonts — first Anton (headline → wide
+// thin fallback), and most recently the Girly Pop faces (Pacifico/Caveat/DM
+// Serif/Baloo 2), so Girly Pop's script headline + handwritten notes EXPORTED in
+// a Montserrat/serif fallback that looked nothing like the Studio preview. Now
+// nothing is fetched: FONT_URLS is empty. resvg-js (2.6) also can't weight-match
+// Montserrat's "RIBBI" static TTFs (every heavy weight claims subfamily
+// "Regular", so resvg renders them all at Regular), so each heavy Montserrat
+// weight is bundled RENAMED to a unique single-member family ("MMMont900" etc.)
+// and the SVG's font-weight is rewritten to that family (remapMontserratWeights).
+// The Girly Pop faces are bundled as Latin subsets (see girly-fonts.ts); Caveat
+// and Baloo 2 keep their variable weight axis so 700/800 render correctly.
+const FONT_URLS: string[] = [];
 
 const BUNDLED_BUFFERS: Buffer[] = [
   ...Object.values(MONTSERRAT_FONTS_B64),
   ...Object.values(DISPLAY_FONTS_B64),
   ...Object.values(INTER_FONTS_B64),
+  ...GIRLY_FONTS_B64, // Pacifico, Caveat, DM Serif (reg+italic), Baloo 2
 ].map((b64) => Buffer.from(b64, "base64"));
 
-/** All brand font buffers, loaded once per process. Headline/label/sticker fonts
- *  are bundled (base64) so they're ALWAYS present even if the font CDN is down; the
- *  two variable accent fonts are fetched best-effort with a hard per-font timeout
- *  so a slow/unreachable CDN can never hang or block the generation pipeline. */
+/** All brand font buffers, loaded once per process. Every face is bundled
+ *  (base64), so they're ALWAYS present regardless of network — FONT_URLS is now
+ *  empty and the fetch loop below is a no-op kept only so re-adding a runtime
+ *  font later needs no plumbing. */
 export function loadBrandFonts(): Promise<Buffer[]> {
   if (!fontsPromise) {
     fontsPromise = (async () => {

@@ -1,14 +1,14 @@
 "use client";
 
-// Admin-only member management: invite people (user/admin) with a spend cap,
-// see who's pending sign-up, and adjust every member's role + monthly cap.
+// Admin-only member management: adjust every member's role + monthly spend cap.
+// Staff self-register with an @madmonkeyhostels.com email — there are no invites.
 // All actions are gated server-side by `requireAdmin` in convex/admin.ts.
 
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Users, UserPlus, Loader2, Check, Clock } from "lucide-react";
+import { Users, Loader2, Check } from "lucide-react";
 
 type Member = {
   _id: Id<"users">;
@@ -21,34 +21,8 @@ type Member = {
 
 export function AdminMembers() {
   const data = useQuery(api.admin.listMembers);
-  const inviteUser = useMutation(api.admin.inviteUser);
   const setUserCap = useMutation(api.admin.setUserCap);
   const setUserRole = useMutation(api.admin.setUserRole);
-
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"user" | "admin">("user");
-  const [cap, setCap] = useState(50);
-  const [inviting, setInviting] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-
-  async function invite(e: React.FormEvent) {
-    e.preventDefault();
-    const clean = email.trim().toLowerCase();
-    if (!clean || inviting) return;
-    setInviting(true);
-    setMsg(null);
-    try {
-      await inviteUser({ email: clean, role, monthlyCapUsd: Math.max(0, Math.round(cap)) });
-      setMsg({ ok: true, text: `Invited ${clean} as ${role} — they can now sign up.` });
-      setEmail("");
-      setRole("user");
-      setCap(50);
-    } catch (err) {
-      setMsg({ ok: false, text: err instanceof Error ? err.message : "Invite failed." });
-    } finally {
-      setInviting(false);
-    }
-  }
 
   if (data === undefined) {
     return (
@@ -66,82 +40,12 @@ export function AdminMembers() {
         </span>
       </div>
 
-      {/* ── Invite ── */}
-      <form
-        onSubmit={invite}
-        className="mt-5 space-y-3 rounded-lg border border-[rgba(242,238,230,0.08)] bg-[rgba(242,238,230,0.02)] p-4"
-      >
-        <p className="text-[11px] font-medium text-[#CFC8BD]">Invite a new member</p>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-[200px] flex-1 space-y-1">
-            <label className="block text-[10px] uppercase tracking-wide text-[#8C8278]">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="teammate@madmonkeyhostels.com"
-              className="mm-field w-full rounded-lg px-3 py-2 text-sm text-[#F2EEE6] placeholder:text-[#8C8278]/55"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="block text-[10px] uppercase tracking-wide text-[#8C8278]">Role</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as "user" | "admin")}
-              className="mm-field rounded-lg px-3 py-2 text-sm text-[#F2EEE6]"
-            >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="block text-[10px] uppercase tracking-wide text-[#8C8278]">Cap $/mo</label>
-            <input
-              type="number"
-              min={0}
-              value={cap}
-              onChange={(e) => setCap(Number(e.target.value) || 0)}
-              className="mm-field w-24 rounded-lg px-3 py-2 text-sm text-[#F2EEE6]"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={inviting || !email.trim()}
-            className="mm-cta flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-[#F7F3EC] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-            Invite
-          </button>
-        </div>
-        <p className="text-[10px] text-[#8C8278]">
-          Admins can invite others; users can&apos;t. Default cap is $50/month.
-        </p>
-        {msg && (
-          <p className={`text-[11px] ${msg.ok ? "text-emerald-400" : "text-red-300"}`}>{msg.text}</p>
-        )}
-      </form>
-
-      {/* ── Pending invites ── */}
-      {data.pending.length > 0 && (
-        <div className="mt-5">
-          <p className="text-[11px] font-medium text-[#CFC8BD]">Invited · not signed up yet</p>
-          <ul className="mt-2 space-y-1">
-            {data.pending.map((p) => (
-              <li
-                key={p._id}
-                className="flex items-center justify-between rounded-md border border-[rgba(242,238,230,0.06)] px-3 py-1.5 text-[12px] text-[#CFC8BD]"
-              >
-                <span className="flex items-center gap-2">
-                  <Clock className="h-3 w-3 text-[#8C8278]" /> {p.email}
-                </span>
-                <span className="text-[11px] text-[#8C8278]">
-                  {p.role} · ${p.monthlyCapUsd}/mo
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* ── Self-registration note ── */}
+      <p className="mt-4 rounded-lg border border-[rgba(242,238,230,0.08)] bg-[rgba(242,238,230,0.02)] px-4 py-3 text-[11px] text-[#8C8278]">
+        Anyone with an <span className="text-[#CFC8BD]">@madmonkeyhostels.com</span> email can
+        create their own account — no invites needed. New members start as{" "}
+        <span className="text-[#CFC8BD]">User</span> with a $50/month cap; adjust role and cap below.
+      </p>
 
       {/* ── Members table ── */}
       <div className="mt-6">

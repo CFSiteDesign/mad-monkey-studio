@@ -33,6 +33,30 @@ export interface ValidateOptions {
   /** Per-system (Minimal Bold): small text (font-size < 60) may never sit on a
    *  photo — giant headlines cross photos by design, small caps drown. HARD. */
   forbidSmallTextOnImages?: boolean;
+  /** Per-system (Minimal Bold): strictly axis-aligned — no rotate/skew/matrix
+   *  transform anywhere (a tilted photo also evades every photo check). HARD. */
+  forbidRotation?: boolean;
+  /** Per-system (Minimal Bold): no emoji / sparkles / dingbats / symbol glyphs
+   *  in any text — the page is pure type. HARD. */
+  forbidEmoji?: boolean;
+  /** Per-system (Minimal Bold): text set in the heavy display face must be
+   *  UPPERCASE — no lowercase / script / handwritten headlines. HARD. */
+  forbidLowercaseDisplay?: boolean;
+  /** Per-system (Minimal Bold): no filled rect / caption-chip / scrim on a
+   *  photo — the photo stays clean, labels live on the margins. HARD. */
+  forbidRectsOnImages?: boolean;
+  /** Per-system (Minimal Bold): a giant headline drawn UNDER a photo (photo on
+   *  top → letters clipped/hidden) is a hard failure — draw the photo first. */
+  forbidHeadlineBehindImage?: boolean;
+  /** Per-system (Minimal Bold): exactly ONE photograph — two stacked photo
+   *  bands read as a split/torn image. HARD when 2+ photos present. */
+  singlePhoto?: boolean;
+  /** Per-system (Minimal Bold): the giant headline is corner-anchored (left or
+   *  right), never text-anchor="middle" — centred giant type looks messy. HARD. */
+  forbidCenteredDisplay?: boolean;
+  /** Per-system (Minimal Bold): no headline "tower" — max 2 tightly-stacked
+   *  lines per corner block (BINGO/NIGHT/OR/BUST as one 4-line run is wrong). */
+  forbidHeadlineTower?: boolean;
 }
 
 type Box = { x1: number; y1: number; x2: number; y2: number; label: string };
@@ -70,7 +94,7 @@ type TextEl = {
 /** Fonts that render heavy by design, so text in them counts as "bold" even at
  *  font-weight 400 (Anton/Bungee/Archivo Black/Titan One are single heavy
  *  weights; MMMont600+ are the renamed heavy Montserrat families). */
-const HEAVY_FONTS = /Anton|Bungee|Archivo Black|Titan One|MMMont(?:[6-9]00)|Permanent Marker/i;
+const HEAVY_FONTS = /Anton|Bungee|Archivo Black|Titan One|Shrikhand|MMMont(?:[6-9]00)|Permanent Marker/i;
 
 /** Is this text element bold? Heavy display face, font-weight:bold, or >= 600. */
 function isBoldText(attrs: string): boolean {
@@ -161,6 +185,37 @@ function imageBoxes(svg: string): Box[] {
     boxes.push({ x1: x, y1: y, x2: x + w, y2: y + h, label: "image" });
   }
   return boxes;
+}
+
+/**
+ * Boxes for real (non-mark) photographs, with source-order index. Resolves a
+ * translate() so a shifted photo still registers; rotate/skew/matrix photos are
+ * skipped here (they're banned outright by forbidRotation, and their AABB is
+ * unresolvable). Used by the Minimal-Bold photo-integrity checks.
+ */
+function photoBoxesResolved(svg: string): Array<{ at: number; box: Box }> {
+  const out: Array<{ at: number; box: Box }> = [];
+  const re = /<image\b([^>]*)>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(svg))) {
+    const tag = m[1];
+    const href = tag.match(/(?:xlink:)?href\s*=\s*"([^"]+)"/i)?.[1] ?? "";
+    if (MARK_HREF.test(href) || href.startsWith("#")) continue;
+    const tf = tag.match(/transform\s*=\s*"([^"]*)"/i)?.[1] ?? "";
+    if (/rotate|skew|matrix/i.test(tf)) continue;
+    const w = numFrom(tag, "width");
+    const h = numFrom(tag, "height");
+    if (w === null || h === null) continue;
+    let x = numFrom(tag, "x") ?? 0;
+    let y = numFrom(tag, "y") ?? 0;
+    const tr = tf.match(/translate\(\s*(-?[\d.]+)[ ,]+(-?[\d.]+)/);
+    if (tr) {
+      x += parseFloat(tr[1]);
+      y += parseFloat(tr[2]);
+    }
+    out.push({ at: m.index, box: { x1: x, y1: y, x2: x + w, y2: y + h, label: "photo" } });
+  }
+  return out;
 }
 
 /** Inner content of the <g> that wraps the polygon at index `polyAt`, or null. */
@@ -772,12 +827,17 @@ export function emptyPhotoFrameViolations(svg: string): string[] {
     }
     const inner = body.slice(openRe.lastIndex, i - 4);
     // A white frame rect (polaroid), decent size, with a caption, but no photo.
+    // Rounded rects (rx>0) are label pills/stickers, not photo frames — skip
+    // them, and require a chunky photo-frame footprint (≥220 both ways) so
+    // wide-but-short label plates never false-flag as empty polaroids.
     const whiteRect = /<rect\b[^>]*\bfill\s*=\s*["']?\s*(#fff(?:fff)?|white)\b[^>]*>/i;
     const rect = inner.match(whiteRect)?.[0];
     if (!rect) continue;
+    const rx = numFrom(rect, "rx");
+    if (rx !== null && rx > 0) continue;
     const rw = numFrom(rect, "width");
     const rh = numFrom(rect, "height");
-    if (rw === null || rh === null || rw < 150 || rh < 150) continue;
+    if (rw === null || rh === null || rw < 220 || rh < 220) continue;
     const hasText = /<text\b/i.test(inner);
     const hasPhoto = /<image\b/i.test(inner);
     if (hasText && !hasPhoto) {
@@ -799,6 +859,9 @@ export function validateSvg(svg: string, opts: ValidateOptions): string[] {
   // whose own palette bans them. Claude-authored colours are still scanned.
   const scrubbed = svg
     .replace(/<defs id="mm-kit">[\s\S]*?<\/defs>/i, "<defs/>")
+    // Numeric character references (e.g. &#8211; = "–", &#x2013;) — the "#NNNN"
+    // otherwise reads as a 4-digit hex colour (&#8211; → #882211). Strip them.
+    .replace(/&#x?[0-9a-fA-F]+;/g, " ")
     .replace(/url\(\s*#[^)]*\)/g, "url(REF)")
     .replace(/(xlink:)?href\s*=\s*"#[^"]*"/g, 'href="REF"')
     .replace(/(xlink:)?href\s*=\s*'#[^']*'/g, "href='REF'");
@@ -1079,6 +1142,162 @@ export function validateSvg(svg: string, opts: ValidateOptions): string[] {
           );
           break;
         }
+      }
+    }
+  }
+
+  // ── Per-system: strictly axis-aligned — NO rotate/skew/tilt (Minimal Bold) ──
+  // A tilted photo also silently evades every photo check above, so this is the
+  // keystone rule: everything sits dead straight on the grid.
+  if (opts.forbidRotation) {
+    const body = svg
+      .replace(/<defs id="mm-kit">[\s\S]*?<\/defs>/i, "")
+      .replace(/<defs[\s\S]*?<\/defs>/gi, "");
+    if (/transform\s*=\s*["'][^"']*(?:rotate|skewX|skewY|matrix)\s*\(/i.test(body)) {
+      violations.add(
+        `A rotated/tilted/skewed element was found — this design system is strictly axis-aligned. Remove every rotate()/skew()/matrix() transform: the photo, the headline and all caps sit DEAD STRAIGHT on the grid, never tilted or angled. (Only translate/scale are allowed.)`,
+      );
+    }
+  }
+
+  // ── Per-system: no emoji / sparkles / dingbats / symbol glyphs (Minimal Bold)
+  if (opts.forbidEmoji) {
+    // Arrows, dingbats, misc symbols (incl. ✨ ★ ✦ ❤), stars, variation
+    // selectors and the emoji planes. Common punctuation (· – — • ' ") is below
+    // U+2190 and stays allowed.
+    const EMOJI =
+      /[←-⇿⌀-➿⬀-⯿︀-️\u{1F000}-\u{1FAFF}]/u;
+    const allText = (svg.match(/<text\b[^>]*>[\s\S]*?<\/text>/gi) ?? [])
+      .join(" ")
+      .replace(/<[^>]+>/g, " ");
+    if (EMOJI.test(allText)) {
+      violations.add(
+        `Emoji / decorative glyph found in the artwork text — this design system is pure type: NO emoji, sparkles ✨, stars, arrows or symbol characters anywhere. Delete them; the photo does all the visual work.`,
+      );
+    }
+  }
+
+  // ── Per-system: the heavy display headline must be UPPERCASE (Minimal Bold) ──
+  if (opts.forbidLowercaseDisplay) {
+    for (const m of svg.matchAll(/<text\b([^>]*)>([\s\S]*?)<\/text>/gi)) {
+      const fam = m[1].match(/font-family\s*[:=]\s*["']?\s*([^"';]+)/i)?.[1] ?? "";
+      if (!HEAVY_FONTS.test(fam)) continue;
+      const content = m[2].replace(/<[^>]+>/g, "");
+      if (/[a-z]/.test(content.replace(/[^A-Za-z]/g, ""))) {
+        violations.add(
+          `The display headline "${content.replace(/\s+/g, " ").trim().slice(0, 28)}" has lowercase letters — the giant headline is ALWAYS full UPPERCASE here. Set it in CAPS; never use lowercase, script or handwritten styling for the headline.`,
+        );
+        break;
+      }
+    }
+  }
+
+  // ── Per-system: no filled rect / caption-chip / scrim on a photo (Minimal Bold)
+  if (opts.forbidRectsOnImages) {
+    const photos = photoBoxesResolved(svg).map((p) => p.box);
+    if (photos.length) {
+      const body = svg.replace(/<defs[\s\S]*?<\/defs>/gi, "");
+      const gRanges = transformedRanges(body);
+      const rectRe = /<rect\b([^>]*)>/gi;
+      let rm: RegExpExecArray | null;
+      outer: while ((rm = rectRe.exec(body))) {
+        const tag = rm[1];
+        if (gRanges.some(([s, e]) => rm!.index > s && rm!.index < e)) continue;
+        if (/fill\s*=\s*["']?\s*(none|url)/i.test(tag)) continue;
+        const fo = tag.match(/fill-opacity\s*=\s*["']?\s*([\d.]+)/i);
+        if (fo && parseFloat(fo[1]) === 0) continue;
+        const w = numFrom(tag, "width");
+        const h = numFrom(tag, "height");
+        if (w === null || h === null) continue;
+        const x = numFrom(tag, "x") ?? 0;
+        const y = numFrom(tag, "y") ?? 0;
+        const rect: Box = { x1: x, y1: y, x2: x + w, y2: y + h, label: "rect" };
+        for (const p of photos) {
+          // A rect that fully CONTAINS the photo is the background/backdrop
+          // behind it, not a chip on top — never flag that.
+          if (rect.x1 <= p.x1 + 2 && rect.y1 <= p.y1 + 2 && rect.x2 >= p.x2 - 2 && rect.y2 >= p.y2 - 2) continue;
+          if (boxOverlap(rect, p) > 0.15 * Math.min(boxArea(rect), boxArea(p))) {
+            violations.add(
+              `A filled rectangle/box sits on a photo — this design system NEVER puts caption chips, colour blocks or scrims on the photo. Keep the photo completely clean and put every label on the black margins as plain white type.`,
+            );
+            break outer;
+          }
+        }
+      }
+    }
+  }
+
+  // ── Per-system: a giant headline must never hide BEHIND the photo (Minimal Bold)
+  // Photo drawn AFTER the headline (later in source) = photo on top = letters
+  // clipped/hidden (the "BUST behind the photo" failure).
+  if (opts.forbidHeadlineBehindImage) {
+    const photos = photoBoxesResolved(svg.replace(/<defs[\s\S]*?<\/defs>/gi, ""));
+    for (const t of parseTexts(svg)) {
+      if (t.fontSize < 60) continue; // only the giant display headline
+      const tArea = boxArea(t.box);
+      if (tArea <= 0) continue;
+      for (const p of photos) {
+        if (p.at <= t.at) continue; // photo comes AFTER the text → covers it
+        if (boxOverlap(p.box, t.box) > 0.45 * tArea) {
+          violations.add(
+            `The giant headline "${t.box.label}" is hidden behind the photo (the photo is drawn on top of it, clipping the letters). Draw the <image> FIRST, then the headline over it so the type stays fully visible — or move that headline block onto the clear black margin. The photo must never cover the headline.`,
+          );
+          break;
+        }
+      }
+    }
+  }
+
+  // ── Per-system: exactly ONE photograph — no split/stacked bands (Minimal Bold)
+  if (opts.singlePhoto) {
+    let photoCount = 0;
+    for (const tag of svg.match(/<image\b[^>]*>/gi) ?? []) {
+      const href = tag.match(/(?:xlink:)?href\s*=\s*"([^"]+)"/i)?.[1] ?? "";
+      if (MARK_HREF.test(href) || href.startsWith("#")) continue;
+      photoCount++;
+    }
+    if (photoCount > 1) {
+      violations.add(
+        `${photoCount} separate photographs — this design system uses exactly ONE photo as a single full-width band. Two or more photos stacked read as a split/torn image. Keep ONE <image> only; drop the rest.`,
+      );
+    }
+  }
+
+  // ── Per-system: giant headline is corner-anchored, never centred (Minimal Bold)
+  if (opts.forbidCenteredDisplay) {
+    for (const t of parseTexts(svg)) {
+      const heavy = HEAVY_FONTS.test(t.attrs.match(/font-family\s*[:=]\s*["']?\s*([^"';]+)/i)?.[1] ?? "");
+      if ((t.fontSize < 60 && !heavy) || t.anchor !== "middle") continue;
+      violations.add(
+        `The giant headline "${t.box.label}" is centred (text-anchor="middle") — in this design system the headline is corner-anchored: HALF-1 left-aligned top-left (text-anchor="start") and HALF-2 right-aligned bottom-right (text-anchor="end"). Never centre the big type.`,
+      );
+      break;
+    }
+  }
+
+  // ── Per-system: no headline "tower" — max 2 tightly-stacked lines per block ──
+  if (opts.forbidHeadlineTower) {
+    const giants = parseTexts(svg)
+      .filter((t) => {
+        const heavy = HEAVY_FONTS.test(t.attrs.match(/font-family\s*[:=]\s*["']?\s*([^"';]+)/i)?.[1] ?? "");
+        return t.fontSize >= 60 || heavy;
+      })
+      .sort((a, b) => a.y - b.y);
+    let runStart = 0;
+    for (let i = 1; i <= giants.length; i++) {
+      const contiguous =
+        i < giants.length &&
+        giants[i].y - giants[i - 1].y < giants[i - 1].fontSize * 1.5 &&
+        Math.abs(giants[i].fontSize - giants[i - 1].fontSize) < giants[i - 1].fontSize * 0.5;
+      if (!contiguous) {
+        const lines = i - runStart;
+        if (lines > 2) {
+          violations.add(
+            `The headline block "${giants[runStart].box.label}…" is ${lines} tightly-stacked lines — each corner block is at most TWO lines. Split the headline across the top-left and bottom-right corners (2 lines max each); drop filler words rather than towering one corner.`,
+          );
+          break;
+        }
+        runStart = i;
       }
     }
   }

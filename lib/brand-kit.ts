@@ -14,7 +14,7 @@ const SAWTOOTH =
   "0,-100 9.6,-85.5 22.3,-97.5 28.4,-81.2 43.4,-90.1 45.8,-72.8 62.3,-78.2 60.8,-60.8 78.2,-62.3 72.8,-45.8 90.1,-43.4 81.2,-28.4 97.5,-22.3 85.5,-9.6 100,0 85.5,9.6 97.5,22.3 81.2,28.4 90.1,43.4 72.8,45.8 78.2,62.3 60.8,60.8 62.3,78.2 45.8,72.8 43.4,90.1 28.4,81.2 22.3,97.5 9.6,85.5 0,100 -9.6,85.5 -22.3,97.5 -28.4,81.2 -43.4,90.1 -45.8,72.8 -62.3,78.2 -60.8,60.8 -78.2,62.3 -72.8,45.8 -90.1,43.4 -81.2,28.4 -97.5,22.3 -85.5,9.6 -100,0 -85.5,-9.6 -97.5,-22.3 -81.2,-28.4 -90.1,-43.4 -72.8,-45.8 -78.2,-62.3 -60.8,-60.8 -62.3,-78.2 -45.8,-72.8 -43.4,-90.1 -28.4,-81.2 -22.3,-97.5 -9.6,-85.5";
 
 const FONT_IMPORT_CSS =
-  "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&amp;family=Bungee&amp;family=Anton&amp;family=Archivo+Black&amp;family=Titan+One&amp;family=Baloo+2:wght@800&amp;family=Caveat:wght@700&amp;family=Permanent+Marker&amp;family=Pacifico&amp;family=DM+Serif+Display:ital@0;1&amp;family=Inter:wght@400;600;900&amp;display=swap');";
+  "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&amp;family=Bungee&amp;family=Anton&amp;family=Archivo+Black&amp;family=Titan+One&amp;family=Baloo+2:wght@800&amp;family=Caveat:wght@700&amp;family=Permanent+Marker&amp;family=Pacifico&amp;family=DM+Serif+Display:ital@0;1&amp;family=Shrikhand&amp;family=Inter:wght@400;600;900&amp;display=swap');";
 
 /** The canonical kit, injected into every output SVG right after <svg …>. */
 export const BRAND_KIT_DEFS = `<defs id="mm-kit"><style>${FONT_IMPORT_CSS}</style>` +
@@ -39,6 +39,9 @@ export const BRAND_KIT_DEFS = `<defs id="mm-kit"><style>${FONT_IMPORT_CSS}</styl
   `<g id="mm-cherry"><path d="M-13,6 Q-8,-22 6,-34" stroke="#5B8A47" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M15,10 Q14,-16 6,-34" stroke="#5B8A47" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M6,-34 q14,-10 24,-4 q-12 10 -24 4 Z" fill="#5B8A47"/><circle cx="-13" cy="18" r="13" fill="#E1352B"/><circle cx="15" cy="22" r="13" fill="#E1352B"/></g>` +
   `<g id="mm-heart"><path d="M0,16 C-4,8 -20,-2 -20,-12 A11,11 0 0 1 0,-16 A11,11 0 0 1 20,-12 C20,-2 4,8 0,16 Z" fill="currentColor"/></g>` +
   `<g id="mm-daisy"><g fill="#FFFFFF"><ellipse cx="0" cy="-13" rx="5.5" ry="10"/><ellipse cx="0" cy="13" rx="5.5" ry="10"/><ellipse cx="-13" cy="0" rx="10" ry="5.5"/><ellipse cx="13" cy="0" rx="10" ry="5.5"/><ellipse cx="-9.5" cy="-9.5" rx="5.5" ry="10" transform="rotate(-45 -9.5 -9.5)"/><ellipse cx="9.5" cy="9.5" rx="5.5" ry="10" transform="rotate(-45 9.5 9.5)"/><ellipse cx="9.5" cy="-9.5" rx="5.5" ry="10" transform="rotate(45 9.5 -9.5)"/><ellipse cx="-9.5" cy="9.5" rx="5.5" ry="10" transform="rotate(45 -9.5 9.5)"/></g><circle r="6.5" fill="#F9C6A2"/></g>` +
+  // Retro-Groovy 70s flower-power daisy — FIVE fat petals (currentColor, so
+  // <use color="…"> recolours them) + fixed black centre. Radius ≈32.
+  `<g id="mm-daisy5"><g fill="currentColor"><ellipse cx="0" cy="-16" rx="9" ry="16"/><ellipse cx="15.2" cy="-4.9" rx="9" ry="16" transform="rotate(72 15.2 -4.9)"/><ellipse cx="9.4" cy="12.9" rx="9" ry="16" transform="rotate(144 9.4 12.9)"/><ellipse cx="-9.4" cy="12.9" rx="9" ry="16" transform="rotate(216 -9.4 12.9)"/><ellipse cx="-15.2" cy="-4.9" rx="9" ry="16" transform="rotate(288 -15.2 -4.9)"/></g><circle r="8" fill="#0A0A0A"/></g>` +
   `</defs>`;
 
 /**
@@ -50,7 +53,7 @@ export function injectBrandKit(svg: string): string {
   const cleaned = svg
     .replace(/<filter\s+id=["'](?:hs|grain|duo|post)["'][\s\S]*?<\/filter>/gi, "")
     .replace(/<pattern\s+id=["']dots["'][\s\S]*?<\/pattern>/gi, "")
-    .replace(/<g\s+id=["']mm-(?:star12|sawtooth|sparkle)["'][\s\S]*?<\/g>/gi, "")
+    .replace(/<g\s+id=["']mm-(?:star12|sawtooth|sparkle|daisy5)["'][\s\S]*?<\/g>/gi, "")
     .replace(/@import\s+url\([^)]*\)\s*;?/gi, "")
     // An emptied <style></style> left behind is harmless but tidy it.
     .replace(/<style>\s*<\/style>/gi, "");
@@ -69,6 +72,7 @@ export const BRAND_KIT_DOC = [
   `    <use href="#mm-star12" color="#ffc000"/>   12-spike starburst, outer radius ≈100 (label container)`,
   `    <use href="#mm-sawtooth" color="#ffc000"/>  jagged sawtooth badge, outer radius ≈100 (label container)`,
   `    <use href="#mm-sparkle" color="#ff01aa"/>   4-point sparkle, radius ≈14 (scatter accent, no label)`,
+  `    <use href="#mm-daisy5" color="#FF2DA0"/>    70s flower-power daisy — 5 fat petals in your colour, black centre, radius ≈32 (scale up for background anchors)`,
   `  Do NOT emit @import, <filter id="hs/grain/duo/post">, <pattern id="dots">, or hand-drawn star/sawtooth polygons — they already exist.`,
   `  Worked starburst with label (top-right, $9):`,
   `    <g transform="translate(880 250) scale(0.95)"><use href="#mm-star12" color="#ffc000"/><text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-family="Montserrat" font-weight="900" font-size="30" fill="#0a0a0a">$9</text></g>`,

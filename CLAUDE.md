@@ -103,8 +103,13 @@ Dark UI shell. Always dark — no light mode.
 
 ## Security & abuse controls (live)
 
-**Registration is invite-only.** `auth.ts > createOrUpdateUser` rejects any new email
-that isn't in the `invites` allowlist. No stranger can self-register.
+**Registration is company-domain self-serve (no invites).** `auth.ts > createOrUpdateUser`
+lets any `@madmonkeyhostels.com` email self-register (standard "user" seat, active brand,
+$50 cap); every other new email is hard-rejected. Existing users always pass (sign-in
+re-link is unaffected). Domain match is an exact `endsWith("@madmonkeyhostels.com")` so
+look-alikes (`x@notmadmonkeyhostels.com`, `x@madmonkeyhostels.com.evil.com`) are rejected.
+Admin is granted separately via `admin:bootstrapAdmin` (CLI) or the in-app Members page.
+The `invites` table/flow was removed — the table remains defined but dormant.
 
 **Per-user monthly spend cap — $50 (0 = unlimited).** Enforced *before* the Claude
 call in `generateAsset`: sums `usage_ledger` for the current month and blocks at the cap.
@@ -122,14 +127,14 @@ never referenced in any client component. `.env*` is gitignored.
 ### Admin operations (CLI = deployment-access = admin)
 
 ```bash
-# Authorise a new login (creates an allowlist entry; they then sign up at /sign-up)
-npx convex run admin:createInvite '{"email":"person@madmonkeyhostels.com","role":"marketer"}'
+# New staff just sign up at /sign-up with their @madmonkeyhostels.com email —
+# no CLI step needed to authorise a login.
 
 # Promote an existing user to admin (+ set their cap)
 npx convex run admin:bootstrapAdmin '{"email":"person@madmonkeyhostels.com"}'
 ```
-Auth-gated equivalents (`admin:inviteUser`, `admin:setUserCap`, `admin:listInvites`)
-exist for a future in-app admin UI.
+The in-app Members page (admin-only) manages role + monthly cap via `admin:setUserCap`
+and `admin:setUserRole`.
 
 ## Go-live runbook (Convex prod + Vercel)
 
@@ -138,7 +143,7 @@ exist for a future in-app admin UI.
 3. Run the seed against prod: `npx convex run seed:seedMadMonkey --prod`.
 4. Bootstrap the first admin against prod (`admin:bootstrapAdmin --prod`).
 5. Vercel: set `NEXT_PUBLIC_CONVEX_URL` (+ site URL) to the prod deployment; deploy.
-6. Verify: invite-only blocks unknown emails, cap blocks at $100, rate limit trips, HTTPS only.
+6. Verify: non-domain/non-invited emails are blocked, cap blocks at $100, rate limit trips, HTTPS only.
 
 ## Community image bank
 

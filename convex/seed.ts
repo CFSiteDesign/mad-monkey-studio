@@ -381,8 +381,10 @@ MM wordmark required. Hard shadows permitted on accent elements only.`,
 });
 
 // ── Girly Pop design system — seed/update (idempotent by name) ──────────────
-// Governance approved 2026-06: own palette REPLACES terracotta; MM wordmark +
-// ALL IN stickers stay. Run: npx convex run seed:seedGirlyPop
+// RESTYLED 2026-07: "Retro-Groovy" — high-energy Y2K × 70s fusion. Type-led
+// sticker collage (Shrikhand groovy serif, checkers, flower-power daisies);
+// REPLACES the old dreamy pastel scrapbook direction. MM wordmark + ALL IN
+// stickers stay. Run: npx convex run seed:seedGirlyPop
 export const seedGirlyPop = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -396,64 +398,55 @@ export const seedGirlyPop = internalMutation({
       brandId: brand._id,
       name: "girly-pop",
       label: "Girly Pop",
-      description: "Dreamy, playful, feminine — retro-pop script meets travel scrapbook.",
-      guidelines: `GIRLY POP SYSTEM — dreamy, playful, feminine. Retro-pop meets travel scrapbook. This system REPLACES the default Mad Monkey colour and tone direction: NO charcoal-dark bases, NO terracotta, NO neon-rave energy. Soft, warm, sun-washed.
+      description: "High-energy Retro-Groovy — Y2K × 70s flower power: giant groovy type, checkers, daisies.",
+      guidelines: `GIRLY POP SYSTEM — RETRO-GROOVY. High-energy Y2K × 70s fusion: think "sticker collage meets modern streetwear drop". This REPLACES the old dreamy pastel scrapbook direction entirely: NO sunset gradients, NO polaroids/postcards/paper notes, NO handwriting, NO script fonts, NO periwinkle/lilac, and ABSOLUTELY NO literal or clip-art illustrations of people or scenes. The design is built from exactly three things: GIANT groovy type, bold checkerboard, flat vector flowers/sparkles. FLAT and punchy — zero gradients, zero blur.
 
-PALETTE ROLES (exact hexes are in COLOUR ENFORCEMENT): hot pink #F24C8E = hero/headline colour · punch orange #EF5130 = script accents & energy words · periwinkle #948BE6 and lilac #C9BCF3 = flat backgrounds · cherry red #E1352B = cherries/hearts/bows · peach #F9C6A2 + sky teal #84C9D4 = sunset gradient fills · cream #FBF3E6 = paper & light base · plum #5E2038 = handwritten/body text · leaf green #5B8A47 = stems/leaves · white #FFFFFF = polaroid frames.
+PALETTE ROLES (exact hexes are in COLOUR ENFORCEMENT): hot barbie pink #FF2DA0 = hero colour (backgrounds, headline fills, flowers) · poppy red #FF4B33 = punch accents, checker pairs, starbursts · soft orange #FFA14E = secondary accent, flowers, hype words · candy pink #FFD1E3 = pastel fields & checker pairs · cream #FBF3E6 = light base, text fills on dark/hot grounds · black #0A0A0A = outlines, strokes, hard shadows, checker pairs, flower centres · white #FFFFFF = checker pairs & clean fills. High contrast ALWAYS: hot ground → cream/white type with black stroke; light ground → hot pink/red type with black stroke.
 
-THREE LAYOUT MODES — pick ONE per asset by the content. Mode C (HALFTONE PHOTO-POP) is the HOUSE FAVOURITE and the DEFAULT whenever the design features a photo; use A only when the brief explicitly wants a multi-photo scrapbook, and B when there is no photo:
-A) DREAMY COLLAGE (photo-led events/promos): polaroid & postcard photo frames (white borders, slight ±3–8° rotations), pressed tropical flowers, a torn lined-paper note carrying the offer/details in handwriting, soft sunset sky (peach→pink→periwinkle linear gradient), film-grain overlay. Curated, airy scrapbook — every element fully visible, nothing buried.
-   COLLAGE ZONES (hard): divide the canvas into three NON-OVERLAPPING zones — (1) the script HEADLINE in its own clear horizontal band directly on the gradient background (top of canvas, or a clear band between photos and note), (2) the POLAROID CLUSTER — max 3 photos and the frames NEVER overlap: every polaroid fully separate with ≥30px of background between frames (the rotation alone gives the scrapbook feel), every caption fully visible, (3) the NOTE + small motifs. The headline must NEVER cross a polaroid, caption, sticker or the note — geometrically enforced: any text crossing a photo is auto-rejected. Keep ≥30px clearance between zones so every word is instantly readable.
-B) CLEAN FLAT GIRLY (announcements/type-led): ONE solid pastel background (periwinkle, lilac or cream), a GIANT Pacifico script headline as the centrepiece (lowercase-friendly, can bounce across 2–3 stacked lines), small Montserrat letter-spaced caps for supporting lines, 2–4 cherry/heart/sparkle motifs, generous negative space.
-C) HALFTONE PHOTO-POP (DEFAULT for photo-led events): pink/periwinkle gradient overlaid with a subtle halftone dot-grid texture; ONE hero photo in a thick rounded hot-pink frame; the script headline stacked top-left (2–3 lines, alternating pink/cream/orange, dark plum offset shadow); the event perks as PLATED label stickers (plum or lilac rounded plates, slight ±3–6° lean) arranged around the photo's right/bottom edges — plates may kiss the photo's frame; one starburst top-right with a 2-word label; wordmark/ALL IN bottom-right on clear background.
+1) TYPOGRAPHY DOMINATES — the headline IS the poster (50–60% of the canvas):
+- Hero face: "Shrikhand" — massive, fat, groovy 70s serif. Stack the headline 2–4 tightly-packed lines (line-height ≈ 0.95), each line filling 80–92% of the width. Lowercase reads extra groovy ("girls night"); UPPERCASE for hype words — mixing line by line is encouraged.
+- EVERY headline line gets BOTH punch treatments: (a) a thick contrasting OUTLINE — stroke="#0A0A0A" (or "#FBF3E6" on dark grounds) with stroke-width ≈ font-size/14 and paint-order="stroke fill" (ALWAYS set paint-order or the stroke eats the letterfill), and (b) the hard offset shadow filter="url(#hs)". Flat text with neither is a FAILURE — the type must feel like thick vinyl stickers.
+- Alternate fill colours line by line (e.g. cream / hot pink / orange) — never all lines the same colour.
+- Secondary display ("Titan One" pillowy bubble face) for ONE support word or price if the brief needs it — never competes with the hero size.
+- One line of the headline MAY use a checkerboard text fill (fill="url(#chk…)") if it still reads instantly — max ONE line, with the black stroke doing the legibility work.
 
-PLATED LABELS & PILLS — build every one as a proper sticker (never a flat pastel blob): (1) OUTLINE — every plate/pill gets a 3px plum #5E2038 stroke around its shape; light fills (lilac #C9BCF3, periwinkle #948BE6, cream #FBF3E6) MUST have this outline, dark plum #5E2038 plates may skip it. (2) SHADOW — every plate/pill also gets a hard offset shadow (filter="url(#hs-plum)" or an 8px plum offset duplicate of the shape). (3) FIT — the shape is sized to its text with ≥0.7× font-size padding on ALL sides; text NEVER touches or crosses the edge. (4) MULTI-PART labels ("2-FOR-1" over "SPRITZ", "EVERY TUESDAY" over "7AM") stack on SEPARATE lines with a clear vertical gap (≥0.4× font-size) — lines must never overlap or collide; make the pill taller rather than cramming. One short phrase per line. If two words don't fit on one line at a sensible size, widen the pill.
+2) SIGNATURE PATTERNS & SHAPES:
+- CHECKERBOARD — the signature element; use it as (pick ONE per asset): full-bleed background, a thick top+bottom band, or a fat frame/border around the canvas. Define your own pattern with TWO palette colours:
+  <pattern id="chk" width="120" height="120" patternUnits="userSpaceOnUse"><rect width="120" height="120" fill="#FFFFFF"/><rect width="60" height="60" fill="#0A0A0A"/><rect x="60" y="60" width="60" height="60" fill="#0A0A0A"/></pattern>
+  Classic pairs: black/white · hot pink #FF2DA0/white · poppy red #FF4B33/candy pink #FFD1E3. Cell size 90–140px full-bleed, 50–80px for bands/frames.
+- RETRO DAISIES — <use href="#mm-daisy5" color="…"/> (5 fat petals in your colour, black centre, radius ≈32; scale with transform). Use 2–3 XXL daisies (scale 4–8) as BACKGROUND ANCHORS tucked behind the headline's corners — they may bleed off the canvas edges — plus 2–4 small ones (scale 1–2) scattered in gaps. Petal colours: hot pink, poppy red, orange, cream, white.
+- SPARKLES — <use href="#mm-sparkle" color="…"/> 3–6 four-point glimmers in gaps and on top of big daisies.
+- Hearts (<use href="#mm-heart"/>) sparingly (0–2). NO cherries, NO squiggles/waves/swashes, NO postage stamps, NO hand-drawn shapes of any kind — kit shapes only.
+- The #dots halftone pattern may add texture to ONE flat colour field at low scale — optional, never over the checkerboard.
 
-STICKER/LABEL PLACEMENT (hard discipline — planned, structured, neat, NEVER scattered): treat labels as a deliberate system anchored to the photo frame, not confetti. RULES: (1) each plated label is anchored to a photo EDGE or CORNER and overlaps the frame by a consistent small amount (~40–60px) — pick corners/edges, never floating in dead space; (2) use at most 3–4 labels total; (3) give them a clear hierarchy — one primary offer label (largest), the rest smaller and aligned to it; (4) balance the composition — if one label sits top-left of the photo, put the next bottom-right, so weight is even (diagonal balance); (5) consistent rotation rhythm — alternate gentle ±3–6° leans, never wild angles; (6) the starburst lives top-right of the CANVAS, the ALL IN sticker bottom-left/right on clear background, the MM wordmark bottom-right — these four fixed anchors first, then place event labels on the photo corners. Every label fully legible, none overlapping another label or the headline. Look at the whole layout as a grid: everything lines up to the photo's edges.
+3) COMPOSITION — "sticker collage meets streetwear brand", layered with intent (back to front): (1) background — checkerboard OR one flat hot/pastel field with a checker band/frame, (2) XXL daisies anchoring corners, (3) the GIANT stroked headline block layered ACROSS the daisies and pattern — text over graphics is the style (over other TEXT is auto-rejected), (4) 1–3 sticker labels + one starburst, (5) sparkles, (6) brand marks. Fill the frame — dense and punchy, but keep a clean margin grid (≈5% inset) and give the headline visual right of way. Everything FLAT: no gradients, no blur, no soft glows.
 
-MOTIFS — use ONLY the craft kit's ready-made shapes, NEVER hand-draw them (hand-drawn cherries/hearts come out malformed and are rejected): <use href="#mm-cherry"/> (two-tone, fixed colours), <use href="#mm-heart" color="#E1352B or #F24C8E"/>, <use href="#mm-daisy"/>, <use href="#mm-sparkle" color="…"/> — position with transform="translate(x y) scale(s) rotate(a)". Plus polaroid frames, torn paper notes and bows built from simple rects/paths. This list is EXCLUSIVE — no other decorative doodles. Specifically BANNED: postage stamps of any kind, squiggly/wavy line flourishes, zigzag strokes, and random curved swash paths — they read as clutter. Use a sparkle or heart instead, or leave the space empty.
+STICKER LABELS (details: date/time/venue/price): "Montserrat" 800 UPPERCASE letter-spaced caps or "Baloo 2" 800, on a tight pill/plate — cream or white fill, 3px black stroke, hard shadow filter="url(#hs)", sized to the text with ≥0.7× font-size padding, gentle ±3–6° lean. Max 3 labels + ONE starburst (<use href="#mm-star12" color="#FF4B33 or #FFA14E"/>) top-right with a 1–2 word label. Labels sit in CLEAR spots on the flat/checker background — never on the headline, never on each other, never on a daisy centre. Small text NEVER sits raw on the checkerboard — pills only.
 
-CRAFT RULES (hard):
-- Lined-paper notes: ruled lines sit in the GAPS between handwriting lines, NEVER through the words — omit a line rather than strike through text.
-- Polaroids NEVER overlap: every frame fully separate with ≥30px of clear background between frames — nothing may cover any part of another polaroid or its caption.
-- Photo INSIDE its frame: build each polaroid as one <g> — white frame rect first, then the photo <image> clipped with a clipPath to the inner window (inset from the frame). The photo must never extend past or hang over the white frame's edge.
-- Polaroid anatomy is FIXED: the white frame has thin borders (≈20px) on the top/sides and a DEEP white strip (≈90px) at the bottom — the handwritten caption sits ON that white strip, centred, and NEVER on the photo itself. No caption may touch the photo's pixels.
-- The paper note is the TOP layer over background only: nothing readable (venue lines, captions, headlines) may sit underneath or poke out from behind it — move the element fully clear instead.
-- NEVER draw an empty polaroid or postcard frame: every frame MUST contain a real bank photo <image>. If no photo fits, drop the frame entirely and use motifs instead.
+PHOTOS: NOT part of this system by default — it is a pure graphic style. Only if the brief EXPLICITLY demands a photo: ONE photo max (enforced), in a thick rounded sticker frame (8px black stroke + hard shadow, hot pink or cream border ≈20px), covering ≤35% of the canvas, and no text may cross it (auto-rejected).
 
-EFFECTS: soft linear sunset gradients ALLOWED. A gentle radial glow ALLOWED. Film grain welcome. NO heavy black drop-shadows (soft or none), NO dark vignettes.
+TONE OF VOICE: playful, cheeky, hype. Short punchy words ("girls night", "keep it classy", "ALL IN"). No exclamation-mark spam — the type is loud enough.
 
-LEGIBILITY (hard — text readable on ANY background, the CLEAN way — NEVER big solid panels):
-- SCRIPT HEADLINE and every script line: apply a hard offset shadow filter="url(#hs-plum)" to that single <text> and let it sit DIRECTLY on the gradient (exactly like pink-party-friday). NEVER draw a filled rectangle or panel behind the headline — the shadow alone does the job. A solid block behind the headline is a FAILURE.
-- Supporting UPPERCASE caps / offer labels / captions: sit on a plate or pill sized TIGHTLY to the text (its own text width + ~0.7x font-size padding all round) — small neat stickers, NEVER oversized, NEVER full-width, and they must not overlap each other, the photo, or the headline.
-- Detail lines sit on the single cream note strip.
-- If the canvas looks like large plum blocks are covering it, that is WRONG. Only ONE modestly-sized backing per label; when unsure, use the shadow, not a backing.
-
-TONE OF VOICE: playful, warm, inclusive, a little cheeky. Lowercase-friendly ("come exactly as you are", "hey babe", "ALL IN"). Never aggressive or shouty.
-
-BRAND MARKS: the Mad Monkey wordmark + ALL IN stickers still apply exactly per the BRAND MARKS section — and in this system the ALL IN sticker's home is clear background near the bottom-left, NEVER in the headline band or touching any text.
-
-PHOTO VARIETY (hard): never use the same bank photo twice in one asset — every polaroid/frame gets a DIFFERENT photo. If only one photo matches the brief, use one polaroid and fill the space with motifs instead.`,
+BRAND MARKS: the Mad Monkey wordmark + ALL IN sticker still apply exactly per the BRAND MARKS section — home is the bottom corners on a CLEAR flat area (never on the checkerboard, never touching text). The ALL IN sticker fits this style natively — let it sit as one of the stickers.`,
       baseCssVars: JSON.stringify({
-        "--bg": "#948BE6",
-        "--ink": "#5E2038",
-        "--pop": "#F24C8E",
-        "--accent": "#EF5130",
+        "--bg": "#FFD1E3",
+        "--ink": "#0A0A0A",
+        "--pop": "#FF2DA0",
+        "--accent": "#FF4B33",
         "--paper": "#FBF3E6",
       }),
       palette: {
-        primary: ["#F24C8E", "#EF5130", "#948BE6", "#E1352B"],
-        secondary: ["#C9BCF3", "#F9C6A2", "#84C9D4", "#5B8A47"],
-        neutral: ["#FBF3E6", "#5E2038", "#FFFFFF"],
+        primary: ["#FF2DA0", "#FF4B33", "#FFA14E"],
+        secondary: ["#FFD1E3", "#FBF3E6"],
+        neutral: ["#0A0A0A", "#FFFFFF"],
       },
-      fontsAllowed: ["Pacifico", "Montserrat", "Caveat", "DM Serif Display", "Baloo 2"],
-      fontRules: `Hero headline: "Pacifico" — fat retro script, the signature face (lowercase-friendly; one script hero per asset).
-Labels & small caps: "Montserrat" weight 800 with generous letter-spacing (0.12–0.2em).
-Handwritten scrapbook notes (offers, details on paper scraps): "Caveat" weight 700.
-Elegant postcard lines ("Greetings from …"): "DM Serif Display" italic.
-Rounded friendly body (optional): "Baloo 2" weight 800.
-Never use Anton, Archivo Black, Titan One, Bungee or Permanent Marker in this system.`,
-      effects: { maxLinearGradients: 4, allowRadialGradients: true, forbidBlur: false, noTextOnImages: true },
+      fontsAllowed: ["Shrikhand", "Titan One", "Montserrat", "Baloo 2"],
+      fontRules: `Hero headline: "Shrikhand" — massive groovy 70s fat serif, the signature face (lowercase or UPPERCASE, always with a thick contrasting stroke via paint-order="stroke fill" + the #hs hard shadow).
+Secondary display / hype word / price: "Titan One" — pillowy bubble face (one word or price only, never competes with the hero).
+Labels & small caps: "Montserrat" weight 800, UPPERCASE, letter-spacing 0.12–0.2em.
+Rounded pill labels: "Baloo 2" weight 800.
+Never use Pacifico, Caveat, DM Serif Display, Anton, Archivo Black, Bungee or Permanent Marker in this system.`,
+      effects: { maxLinearGradients: 0, allowRadialGradients: false, forbidBlur: true, noTextOnImages: true, singlePhoto: true },
       isActive: true,
       createdAt: Date.now(),
     };
@@ -508,27 +501,40 @@ export const seedMinimalBold = internalMutation({
       name: "minimal-bold",
       label: "Minimal Bold",
       description: "Bold editorial — black canvas, giant white type over a full-colour photo.",
-      guidelines: `MINIMAL BOLD SYSTEM — bold editorial. This REPLACES all Mad Monkey sticker/party energy with restraint: PURE BLACK background (#0A0A0A), PURE WHITE type (#FFFFFF), ONE heavy grotesque headline face. The photograph runs in FULL NATURAL COLOUR — it is the ONLY colour on the page, and it does all the colour work. Confident, cool, deadpan — the opposite of loud. NO stickers, NO starbursts, NO cherries/hearts/motifs, NO gradients, NO drop-shadows, NO rounded party pills, NO script fonts, NO outlines, and NO recolouring the photo (no greyscale, no duotone, no tint — leave it exactly as shot). If it looks fun or busy, it is WRONG.
+      guidelines: `MINIMAL BOLD SYSTEM — bold editorial. Picture the reference: a PURE BLACK page, ONE full-colour photo of PEOPLE across the middle, and a GIANT white headline in one heavy grotesque face, SPLIT so it hugs the TOP-LEFT and BOTTOM-RIGHT corners with the photo breathing between. Confident, cool, deadpan — the OPPOSITE of loud. If it looks fun, busy, tilted or "designed", it is WRONG.
 
-LAYOUT — the signature "type sandwich":
-- Full-bleed black #0A0A0A canvas.
-- ONE photograph as a near-full-bleed band (roughly y 20%–85% of the canvas, full width — the photo dominates; the black shows only as slim top/bottom margins). CHOOSE A PHOTO OF PEOPLE — a shot with one clear subject or a small group whose faces read (judge from the bank descriptions; prefer close/portrait 'people' shots over aerial or empty scenes). Render it in FULL NATURAL COLOUR — NO filter on the <image> at all: NO greyscale/saturate matrix, and do NOT use the kit's colour filters filter="url(#duo)" or filter="url(#post)" (they tint it blue/lime/duotone). The photo appears exactly as shot. Black margins show above and below it. The photo may bleed to the left/right edges.
-- A GIANT uppercase Archivo Black headline SPLIT into two DENSE BLOCKS with FIXED CORNER ANCHORS (hard — this is the layout, no variations):
-  • HALF-1 is ALWAYS anchored TOP-LEFT: left-aligned at the left margin, starting at the top margin. Only its LAST line may straddle the photo's TOP edge (≈half cap-height on black, half on photo); earlier lines sit fully on the black above.
-  • HALF-2 is ALWAYS anchored BOTTOM-RIGHT: right-aligned at the right margin (text-anchor="end" at x = canvas width − margin), sitting at the photo's BOTTOM — its last line straddles the photo's bottom edge; at most one line above it inside the photo's bottom quarter.
-  • NEVER place any headline line in the vertical MIDDLE of the canvas or the photo — the photo's middle band (~25% to ~70% of its height) contains ZERO headline letterforms. The two corner blocks + clear middle is the signature: top-left speaks, bottom-right answers, the photo breathes between them.
-  • Within each block the lines are TIGHTLY STACKED (gap ≤ 0.15× font-size) and every line fills 85–92% of the width.
-  • CAPS/META PLACEMENT: date+time top-RIGHT (the only thing allowed opposite half-1). ALL other caps blocks (stats, perks, qualifiers) live on the BLACK MARGINS — in the bottom meta row or right-aligned under the date. The top-left corner belongs to the headline ALONE — no caps above or under it. Caps NEVER sit on the photo — geometrically enforced: any small text crossing the photo is auto-rejected. All caps live on the black margins, full stop. And no caps block may touch the headline: keep ≥40px clearance from every headline letterform (also enforced — overlapping text is auto-rejected). Left-aligned, hugging the left margin, each line filling 85–92% of the width, tight leading (line-height ≈ 0.88) and tight tracking (letter-spacing ≈ -0.02em). One or two lines per half. HEADLINE SIZE IS NON-NEGOTIABLE: compute the font-size per line as (0.9 × canvas width) ÷ (0.72 × characters in that line) — Archivo Black is WIDE; on a 1080-wide canvas short words like PITCH land around 230–270px, longer words like SINGLES around 170–200px. Then double-check: chars × font-size × 0.72 must be ≤ 90% of the canvas width or letters WILL clip off the edge. If the headline doesn't feel almost too big, it is too small.
-- Small tracked caps anchored in the CORNERS on the black margin: DATE stacked top-right (e.g. "16" / "JULY" / "2026"), a stats/descriptor block top-left or upper-left (e.g. "100 SINGLES" / "REALITY DATING CHAOS"), a qualifier upper-right (e.g. "FOR SINGLES 25-40 ONLY"), the VENUE bottom-left, the TIME bottom-right. Inter weight 600, small, letter-spacing ≈ 0.14em. VERTICAL LANES (hard): the canvas is divided into exclusive lanes — top meta lane (date top-right + one stats block top-left, both INSIDE the top ~9%), headline half-1 lane, photo band, headline half-2 lane, bottom meta lane (venue left + time right, bottom ~8%). The GIANT HEADLINE'S LANES BELONG TO IT ALONE: no caps block may sit inside or touch either headline's bounding box. ALL small caps blocks live on the BLACK MARGINS ONLY — never on the colour photo (white caps drown on a colour image, and it is auto-rejected). Keep every caps block ≥40px clear of the headline's letters. If a caps block would touch the headline or land on the photo, drop it.
-- DENSE, LOCKED COMPOSITION — no large empty black voids anywhere mid-canvas: the photo + the two headline blocks + corner caps fill the frame edge to edge. Everything left-aligned or corner-anchored to a clean margin grid (≈5-6% inset). FLAT — no shadows; the black/white contrast carries it.
+THE LOOK (non-negotiable):
+- Full-bleed black #0A0A0A canvas. Pure white #FFFFFF type. ONE headline face: "Archivo Black". The photo is the ONLY colour on the page and does ALL the colour work.
+- DRAW ORDER MATTERS: background → PHOTO first → then the headline and caps ON TOP. The giant type must always sit OVER the photo, fully visible — NEVER draw the photo on top of the headline (that clips/hides the letters and is auto-rejected).
 
-WHITE TEXT CROSSING THE PHOTO EDGES (this is the style): the straddling headline lines read because they sit over the photo's DARKER edge regions. NEVER draw scrim/overlay rectangles across the photo — no semi-transparent bands of ANY colour (black, white, grey), no darkening or lightening layers, no rects with opacity over the photo, full stop; the photo stays completely untouched. If an edge of the photo is too bright for white type, shift the headline line further onto the black margin instead.
+PHOTO:
+- EXACTLY ONE photograph of PEOPLE — one clear subject or a small group whose faces read (judge from the bank descriptions; prefer close/portrait 'people' shots over aerial or empty scenes). ONE single full-width band, roughly y 20%–85%, centred; slim black margins above and below. It may bleed to the left/right edges. NEVER use two photos and NEVER stack two image bands with a gap between them — two photos read as a split/torn image and are auto-rejected. One photo, one band.
+- FULL NATURAL COLOUR — put NO filter on the <image> at all: no greyscale/saturate matrix, and do NOT use filter="url(#duo)" or "url(#post)" (they tint it). The photo appears exactly as shot.
+- DEAD STRAIGHT — axis-aligned only. NEVER rotate, tilt, angle or skew the photo (no transform rotate()/skew()/matrix()). A tilted photo is auto-rejected.
+- KEEP THE PHOTO COMPLETELY CLEAN — never lay a caption chip, black/white box, colour block or scrim over it. No rectangles on the photo, full stop (auto-rejected). Every label lives on the black margins as plain type.
 
-TYPE: Headline = "Archivo Black", UPPERCASE. Supporting caps / stats / date / venue / time = "Inter" weight 600, UPPERCASE, letter-spaced. Body (rare) = "Inter" weight 400, sentence case. Never introduce a second font.
+HEADLINE — the signature, SPLIT across two FIXED corners (this is the layout, no variations):
+- The whole headline is ONE short phrase split into just TWO corner blocks — pick the punchiest 2-way split and DROP filler words. E.g. "BINGO NIGHT OR BUST" → "BINGO" top-left, "OR BUST" bottom-right (not a 4-line tower). Secondary hooks ("WIN BUCKETS", "FREE DRINK") are NOT part of the giant headline — they go in the small margin caps.
+- HALF-1 is ALWAYS top-left: left-aligned (text-anchor="start") at the left margin, starting at the top. Only its LAST line may straddle the photo's TOP edge (≈half on black, half on photo); earlier lines sit on the black above.
+- HALF-2 is ALWAYS bottom-right: right-aligned (text-anchor="end" at x = canvas width − margin), sitting at the photo's BOTTOM — its last line straddles the photo's bottom edge; at most one line above it inside the photo's bottom quarter.
+- MAX TWO LINES PER CORNER (hard). Never tower three or four giant lines in one corner. Never centre the giant type — corner-anchored left/right only (a centred or middle-anchored headline line is auto-rejected).
+- NOTHING IN THE MIDDLE: the photo's middle band (~25%–70% of its height) contains ZERO headline letters. Top-left speaks, bottom-right answers, the photo breathes between.
+- ALWAYS full UPPERCASE in Archivo Black. NEVER lowercase, script, handwritten or a "cute" wordmark — a lowercase headline is auto-rejected.
+- TIGHT: line-height ≈ 0.88, letter-spacing ≈ -0.01em; each line fills 85–92% of its block width; lines tightly stacked (gap ≤ 0.15× font-size). One or two lines per half.
+- SIZE IS NON-NEGOTIABLE: font-size per line ≈ (0.9 × canvas width) ÷ (0.72 × characters in that line). Archivo Black is WIDE — on a 1080-wide canvas short words (BINGO, PITCH) land ~230–270px, longer words (SINGLES) ~170–200px. Then double-check chars × font-size × 0.72 ≤ 90% of the canvas width or the letters clip off the edge. If the headline doesn't feel almost too big, it is too small.
+- The giant white type reads over the photo because it is huge; where a photo edge is too bright, shift THAT LINE further onto the black margin — NEVER add a scrim.
 
-TONE: editorial, deadpan, minimal words, all-caps. No exclamation marks. EVERY fact appears EXACTLY ONCE on the canvas — never repeat a perk/time/line in two places. The bottom-right corner is RESERVED for the tiny wordmark alone; the time goes bottom-right of the meta row only if the wordmark sits clear above/beside it — never stack text on the wordmark. "FOR SINGLES 25-40 ONLY", "REAL CONNECTIONS", "GUIDED ROUNDS", "REALITY DATING CHAOS".
+CAPS / META — small tracked "Inter" 600 caps, UPPERCASE, letter-spacing ≈ 0.14em, on the BLACK MARGINS ONLY (never on the colour photo — white caps drown on it and are auto-rejected):
+- DATE stacked top-right (e.g. "16" / "JULY" / "2026"). A short stats/qualifier block in the top-left area or under the date (e.g. "100 SINGLES", "FOR SINGLES 25-40 ONLY"). VENUE bottom-left, TIME bottom-right.
+- Exclusive lanes: top meta (date right + one stats block, top ~9%), headline half-1, photo band, headline half-2, bottom meta (venue left + time right, bottom ~8%). The headline's lanes belong to IT alone — keep every caps block ≥40px clear of the headline's letters (overlaps auto-rejected). If a caps block would touch the headline or land on the photo, drop it.
 
-BRAND MARK: a tiny WHITE Mad Monkey wordmark only — small and quiet in a bottom corner, attribution scale, never large. NO ALL IN stickers, NO stamp, NO starburst.`,
+STRICTLY BANNED — each is auto-rejected: emoji, ✨ sparkles, stars, arrows or ANY symbol glyph; gradients; blur / soft shadows; rotation / tilt / skew on ANYTHING; script or a second font; stickers / starbursts / badges / motifs; caption chips / boxes / scrims on the photo; lowercase headlines; repeating any fact twice.
+
+TYPE: Headline = "Archivo Black" UPPERCASE (its single native weight — never set font-weight). Caps / date / venue / time = "Inter" 600 UPPERCASE. Body (rare) = "Inter" 400 sentence case. Never a third style.
+
+TONE: editorial, deadpan, minimal words, all-caps, no exclamation marks. EVERY fact appears EXACTLY ONCE on the canvas — never repeat a perk / time / line.
+
+BRAND MARK: a tiny WHITE Mad Monkey wordmark only — quiet in a bottom corner, attribution scale. NO ALL IN sticker, NO stamp, NO starburst. The bottom-right corner is reserved for the wordmark; never stack text on it.`,
       baseCssVars: JSON.stringify({
         "--bg": "#0A0A0A",
         "--ink": "#FFFFFF",
@@ -545,7 +551,7 @@ Headline: "Archivo Black" (its single native weight — do NOT set font-weight),
 Supporting caps / stats / date / venue / time: "Inter" weight 600, UPPERCASE, small, letter-spacing about 0.14em.
 Body (rare): "Inter" weight 400, sentence case.
 Never use any other font family (no Anton, Montserrat, Pacifico, Bungee, etc.).`,
-      effects: { maxLinearGradients: 0, allowRadialGradients: false, forbidBlur: true, noTextOnImages: false, greyscalePhotos: false, noSmallTextOnImages: true, strictTextOverlap: true },
+      effects: { maxLinearGradients: 0, allowRadialGradients: false, forbidBlur: true, noTextOnImages: false, greyscalePhotos: false, noSmallTextOnImages: true, strictTextOverlap: true, noRotation: true, noEmoji: true, noLowercaseDisplay: true, noRectsOnImages: true, noHeadlineBehindImage: true, singlePhoto: true, noCenteredDisplay: true, noHeadlineTower: true },
       isActive: true,
       createdAt: Date.now(),
     };

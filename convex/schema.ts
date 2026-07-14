@@ -72,6 +72,25 @@ export default defineSchema({
         // Photos must be greyscale (e.g. Minimal Bold): bans the kit's colour
         // duotone/posterise filters — HARD when set.
         greyscalePhotos: v.optional(v.boolean()),
+        // Minimal Bold strict-layout family — each a HARD gate:
+        // Strictly axis-aligned: no rotate/skew/matrix transforms anywhere (a
+        // tilted photo also evades every photo check, so this is the keystone).
+        noRotation: v.optional(v.boolean()),
+        // No emoji / sparkles / dingbats / symbol glyphs in any text.
+        noEmoji: v.optional(v.boolean()),
+        // The heavy display headline must be UPPERCASE (no lowercase/script).
+        noLowercaseDisplay: v.optional(v.boolean()),
+        // No filled rect / caption-chip / scrim sitting on a photo.
+        noRectsOnImages: v.optional(v.boolean()),
+        // A giant headline may never be drawn UNDER a photo (photo on top =
+        // clipped/hidden letters).
+        noHeadlineBehindImage: v.optional(v.boolean()),
+        // Exactly ONE photograph — two stacked photo bands read as a split image.
+        singlePhoto: v.optional(v.boolean()),
+        // The giant headline is corner-anchored (left/right), never centred.
+        noCenteredDisplay: v.optional(v.boolean()),
+        // No headline "tower" — max 2 tightly-stacked lines per corner block.
+        noHeadlineTower: v.optional(v.boolean()),
       }),
     ),
     isActive: v.boolean(),

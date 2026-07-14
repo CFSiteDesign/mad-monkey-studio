@@ -63,11 +63,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
       await signIn("password", { email, password, flow: mode });
       router.push("/");
     } catch (err) {
-      // Surface the real server message when it's meaningful (e.g. invite-only),
-      // otherwise fall back to the generic copy.
+      // Surface the real server message when it's meaningful (e.g. the domain
+      // restriction), otherwise fall back to the generic copy.
       const raw = err instanceof Error ? err.message : "";
-      const friendly = /invite-only/i.test(raw)
-        ? "Registration is invite-only. Ask an admin to authorise your email."
+      const friendly = /madmonkeyhostels\.com|limited to|restricted|invite/i.test(raw)
+        ? raw
         : copy.error;
       setError(friendly);
       setLoading(false);
@@ -80,7 +80,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <h2 className="text-lg font-medium text-[#F2EEE6]">{copy.heading}</h2>
         {mode === "signUp" && (
           <p className="text-xs text-[#8C8278]">
-            Invite-only — use the email your admin authorised.
+            Use your @madmonkeyhostels.com email to create an account.
           </p>
         )}
       </div>

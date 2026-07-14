@@ -183,9 +183,12 @@ export const generateAsset = action({
   }> => {
     const { brief, format, designSystem, threadId } = args;
     const includeLogo        = args.includeLogo        ?? true;
-    const includeAllIn       = args.includeAllIn       ?? true;
-    const includeAllInMonkey = args.includeAllInMonkey ?? false;
-    const includeStamp       = args.includeStamp       ?? false;
+    // Minimal Bold is wordmark-only — NEVER the ALL IN sticker/monkey/stamp,
+    // whatever the UI ticked (the system bans them; prod used to obey the box).
+    const wordmarkOnly       = designSystem === "minimal-bold";
+    const includeAllIn       = wordmarkOnly ? false : (args.includeAllIn       ?? true);
+    const includeAllInMonkey = wordmarkOnly ? false : (args.includeAllInMonkey ?? false);
+    const includeStamp       = wordmarkOnly ? false : (args.includeStamp       ?? false);
     // Auth — Convex Auth subject is "<userId>|<sessionId>"; use the helper.
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
@@ -411,6 +414,15 @@ export const generateAsset = action({
         forbidTextOnImages:   ds?.effects?.noTextOnImages ?? false,
         greyscalePhotos:      ds?.effects?.greyscalePhotos ?? false,
         forbidSmallTextOnImages: ds?.effects?.noSmallTextOnImages ?? false,
+        forbidRotation:       ds?.effects?.noRotation ?? false,
+        forbidEmoji:          ds?.effects?.noEmoji ?? false,
+        forbidLowercaseDisplay: ds?.effects?.noLowercaseDisplay ?? false,
+        forbidRectsOnImages:  ds?.effects?.noRectsOnImages ?? false,
+        forbidHeadlineBehindImage: ds?.effects?.noHeadlineBehindImage ?? false,
+        singlePhoto:          ds?.effects?.singlePhoto ?? false,
+        forbidCenteredDisplay: ds?.effects?.noCenteredDisplay ?? false,
+        forbidHeadlineTower:  ds?.effects?.noHeadlineTower ?? false,
+        canvas:               fmtDim ? { w: fmtDim.w, h: fmtDim.h } : undefined,
       }).filter((v) => !isSoftViolation(v)));
 
       // Per-system: text-overlap estimates escalate to HARD (Minimal Bold).
