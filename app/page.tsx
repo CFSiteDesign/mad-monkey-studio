@@ -101,6 +101,9 @@ export default function StudioPage() {
   const [eventCost, setEventCost] = useState("");
   const [eventLocation, setEventLocation] = useState("");
   const [format, setFormat] = useState<string>("1:1");
+  // Remembers the last non-presentation format so toggling Presentation → Single
+  // design restores what the user had, instead of snapping back to 1:1.
+  const lastDesignFormatRef = useRef<string>("1:1");
   const [designSystem, setDesignSystem] = useState("brand");
   const [includeLogo, setIncludeLogo] = useState(true);
   const [includeAllIn, setIncludeAllIn] = useState(false);
@@ -159,6 +162,12 @@ export default function StudioPage() {
     setFollowUpAnswers([]);
     setOtherDetails("");
   }, [format, designSystem, tourOpen]);
+
+  // Keep the "last design format" fresh so the top-level Single design ↔
+  // Presentation toggle can restore the user's previous format.
+  useEffect(() => {
+    if (format !== "presentation") lastDesignFormatRef.current = format;
+  }, [format]);
 
   // ── Interactive product tour ──────────────────────────────────────────────
   const tourSleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -524,7 +533,9 @@ export default function StudioPage() {
 
     const newCreation = !threadId;
     // New creations route through the follow-up step first (unless skipping).
-    if (newCreation && briefStep === "base" && !opts?.skip) {
+    // Presentations skip it entirely — they're driven by the topic/document, not
+    // the event follow-up questions, so they go straight to Build presentation.
+    if (newCreation && briefStep === "base" && !opts?.skip && !isPresentation) {
       if (!baseReady) return;
       await loadFollowUps();
       return;
@@ -572,7 +583,14 @@ export default function StudioPage() {
         resetBriefFlow();
         router.push(`/presentation/${deckId}`);
       } catch (err) {
-        setLocalError(err instanceof Error ? err.message : "Presentation failed.");
+        // ConvexError carries a readable reason in `.data`; plain server errors
+        // arrive masked, so fall back to a friendly line.
+        const data = (err as { data?: unknown })?.data;
+        setLocalError(
+          typeof data === "string"
+            ? data
+            : "Couldn't build the presentation — try again in a moment, or give a fuller brief.",
+        );
         setDeckLoading(false);
       }
       return;
@@ -986,6 +1004,57 @@ export default function StudioPage() {
                 loading ? "pointer-events-none opacity-50" : ""
               }`}
             >
+            {/* Top-level mode — pick what you're making. Presentation is its own
+                mode: choosing it hides the design-system, format, event fields,
+                follow-up questions and brand marks, and builds a deck in the one
+                on-brand presentation style. Hidden while refining an existing design. */}
+            {!threadId && (
+              <div className="space-y-2.5" data-tour="mode">
+                <label className="mm-eyebrow">What are you making?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { if (isPresentation) setFormat(lastDesignFormatRef.current); }}
+                    aria-pressed={!isPresentation}
+                    className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 cursor-pointer ${
+                      !isPresentation
+                        ? "border-[#CC7A5C]/70 bg-[#CC7A5C]/10"
+                        : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.2)]"
+                    }`}
+                  >
+                    <span className={`flex items-center gap-2 text-sm font-medium ${!isPresentation ? "text-[#F2EEE6]" : "text-[#CFC8BD]"}`}>
+                      <Sparkles className="h-4 w-4 shrink-0" /> Single design
+                    </span>
+                    <span className="text-[11px] leading-tight text-[#8C8278]">Post, story or poster</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormat("presentation")}
+                    aria-pressed={isPresentation}
+                    className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 cursor-pointer ${
+                      isPresentation
+                        ? "border-[#CC7A5C]/70 bg-[#CC7A5C]/10"
+                        : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.2)]"
+                    }`}
+                  >
+                    <span className={`flex items-center gap-2 text-sm font-medium ${isPresentation ? "text-[#F2EEE6]" : "text-[#CFC8BD]"}`}>
+                      <Presentation className="h-4 w-4 shrink-0" /> Presentation
+                    </span>
+                    <span className="text-[11px] leading-tight text-[#8C8278]">Multi-slide deck</span>
+                  </button>
+                </div>
+                {isPresentation && (
+                  <div className="rounded-lg border border-[rgba(242,238,230,0.08)] bg-[rgba(242,238,230,0.02)] px-3 py-2.5">
+                    <p className="text-[11px] font-medium text-[#CFC8BD]">On-brand slide deck (PowerPoint export)</p>
+                    <p className="mt-0.5 font-mono text-[10px] text-[#8C8278]">1920 × 1080 px · landscape · {deckSlides} slides</p>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-[#8C8278]">
+                      One consistent presentation style — just the topic or a document, no other questions.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Event details / Refine */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -1043,7 +1112,7 @@ export default function StudioPage() {
                   <div className="space-y-1.5">
                     <label className="block text-[11px] font-medium text-[#CFC8BD]">
                       Or add a document{" "}
-                      <span className="text-[#8C8278]">· optional — PDF, Word or text</span>
+                      <span className="text-[#8C8278]">· optional — PDF, Word, Markdown or text</span>
                     </label>
                     {docName ? (
                       <div className="flex items-center gap-2 rounded-lg border border-[rgba(242,238,230,0.1)] bg-[rgba(242,238,230,0.03)] px-3 py-2">
@@ -1259,8 +1328,9 @@ export default function StudioPage() {
               </p>
             </div>
 
-            {/* Design system — hidden while refining (a refinement keeps it) */}
-            {!threadId && (
+            {/* Design system — hidden while refining (a refinement keeps it) and
+                for presentations (they use the one fixed deck style). */}
+            {!threadId && !isPresentation && (
             <div className="space-y-2.5" data-tour="design-system">
               <label className="mm-eyebrow">Design system</label>
               <div className="space-y-2">
@@ -1305,8 +1375,9 @@ export default function StudioPage() {
             </div>
             )}
 
-            {/* Format — hidden while refining (a refinement keeps it) */}
-            {!threadId && (
+            {/* Format — hidden while refining (a refinement keeps it) and for
+                presentations (a deck is always 16:9). */}
+            {!threadId && !isPresentation && (
             <div className="space-y-2.5" data-tour="format">
               <label className="mm-eyebrow">Format</label>
               <div className="grid grid-cols-2 gap-2">
@@ -1352,45 +1423,8 @@ export default function StudioPage() {
                 })}
               </div>
 
-              {/* Presentation — a multi-slide deck format (universal Brand system) */}
-              {(
-                <button
-                  type="button"
-                  onClick={() => setFormat("presentation")}
-                  aria-pressed={isPresentation}
-                  className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 ${
-                    isPresentation
-                      ? "border-[#CC7A5C]/70 bg-[#CC7A5C]/10"
-                      : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.2)]"
-                  }`}
-                >
-                  <span
-                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${
-                      isPresentation ? "bg-[#CC7A5C] text-[#F7F3EC]" : "bg-[rgba(242,238,230,0.05)] text-[#8C8278]"
-                    }`}
-                  >
-                    <Presentation className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={`block text-sm font-medium ${isPresentation ? "text-[#F2EEE6]" : "text-[#CFC8BD]"}`}>
-                      Presentation
-                    </span>
-                    <span className="block text-[11px] text-[#8C8278]">Multi-slide deck · 16:9 · exports to PowerPoint</span>
-                  </span>
-                  {isPresentation && <Check className="h-4 w-4 shrink-0 text-[#CC7A5C]" />}
-                </button>
-              )}
-
               {/* Selected-format intent — what Claude will design for */}
-              {isPresentation ? (
-                <div className="rounded-lg border border-[rgba(242,238,230,0.08)] bg-[rgba(242,238,230,0.02)] px-3 py-2.5">
-                  <p className="text-[11px] font-medium text-[#CFC8BD]">On-brand slide deck (PowerPoint export)</p>
-                  <p className="mt-0.5 font-mono text-[10px] text-[#8C8278]">1920 × 1080 px · landscape · {deckSlides} slides</p>
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-[#8C8278]">
-                    Claude outlines the deck from your answers, then designs every slide on-brand.
-                  </p>
-                </div>
-              ) : FORMAT_DIMENSIONS[format] && (
+              {FORMAT_DIMENSIONS[format] && (
                 <div className="rounded-lg border border-[rgba(242,238,230,0.08)] bg-[rgba(242,238,230,0.02)] px-3 py-2.5">
                   <p className="text-[11px] font-medium text-[#CFC8BD]">
                     {FORMAT_DIMENSIONS[format].useCase}
@@ -1436,13 +1470,13 @@ export default function StudioPage() {
                   <>
                     <Wand2 className="h-4 w-4" /> Refine design
                   </>
-                ) : briefStep === "base" ? (
-                  <>
-                    Continue <ArrowRight className="h-4 w-4" />
-                  </>
                 ) : isPresentation ? (
                   <>
                     <Presentation className="h-4 w-4" /> Build presentation
+                  </>
+                ) : briefStep === "base" ? (
+                  <>
+                    Continue <ArrowRight className="h-4 w-4" />
                   </>
                 ) : (
                   <>
@@ -1451,8 +1485,9 @@ export default function StudioPage() {
                 )}
               </button>
 
-              {/* Skip the extra questions straight to generate (base step only). */}
-              {!threadId && briefStep === "base" && baseReady && !loading && !loadingFollowUps && (
+              {/* Skip the extra questions straight to generate (base step only —
+                  presentations have no follow-up step). */}
+              {!threadId && !isPresentation && briefStep === "base" && baseReady && !loading && !loadingFollowUps && (
                 <button
                   type="button"
                   onClick={() => handleGenerate(undefined, { skip: true })}
