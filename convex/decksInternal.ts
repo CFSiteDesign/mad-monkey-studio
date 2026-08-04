@@ -153,13 +153,15 @@ export const listDecks = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .take(40);
-    // Trim slide SVGs from the list payload — the gallery only needs metadata.
+    // Send the FIRST slide's SVG as the gallery thumbnail; trim the rest of the
+    // slides from the list payload (the gallery only needs one slide + metadata).
     return decks.map((d) => ({
       _id: d._id,
       title: d.title,
       status: d.status,
       slideCount: d.slideCount,
       slidesDone: d.slides.length,
+      thumbnail: d.slides[0]?.outputCode ?? null,
       costUsd: d.costUsd,
       createdAt: d.createdAt,
     }));

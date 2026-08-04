@@ -74,14 +74,27 @@ const ASPECT: Record<string, string> = {
   "4:5": "aspect-[4/5]",
   "9:16": "aspect-[9/16]",
   "A4": "aspect-[794/1123]",
+  "16:9": "aspect-[16/9]", // presentation slides (1920×1080)
+  presentation: "aspect-[16/9]",
 };
+
+/** Pin the SVG's own preserveAspectRatio so the whole design fits centred in
+ *  the tile in EVERY browser. `object-fit` is unreliable on an inline <svg>
+ *  (Chrome/Safari recently began honouring it while others ignore it), so a
+ *  stretched tile could suddenly crop the design to a strip — this makes the
+ *  fit deterministic regardless of object-fit support. */
+function fitThumb(svg: string): string {
+  return svg.replace(/<svg\b([^>]*?)>/i, (m, a) =>
+    /preserveAspectRatio/i.test(a) ? m : `<svg${a} preserveAspectRatio="xMidYMid meet">`,
+  );
+}
 
 /** Sanitised SVG thumbnail for a past creation in the gallery. */
 function GalleryThumb({ svg, format }: { svg: string; format: string }) {
-  const safe = useMemo(() => sanitizeSvg(svg), [svg]);
+  const safe = useMemo(() => fitThumb(sanitizeSvg(svg)), [svg]);
   return (
     <div
-      className={`${ASPECT[format] ?? "aspect-square"} w-full overflow-hidden bg-white [&>svg]:h-full [&>svg]:w-full [&>svg]:object-cover`}
+      className={`${ASPECT[format] ?? "aspect-square"} w-full overflow-hidden bg-white [&>svg]:h-full [&>svg]:w-full [&>svg]:object-contain`}
       dangerouslySetInnerHTML={{ __html: safe }}
     />
   );
@@ -926,23 +939,31 @@ export default function StudioPage() {
                             setMobileNavOpen(false);
                             router.push(`/presentation/${d._id}`);
                           }}
-                          className="flex w-full items-center gap-2 rounded-lg border border-[rgba(242,238,230,0.08)] px-2.5 py-2 pr-8 text-left transition-colors hover:border-[rgba(242,238,230,0.25)] hover:bg-[rgba(242,238,230,0.02)]"
+                          className="block w-full overflow-hidden rounded-lg border border-[rgba(242,238,230,0.08)] text-left transition-colors hover:border-[rgba(242,238,230,0.25)]"
                         >
-                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[#CC7A5C]/15 text-[#CC7A5C]">
-                            {d.status === "generating" ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Presentation className="h-3.5 w-3.5" />
-                            )}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[11px] font-medium text-[#CFC8BD]">
-                              {d.title || "Untitled deck"}
-                            </span>
-                            <span className="block text-[10px] text-[#8C8278]">
-                              {d.status === "generating"
-                                ? `${d.slidesDone}/${d.slideCount} slides…`
-                                : `${d.slidesDone} slides`}
+                          {/* First slide as the thumbnail (16:9), same treatment as the design tiles */}
+                          {d.status === "generating" ? (
+                            <div className="grid aspect-[16/9] w-full place-items-center bg-[rgba(242,238,230,0.03)]">
+                              <Loader2 className="h-4 w-4 animate-spin text-[#CC7A5C]" />
+                            </div>
+                          ) : d.thumbnail ? (
+                            <GalleryThumb svg={d.thumbnail} format="16:9" />
+                          ) : (
+                            <div className="grid aspect-[16/9] w-full place-items-center bg-[rgba(242,238,230,0.03)]">
+                              <Presentation className="h-5 w-5 text-[#8C8278]/50" />
+                            </div>
+                          )}
+                          <span className="flex items-center gap-1.5 px-2 py-1.5 pr-8">
+                            <Presentation className="h-3 w-3 shrink-0 text-[#CC7A5C]" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[11px] font-medium text-[#CFC8BD]">
+                                {d.title || "Untitled deck"}
+                              </span>
+                              <span className="block text-[10px] text-[#8C8278]">
+                                {d.status === "generating"
+                                  ? `${d.slidesDone}/${d.slideCount} slides…`
+                                  : `${d.slidesDone} slides`}
+                              </span>
                             </span>
                           </span>
                         </button>
