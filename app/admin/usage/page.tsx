@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { sanitizeSvg } from "@/lib/sanitize-svg";
+import { sanitizeSvg, scopeSvgIds } from "@/lib/sanitize-svg";
 import { BrandLogo } from "@/components/brand-logo";
 import { PoweredBy } from "@/components/powered-by";
 import {
@@ -33,7 +33,16 @@ const ASPECT: Record<string, string> = {
 
 /** Sanitised SVG thumbnail for a creation (renders bank photos via their URL refs). */
 function SvgThumb({ code, format, className = "" }: { code: string; format?: string; className?: string }) {
-  const safe = useMemo(() => (code ? sanitizeSvg(code) : ""), [code]);
+  // Same grid-of-inline-SVGs situation as the gallery: scope ids per thumbnail,
+  // and pin preserveAspectRatio so the whole design fits (never crops).
+  const uid = useId();
+  const safe = useMemo(() => {
+    if (!code) return "";
+    const fitted = sanitizeSvg(code).replace(/<svg\b([^>]*?)>/i, (m, a) =>
+      /preserveAspectRatio/i.test(a) ? m : `<svg${a} preserveAspectRatio="xMidYMid meet">`,
+    );
+    return scopeSvgIds(fitted, uid);
+  }, [code, uid]);
   if (!safe) {
     return (
       <div className={`grid ${ASPECT[format ?? ""] ?? "aspect-square"} w-full place-items-center bg-[rgba(242,238,230,0.03)] ${className}`}>
@@ -43,7 +52,7 @@ function SvgThumb({ code, format, className = "" }: { code: string; format?: str
   }
   return (
     <div
-      className={`${ASPECT[format ?? ""] ?? "aspect-square"} w-full overflow-hidden bg-white [&>svg]:h-full [&>svg]:w-full [&>svg]:object-cover ${className}`}
+      className={`${ASPECT[format ?? ""] ?? "aspect-square"} w-full overflow-hidden bg-white [&>svg]:h-full [&>svg]:w-full [&>svg]:object-contain ${className}`}
       dangerouslySetInnerHTML={{ __html: safe }}
     />
   );

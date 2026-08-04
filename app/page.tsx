@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { sanitizeSvg } from "@/lib/sanitize-svg";
+import { sanitizeSvg, scopeSvgIds } from "@/lib/sanitize-svg";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -91,7 +91,10 @@ function fitThumb(svg: string): string {
 
 /** Sanitised SVG thumbnail for a past creation in the gallery. */
 function GalleryThumb({ svg, format }: { svg: string; format: string }) {
-  const safe = useMemo(() => fitThumb(sanitizeSvg(svg)), [svg]);
+  // Scope ids per tile — the gallery renders many SVGs in one document and they
+  // would otherwise share `photoClip`/`hs`/`duo`/… (see scopeSvgIds).
+  const uid = useId();
+  const safe = useMemo(() => scopeSvgIds(fitThumb(sanitizeSvg(svg)), uid), [svg, uid]);
   return (
     <div
       className={`${ASPECT[format] ?? "aspect-square"} w-full overflow-hidden bg-white [&>svg]:h-full [&>svg]:w-full [&>svg]:object-contain`}

@@ -1,11 +1,11 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { sanitizeSvg } from "@/lib/sanitize-svg";
+import { sanitizeSvg, scopeSvgIds } from "@/lib/sanitize-svg";
 import { inlineSvgImages } from "@/lib/inline-images";
 import { BrandLogo } from "@/components/brand-logo";
 import { PoweredBy } from "@/components/powered-by";
@@ -25,15 +25,18 @@ function Slide({
   onChangePhoto?: () => void;
 }) {
   const [svg, setSvg] = useState("");
+  // Every slide on this page is its own inline SVG — scope ids so they don't
+  // share clips/filters with the slide above (see scopeSvgIds).
+  const uid = useId();
   useEffect(() => {
     let cancelled = false;
     inlineSvgImages(outputCode).then((s) => {
-      if (!cancelled) setSvg(sanitizeSvg(s));
+      if (!cancelled) setSvg(scopeSvgIds(sanitizeSvg(s), uid));
     });
     return () => {
       cancelled = true;
     };
-  }, [outputCode]);
+  }, [outputCode, uid]);
   return (
     <div className="group overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-[rgba(242,238,230,0.1)]">
       <div className="relative aspect-video w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full">

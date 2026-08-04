@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { sanitizeSvg } from "@/lib/sanitize-svg";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { sanitizeSvg, scopeSvgIds } from "@/lib/sanitize-svg";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -118,7 +118,13 @@ export function GenerationCard({
 
   // Defense-in-depth against SVG XSS before it touches the DOM (keeps brand
   // presentation attrs like dominant-baseline that DOMPurify would otherwise strip).
-  const safeSvg = useMemo(() => (svg ? sanitizeSvg(svg) : ""), [svg]);
+  // The feed stacks several versions on one page — scope ids so each card keeps
+  // its own clips/filters instead of borrowing the first card's (see scopeSvgIds).
+  const uid = useId();
+  const safeSvg = useMemo(
+    () => (svg ? scopeSvgIds(sanitizeSvg(svg), uid) : ""),
+    [svg, uid],
+  );
 
   async function handleExport(kind: ExportKind) {
     if (exporting) return;

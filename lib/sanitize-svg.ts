@@ -59,3 +59,35 @@ export function sanitizeSvg(svg: string): string {
     ADD_TAGS: ["use"],
   });
 }
+
+/**
+ * Rewrite every `id` in one SVG (and every reference to it) with a unique
+ * prefix, so multiple generated SVGs can live in the SAME document without
+ * fighting over ids.
+ *
+ * Inline SVGs share ONE document-wide id namespace: `url(#photoClip)` resolves
+ * to the FIRST `#photoClip` in the DOM, not the one in its own <svg>. Every
+ * generation carries the craft kit (`hs`, `grain`, `duo`, `post`, `dots`, the
+ * `mm-*` shapes) plus its own clips/gradients, so with two on a page the second
+ * one silently borrows the first one's geometry. That is how deck thumbnails
+ * lost their photos: the gallery's design tiles render first and define their
+ * own `photoClip` (a 1080×1080 path ending at x≈960), so a slide's photo at
+ * x≈1180 in a 1920×1080 canvas got clipped to nothing — the frame drew, the
+ * picture vanished. Filters/gradients collide the same way (a duotone from one
+ * card leaking onto another).
+ *
+ * Call this AFTER sanitising, with a per-instance prefix (React's useId()).
+ */
+export function scopeSvgIds(svg: string, prefix: string): string {
+  const ids = [...new Set([...svg.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]))];
+  if (!ids.length) return svg;
+  const p = prefix.replace(/[^a-zA-Z0-9_-]/g, "") + "-";
+  for (const id of ids) {
+    const e = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    svg = svg
+      .replace(new RegExp(`\\bid="${e}"`, "g"), `id="${p}${id}"`)
+      .replace(new RegExp(`url\\(\\s*#${e}\\s*\\)`, "g"), `url(#${p}${id})`)
+      .replace(new RegExp(`((?:xlink:)?href)="#${e}"`, "g"), `$1="#${p}${id}"`);
+  }
+  return svg;
+}
