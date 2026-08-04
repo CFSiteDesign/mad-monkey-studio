@@ -167,3 +167,50 @@ export const listDecks = query({
     }));
   },
 });
+
+// ── One-off repair: strip fabricated image URLs from EXISTING decks ──────────
+// Before the bank-URL gate existed in the deck pipeline, Claude sometimes
+// invented or truncated storage ids ("/api/storage/22e-placeholder",
+// ".../27b30c9c-1234"), which render as a blank box on the slide and in the
+// gallery thumbnail. New decks are now gated + repaired at generation time;
+// this fixes the ones already saved. Pass dryRun to preview.
+//   npx convex run decksInternal:repairDeckImages '{"dryRun":true}' --prod
+export const repairDeckImages = internalMutation({
+  args: { dryRun: v.optional(v.boolean()) },
+  handler: async (ctx, { dryRun }) => {
+    const images = await ctx.db.query("brand_images").collect();
+    const ids = new Set(images.map((i) => i.storageId as string));
+    const isReal = (href: string) => {
+      if (href.startsWith("data:")) return true;
+      if (/^\/mm-(logo-(white|black)|allin|allin-monkey|stamp)\.png$/.test(href)) return true;
+      const sid = href.match(/\/api\/storage\/([^?"']+)/)?.[1];
+      return sid ? ids.has(sid) : false;
+    };
+
+    const decks = await ctx.db.query("decks").collect();
+    const report: string[] = [];
+    let fixedSlides = 0;
+    let removed = 0;
+
+    for (const d of decks) {
+      let changed = false;
+      const slides = d.slides.map((s, i) => {
+        const dropped: string[] = [];
+        const code = s.outputCode.replace(/<image\b[^>]*?>/gi, (tag) => {
+          const href = tag.match(/(?:xlink:)?href\s*=\s*["']([^"']+)["']/i)?.[1];
+          if (!href || isReal(href)) return tag;
+          dropped.push(href.slice(-24));
+          return "";
+        });
+        if (!dropped.length) return s;
+        changed = true;
+        fixedSlides++;
+        removed += dropped.length;
+        report.push(`${d.title || "Untitled"} · slide ${i + 1}: ${dropped.join(", ")}`);
+        return { ...s, outputCode: code };
+      });
+      if (changed && !dryRun) await ctx.db.patch(d._id, { slides });
+    }
+    return { dryRun: Boolean(dryRun), decks: decks.length, fixedSlides, removed, report };
+  },
+});

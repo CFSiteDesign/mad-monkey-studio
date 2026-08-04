@@ -128,6 +128,7 @@ async function generateSlide(
   validateOpts: Parameters<typeof validateSvg>[1],
   includeLogo: boolean,
   model: string,
+  bankUrls: Set<string>,
 ): Promise<{ outputCode: string; notes: string[]; inputTokens: number; outputTokens: number }> {
   const brief = [
     `Role: ${slide.role}${index === 0 ? " — the deck opener" : index === total - 1 ? " — the deck closer" : ""}, in the deck "${deckTitle}". This is INTERNAL context only: NEVER print a slide number, slide position or slide count anywhere on the slide — no "SLIDE 4", "SLIDE 7/8", "8 SLIDES", "GO LIVE 1/8", page numbers, or progress dots. The audience never sees which slide number this is.`,
@@ -173,6 +174,24 @@ async function generateSlide(
       hard.push("Missing the Mad Monkey wordmark — embed /mm-logo-white.png or /mm-logo-black.png small at a bottom corner.");
     }
     if (!includeLogo && hasLogo) hard.push("Remove the Mad Monkey wordmark from this slide.");
+
+    // Hallucinated/truncated image URLs render as a blank box (HARD). The deck
+    // path used to skip the bank-URL check that single generations already had,
+    // so ~20% of slides shipped fabricated storage ids ("/api/storage/22e-
+    // placeholder", ".../27b30c9c-1234", ".../43aec65d-ab...") — invisible
+    // photos on the slide and in the gallery thumbnail.
+    for (const im of outputCode.matchAll(
+      /<image\b[^>]*?(?:xlink:)?href\s*=\s*["']([^"']+)["']/gi,
+    )) {
+      const href = im[1];
+      if (href.startsWith("data:")) continue;
+      if (/^\/mm-(logo-(white|black)|allin|allin-monkey|stamp)\.png$/.test(href)) continue;
+      if (!bankUrls.has(href)) {
+        hard.push(
+          `Image href "${href.slice(0, 70)}" is not a real asset — it renders as a blank box. Copy a URL VERBATIM from the IMAGE BANK list (never abbreviate, truncate, shorten an id or invent a placeholder), or use /mm-logo-white.png, /mm-logo-black.png. If no bank image fits this slide, use flat graphic shapes instead of an <image>.`,
+        );
+      }
+    }
 
     // Overlap, text running off the canvas, and overflow are the deck-slide
     // failures people actually notice — they must drive a correction pass, not
@@ -224,6 +243,27 @@ async function generateSlide(
   }
 
   best = best ?? { code: "", hard: [], soft: [] };
+
+  // Safety net — retries can run out with a fabricated href still present, and a
+  // broken <image> is worse than none (blank box / broken-image icon on the
+  // slide AND the gallery thumbnail). Drop any <image> whose href isn't a real
+  // bank asset or brand mark, so a deck NEVER ships a broken picture.
+  const dropped: string[] = [];
+  best.code = best.code.replace(/<image\b[^>]*?>/gi, (tag) => {
+    const href = tag.match(/(?:xlink:)?href\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (!href) return tag;
+    if (href.startsWith("data:")) return tag;
+    if (/^\/mm-(logo-(white|black)|allin|allin-monkey|stamp)\.png$/.test(href)) return tag;
+    if (bankUrls.has(href)) return tag;
+    dropped.push(href.slice(0, 60));
+    return "";
+  });
+  if (dropped.length) {
+    best.soft.push(
+      `Removed ${dropped.length} image${dropped.length > 1 ? "s" : ""} with an invalid URL (${dropped.join(", ")}) — it would have rendered as a blank box.`,
+    );
+  }
+
   return {
     outputCode: best.code,
     notes: [...best.hard, ...best.soft],
@@ -260,6 +300,9 @@ export const generateDeck = action({
     const imageManifest = await ctx.runQuery(internal.generationsInternal.getImageManifest, {
       brandId: user.brandId,
     });
+    // Exact set of real photo URLs — anything else in an <image> href is
+    // fabricated and renders as a blank box (see the gate in generateSlide).
+    const bankUrls = new Set(imageManifest.map((i: { url: string }) => i.url));
 
     const client = anthropic();
 
@@ -349,6 +392,7 @@ export const generateDeck = action({
           validateOpts,
           includeLogo,
           MODEL.model,
+          bankUrls,
         );
         await ctx.runMutation(internal.decksInternal.appendSlide, {
           deckId,
