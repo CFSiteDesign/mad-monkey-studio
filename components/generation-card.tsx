@@ -101,6 +101,7 @@ export function GenerationCard({
   const resizeRef = useRef<HTMLDivElement>(null);
   const saveManualEdit = useMutation(api.edits.saveManualEdit);
   const rasterize = useAction(api.render.rasterize);
+  const postAsset = useAction(api.costing.postAsset);
 
   const photoTargets = useMemo(() => photoTargetsOf(gen.outputCode), [gen.outputCode]);
 
@@ -166,6 +167,19 @@ export function GenerationCard({
       }
       if (!pngBytes) pngBytes = await canvasFallbackPng(exportSvg, renderDim);
       await exportFromPng(pngBytes, kind, renderDim, baseName);
+      // Costing-tool round-trip: if this session came from the Experience
+      // Database, save the finished design back onto that experience so the
+      // same graphic isn't rebuilt every week. Never blocks the download.
+      try {
+        const raw = sessionStorage.getItem("mm.costingProduct");
+        if (raw) {
+          const { id } = JSON.parse(raw) as { id: string };
+          const r = await postAsset({ svg: exportSvg, width: Math.min(renderDim.w, 1600), generationId: gen.id as Id<"generations">, productId: id });
+          if (!r.ok) console.warn("Experience Database post-back failed:", r.error);
+        }
+      } catch (err) {
+        console.warn("Experience Database post-back failed:", err);
+      }
     } finally {
       setExporting(null);
     }

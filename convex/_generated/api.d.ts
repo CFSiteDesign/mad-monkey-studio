@@ -12,6 +12,7 @@ import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as brands from "../brands.js";
 import type * as briefs from "../briefs.js";
+import type * as costing from "../costing.js";
 import type * as decks from "../decks.js";
 import type * as decksInternal from "../decksInternal.js";
 import type * as devgen from "../devgen.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   brands: typeof brands;
   briefs: typeof briefs;
+  costing: typeof costing;
   decks: typeof decks;
   decksInternal: typeof decksInternal;
   devgen: typeof devgen;

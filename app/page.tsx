@@ -116,6 +116,28 @@ export default function StudioPage() {
   const [eventDate, setEventDate] = useState("");
   const [eventCost, setEventCost] = useState("");
   const [eventLocation, setEventLocation] = useState("");
+  // Deep link from the Experience Database (costing tool): the event fields
+  // arrive prefilled and the finished export is posted back to that product.
+  const [costingProduct, setCostingProduct] = useState<{ id: string; tour: string } | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search);
+    const pid = q.get("product");
+    if (q.get("source") !== "costing" || !pid) {
+      // not a costing session: make sure a stale one can't post back later
+      if (q.get("source") !== "costing") sessionStorage.removeItem("mm.costingProduct");
+      return;
+    }
+    const tour = q.get("tour") ?? "";
+    if (tour) setEventTitle(tour);
+    const when = [q.get("day"), q.get("time")].filter(Boolean).join(", ");
+    if (when) setEventDate(when);
+    if (q.get("price")) setEventCost(q.get("price")!);
+    if (q.get("location")) setEventLocation(q.get("location")!);
+    if (q.get("desc")) setOtherDetails(q.get("desc")!);
+    sessionStorage.setItem("mm.costingProduct", JSON.stringify({ id: pid, tour }));
+    setCostingProduct({ id: pid, tour });
+  }, []);
   const [format, setFormat] = useState<string>("1:1");
   // Remembers the last non-presentation format so toggling Presentation → Single
   // design restores what the user had, instead of snapping back to 1:1.
@@ -1204,6 +1226,12 @@ export default function StudioPage() {
                 </div>
               ) : (
                 <div className="space-y-2" data-tour="event-fields">
+                  {costingProduct && (
+                    <div className="rounded-lg border border-[#FFC72C]/40 bg-[#FFC72C]/10 px-3 py-2 text-xs text-[#F2EEE6]">
+                      Prefilled from the Experience Database — <span className="font-semibold">{costingProduct.tour}</span>.
+                      When you export, the finished file is saved back to that experience automatically.
+                    </div>
+                  )}
                   <input
                     id="event-title"
                     value={eventTitle}
