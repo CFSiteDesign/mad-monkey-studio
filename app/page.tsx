@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { sanitizeSvg, scopeSvgIds } from "@/lib/sanitize-svg";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -12,6 +13,7 @@ import { UploadPhotos, type UploadedImage } from "@/components/upload-photos";
 import { extractTextFromFile } from "@/lib/extract-text";
 import { GenerationLoader } from "@/components/generation-loader";
 import { GenerationCard, type FeedGeneration } from "@/components/generation-card";
+import { TemplatePicker } from "@/components/template-picker";
 import { useGeneration } from "@/components/generation-provider";
 import { PoweredBy } from "@/components/powered-by";
 import { Walkthrough, type TourStep } from "@/components/walkthrough";
@@ -38,6 +40,7 @@ import {
   Menu,
   Paperclip,
   X,
+  LayoutTemplate,
 } from "lucide-react";
 
 const FORMATS = [
@@ -103,6 +106,21 @@ function GalleryThumb({ svg, format }: { svg: string; format: string }) {
   );
 }
 
+function StepDot({ n, label, active, done }: { n: number; label: string; active: boolean; done: boolean }) {
+  return (
+    <span className={`flex items-center gap-1.5 ${active ? "text-[#F2EEE6]" : "text-[#8C8278]"}`}>
+      <span
+        className={`grid h-5 w-5 place-items-center rounded-full text-[10px] font-semibold transition-colors duration-300 ${
+          active ? "bg-[#CC7A5C] text-[#1C1A18]" : done ? "bg-[#CC7A5C]/25 text-[#E0936F]" : "border border-[rgba(242,238,230,0.15)]"
+        }`}
+      >
+        {n}
+      </span>
+      <span className="hidden sm:inline">{label}</span>
+    </span>
+  );
+}
+
 export default function StudioPage() {
   const user = useQuery(api.users.getCurrentUser);
   const followUpQuestions = useAction(api.briefs.followUpQuestions);
@@ -143,6 +161,21 @@ export default function StudioPage() {
   // design restores what the user had, instead of snapping back to 1:1.
   const lastDesignFormatRef = useRef<string>("1:1");
   const [designSystem, setDesignSystem] = useState("brand");
+
+  // ── Composer modal — every NEW creation starts here: step 1 pick a template
+  // (or blank / presentation), step 2 the details, step 3 the smart questions.
+  // Refinements of an existing design stay inline in the left panel.
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [composerStep, setComposerStep] = useState<"template" | "details">("template");
+  const [stepDir, setStepDir] = useState<"fwd" | "back">("fwd");
+  const [templateId, setTemplateId] = useState<Id<"templates"> | null>(null);
+  const templatesData = useQuery(api.templates.listTemplates);
+  const templateMeta = useMemo(
+    () => (templateId ? (templatesData?.templates ?? []).find((t) => t._id === templateId) ?? null : null),
+    [templateId, templatesData],
+  );
+  // GMs (role "user") create from approved templates only; marketing + admins get the full tool.
+  const canFreeform = user?.role === "admin" || user?.role === "marketing";
   const [includeLogo, setIncludeLogo] = useState(true);
   const [includeAllIn, setIncludeAllIn] = useState(false);
   const [includeAllInMonkey, setIncludeAllInMonkey] = useState(false);
@@ -440,7 +473,56 @@ export default function StudioPage() {
     ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
     : "?";
 
-  function createNew() {
+  function pickTemplate(t: { _id: Id<"templates">; format: string; designSystem: string }) {
+    setTemplateId(t._id);
+    setFormat(t.format);
+    setDesignSystem(t.designSystem);
+    setStepDir("fwd");
+    setComposerStep("details");
+  }
+  function pickBlank() {
+    setTemplateId(null);
+    if (format === "presentation") setFormat(lastDesignFormatRef.current);
+    setStepDir("fwd");
+    setComposerStep("details");
+  }
+  function pickPresentation() {
+    setTemplateId(null);
+    setFormat("presentation");
+    setStepDir("fwd");
+    setComposerStep("details");
+  }
+  function backToTemplates() {
+    setStepDir("back");
+    setComposerStep("template");
+  }
+  function closeComposer() {
+    setComposerOpen(false);
+  }
+  const isComposerModal = !threadId && composerOpen;
+
+  // Escape closes the composer.
+  useEffect(() => {
+    if (!isComposerModal) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setComposerOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isComposerModal]);
+
+  // Deep link from /templates: /?template=<id> opens the composer on step 2 with it picked.
+  useEffect(() => {
+    if (!templatesData) return;
+    const id = new URLSearchParams(window.location.search).get("template");
+    if (!id) return;
+    const t = templatesData.templates.find((x) => x._id === id);
+    if (!t) return;
+    createNew(true);
+    pickTemplate(t);
+    window.history.replaceState(null, "", "/");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templatesData]);
+
+  function createNew(openComposer = true) {
     setThreadId(null);
     clearResult();
     setBrief("");
@@ -449,6 +531,10 @@ export default function StudioPage() {
     clearDoc();
     resetBriefFlow();
     setMobileNavOpen(false);
+    setTemplateId(null);
+    setStepDir("fwd");
+    setComposerStep("template");
+    setComposerOpen(Boolean(openComposer));
   }
 
   function selectThread(id: Id<"threads">) {
@@ -595,6 +681,7 @@ export default function StudioPage() {
       if (!presentationReady) return;
       setDeckLoading(true);
       setLocalError("");
+      setComposerOpen(false);
       try {
         const extra = [
           ...answeredFollowUps.map((p) => `- ${p.q} ${p.a}`),
@@ -619,6 +706,7 @@ export default function StudioPage() {
         setUserPhotos([]);
         clearDoc();
         resetBriefFlow();
+        setComposerOpen(false);
         router.push(`/presentation/${deckId}`);
       } catch (err) {
         // ConvexError carries a readable reason in `.data`; plain server errors
@@ -639,6 +727,9 @@ export default function StudioPage() {
     // router) so it keeps running even if the user pops over to /account or
     // /bank mid-generation. New creations: Haiku expands the event answers into
     // a brand-voiced brief first. Refinements send the refine text directly.
+    // Let people watch the canvas while it builds; if it fails, bring the
+    // composer back with everything still filled in.
+    setComposerOpen(false);
     const res = await runAsset({
       briefText: threadId ? brief : undefined,
       compose: threadId
@@ -656,6 +747,7 @@ export default function StudioPage() {
       format,
       designSystem,
       threadId: threadId ?? undefined,
+      templateId: templateId ?? undefined,
       includeLogo,
       includeAllIn,
       includeAllInMonkey,
@@ -665,6 +757,8 @@ export default function StudioPage() {
     // thread regardless. Clears the brief form for the next creation.
     if (res) {
       setThreadId(res.threadId);
+      setComposerOpen(false);
+      setTemplateId(null);
       setBrief("");
       setEventTitle("");
       setEventDate("");
@@ -672,6 +766,9 @@ export default function StudioPage() {
       setEventLocation("");
       setUserPhotos([]);
       resetBriefFlow();
+    } else if (!threadId) {
+      setComposerOpen(true);
+      setComposerStep("details");
     }
   }
 
@@ -749,12 +846,19 @@ export default function StudioPage() {
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <button
             type="button"
-            onClick={createNew}
+            onClick={() => createNew(false)}
             className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3 sm:py-1.5"
             title="Start fresh — back to a new creation"
           >
             <Home className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">Home</span>
           </button>
+          <Link
+            href="/templates"
+            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3"
+            title="Templates"
+          >
+            <LayoutTemplate className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">Templates</span>
+          </Link>
           <a
             href="https://docs.google.com/forms/d/e/1FAIpQLSdCGDQJTQHuj1OY3I8mAtQL7vyTAfK3Ym-gEmfQHjursAm1Vw/viewform"
             target="_blank"
@@ -833,7 +937,7 @@ export default function StudioPage() {
               hidden (opacity-0), and disabled:opacity-40 would otherwise win on
               specificity and ghost the icon through the real button mid-generation. */}
           <button
-            onClick={createNew}
+            onClick={() => createNew(true)}
             disabled={loading && !galleryOpen}
             aria-label="Create something new"
             title="Create something new"
@@ -853,7 +957,7 @@ export default function StudioPage() {
             {/* Create something new */}
             <div className="px-3 pb-3 pt-1">
               <button
-                onClick={createNew}
+                onClick={() => createNew(true)}
                 disabled={loading}
                 className="mm-cta flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-[#F7F3EC] disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -1039,9 +1143,80 @@ export default function StudioPage() {
           </div>
         </aside>
 
-        {/* ── Left control panel ── */}
-        <aside className="flex w-full shrink-0 flex-col border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/40 dt:w-72 dt:overflow-y-auto dt:border-b-0 dt:border-r xl:w-80">
-          <form onSubmit={handleGenerate} className="flex flex-1 flex-col">
+        {/* ── Left control panel — a compact start panel when idle, a centred
+            modal (blurred canvas behind) for every new creation, and the inline
+            refine form once a design exists. ── */}
+        {isComposerModal && (
+          <div className="mm-backdrop-in fixed inset-0 z-40 bg-black/60 backdrop-blur-md" onClick={closeComposer} aria-hidden />
+        )}
+        {!threadId && !composerOpen ? (
+          <aside className="flex w-full shrink-0 flex-col justify-center gap-3 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/40 p-5 dt:w-72 dt:border-b-0 dt:border-r xl:w-80">
+            <button
+              type="button"
+              onClick={() => createNew(true)}
+              className="mm-cta flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-[#F7F3EC]"
+            >
+              <Sparkles className="h-4 w-4" /> Create something new
+            </button>
+            <p className="text-center text-[11px] leading-relaxed text-[#8C8278]">
+              {canFreeform ? "Pick a template, start blank, or build a deck." : "Pick a template, add your event details, done."}
+            </p>
+          </aside>
+        ) : (
+        <aside
+          className={
+            isComposerModal
+              ? "mm-modal-in fixed inset-x-3 top-[4svh] z-50 mx-auto flex max-h-[92svh] flex-col overflow-hidden rounded-2xl border border-[rgba(242,238,230,0.12)] bg-[#1C1A18] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)] sm:inset-x-6 lg:max-w-[920px]"
+              : "flex w-full shrink-0 flex-col border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/40 dt:w-72 dt:overflow-y-auto dt:border-b-0 dt:border-r xl:w-80"
+          }
+          role={isComposerModal ? "dialog" : undefined}
+          aria-modal={isComposerModal || undefined}
+        >
+          {isComposerModal && (
+            <div className="flex shrink-0 items-center justify-between border-b border-[rgba(242,238,230,0.08)] px-4 py-3 sm:px-5">
+              <div className="flex items-center gap-2 text-[11px] text-[#8C8278]">
+                {composerStep !== "template" && (
+                  <button type="button" onClick={backToTemplates} className="mr-1 flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)]">
+                    <ChevronLeft className="h-3.5 w-3.5" /> Back
+                  </button>
+                )}
+                <StepDot n={1} label="Template" active={composerStep === "template"} done={composerStep !== "template"} />
+                <span className="h-px w-4 bg-[rgba(242,238,230,0.15)]" />
+                <StepDot n={2} label="Details" active={composerStep === "details" && briefStep === "base"} done={briefStep === "followup"} />
+                <span className="h-px w-4 bg-[rgba(242,238,230,0.15)]" />
+                <StepDot n={3} label="Questions" active={briefStep === "followup"} done={false} />
+              </div>
+              <button type="button" onClick={closeComposer} aria-label="Close" className="grid h-8 w-8 cursor-pointer place-items-center rounded-full text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6]">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          {isComposerModal && composerStep === "template" ? (
+            <div key="step-template" className={`${stepDir === "back" ? "mm-step-back" : "mm-step-in"} min-h-0 flex-1 overflow-y-auto p-5 sm:p-6`}>
+              <h2 className="text-lg font-light text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>What are you making?</h2>
+              <p className="mt-1 text-xs text-[#8C8278]">{canFreeform ? "Pick a template, start blank, or build a presentation." : "Pick a template, or build a presentation."}</p>
+              <div className={`mt-4 grid gap-3 ${canFreeform ? "grid-cols-2" : "grid-cols-1"}`}>
+                {canFreeform && (
+                  <button type="button" onClick={pickBlank} className="group flex cursor-pointer items-center gap-3 rounded-xl border border-[rgba(242,238,230,0.1)] bg-[rgba(242,238,230,0.02)] px-4 py-3.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-[#CC7A5C]/60">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#CC7A5C]/15 text-[#CC7A5C]"><Sparkles className="h-4 w-4" /></span>
+                    <span><span className="block text-sm font-medium text-[#F2EEE6]">Blank canvas</span><span className="block text-[11px] text-[#8C8278]">Any system, any format</span></span>
+                  </button>
+                )}
+                <button type="button" onClick={pickPresentation} className="group flex cursor-pointer items-center gap-3 rounded-xl border border-[rgba(242,238,230,0.1)] bg-[rgba(242,238,230,0.02)] px-4 py-3.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-[#CC7A5C]/60">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#CC7A5C]/15 text-[#CC7A5C]"><Presentation className="h-4 w-4" /></span>
+                  <span><span className="block text-sm font-medium text-[#F2EEE6]">Presentation</span><span className="block text-[11px] text-[#8C8278]">Multi-slide deck, PowerPoint export</span></span>
+                </button>
+              </div>
+              <div className="mt-6 flex items-center justify-between">
+                <h3 className="mm-eyebrow">Templates</h3>
+                {canFreeform && <Link href="/templates" className="text-[11px] text-[#8C8278] transition-colors hover:text-[#F2EEE6]">Manage templates →</Link>}
+              </div>
+              <div className="mt-3">
+                <TemplatePicker mode="pick" selectedId={templateId} onPick={pickTemplate} />
+              </div>
+            </div>
+          ) : (
+          <form onSubmit={handleGenerate} className={`flex flex-1 flex-col ${isComposerModal ? "mm-step-in min-h-0 overflow-y-auto" : ""}`}>
             {/* Locked while a generation is in flight — nothing about the
                 in-progress design can change mid-run. */}
             <fieldset
@@ -1050,11 +1225,26 @@ export default function StudioPage() {
                 loading ? "pointer-events-none opacity-50" : ""
               }`}
             >
+            {templateMeta && !threadId && (
+              <div className="flex items-center gap-3 rounded-xl border border-[#CC7A5C]/30 bg-[#CC7A5C]/5 p-2.5">
+                {templateMeta.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={templateMeta.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="mm-eyebrow">Template</p>
+                  <p className="truncate text-sm text-[#F2EEE6]">{templateMeta.name}</p>
+                </div>
+                <button type="button" onClick={backToTemplates} className="cursor-pointer rounded-md px-2 py-1 text-[11px] text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6]">
+                  Change
+                </button>
+              </div>
+            )}
             {/* Top-level mode — pick what you're making. Presentation is its own
                 mode: choosing it hides the design-system, format, event fields,
                 follow-up questions and brand marks, and builds a deck in the one
                 on-brand presentation style. Hidden while refining an existing design. */}
-            {!threadId && (
+            {!threadId && !templateId && canFreeform && (
               <div className="space-y-2.5" data-tour="mode">
                 <label className="mm-eyebrow">What are you making?</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -1316,7 +1506,7 @@ export default function StudioPage() {
 
               {/* Brand marks — new creations only (a refinement keeps the marks
                   already on the design). Hover a checkbox to preview the mark. */}
-              {!isPresentation && !threadId && (
+              {!isPresentation && !threadId && canFreeform && (
               <div data-tour="brand-marks" className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-0.5">
                 {(
                   [
@@ -1376,13 +1566,13 @@ export default function StudioPage() {
                   ? "Refinements keep the current design and change what you ask for."
                   : isPresentation
                   ? "Claude outlines the deck and designs every slide on-brand — then you can export to PowerPoint."
-                  : "We turn your answers into a brand-perfect brief automatically."}
+                  : ""}
               </p>
             </div>
 
             {/* Design system — hidden while refining (a refinement keeps it) and
                 for presentations (they use the one fixed deck style). */}
-            {!threadId && !isPresentation && (
+            {!threadId && !isPresentation && !templateId && (
             <div className="space-y-2.5" data-tour="design-system">
               <label className="mm-eyebrow">Design system</label>
               <div className="space-y-2">
@@ -1429,7 +1619,7 @@ export default function StudioPage() {
 
             {/* Format — hidden while refining (a refinement keeps it) and for
                 presentations (a deck is always 16:9). */}
-            {!threadId && !isPresentation && (
+            {!threadId && !isPresentation && !templateId && (
             <div className="space-y-2.5" data-tour="format">
               <label className="mm-eyebrow">Format</label>
               <div className="grid grid-cols-2 gap-2">
@@ -1560,7 +1750,9 @@ export default function StudioPage() {
             </div>
             </fieldset>
           </form>
+          )}
         </aside>
+        )}
 
         {/* ── Canvas: scrollable chat feed of every version ── */}
         <main
@@ -1589,8 +1781,7 @@ export default function StudioPage() {
                   Your canvas awaits
                 </p>
                 <p className="text-sm leading-relaxed text-[#8C8278]">
-                  Answer a few questions, pick your format, then hit Generate to see an
-                  on-brand asset appear here.
+                  Pick a template, add the details, and your on-brand design lands here.
                 </p>
               </div>
               <div className="mt-1 flex items-center gap-2 rounded-full border border-[rgba(242,238,230,0.08)] px-3 py-1 text-[11px] text-[#8C8278]">

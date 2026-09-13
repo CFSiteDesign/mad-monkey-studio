@@ -401,3 +401,25 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Composer modal + step transitions (subtle, fast, GPU-friendly) ────────── */
+@keyframes mm-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mm-modal-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes mm-step-in {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes mm-step-back {
+  from { opacity: 0; transform: translateX(-18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.mm-backdrop-in { animation: mm-backdrop-in 0.25s ease-out both; }
+.mm-modal-in    { animation: mm-modal-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; will-change: transform, opacity; }
+.mm-step-in     { animation: mm-step-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.mm-step-back   { animation: mm-step-back 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .mm-backdrop-in, .mm-modal-in, .mm-step-in, .mm-step-back, .mm-fade-up { animation: none; }
+}

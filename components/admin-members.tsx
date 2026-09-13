@@ -129,7 +129,8 @@ function MemberRow({
             onChange={(e) => void onRole(u._id, e.target.value)}
             className="mm-field rounded-lg px-2 py-1 text-xs text-[#F2EEE6]"
           >
-            <option value="user">User</option>
+            <option value="user">GM · templates only</option>
+            <option value="marketing">Marketing · full Studio + templates</option>
             <option value="admin">Admin</option>
           </select>
         )}

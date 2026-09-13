@@ -58,6 +58,8 @@ export type RunAssetArgs = {
   includeStamp: boolean;
   /** Resize: re-lay-out this existing design into `format` (a new asset). */
   adaptFrom?: { outputCode: string; fromFormat: string };
+  /** Template: reproduce this approved reference design (vision) for the new event. */
+  templateId?: Id<"templates">;
 };
 
 type GenerationCtx = {
@@ -115,6 +117,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
           includeAllInMonkey: args.includeAllInMonkey,
           includeStamp: args.includeStamp,
           adaptFrom: args.adaptFrom,
+          templateId: args.templateId,
         });
         const full: GenResult = { ...res, format: args.format, designSystem: args.designSystem };
         setResult(full);

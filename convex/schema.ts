@@ -97,19 +97,28 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_brand", ["brandId"]),
 
+  // Approved reference designs GMs create from (see convex/templates.ts).
+  // Marketing/admins upload an inspiration image → "pending" → one of them
+  // approves → GMs can pick it. The reference image is shown to Claude (vision)
+  // at generation time so the layout is reproduced, not reinterpreted.
   templates: defineTable({
     brandId: v.id("brands"),
-    designSystemId: v.id("design_systems"),
     name: v.string(),
-    format: v.string(),
-    outputType: v.string(),
-    templateCode: v.string(),
-    description: v.string(),
+    description: v.string(),           // one-line searchable description (Claude)
+    layoutSpec: v.optional(v.string()), // structural read of the reference (Claude)
+    referenceText: v.optional(v.array(v.string())), // the reference's own words = placeholders to replace
+    referenceStorageId: v.id("_storage"),
+    format: v.string(),                // canvas it suits: "1:1" | "4:5" | "9:16" | "A4"
+    designSystem: v.string(),          // governance applied: "brand" | "girly-pop" | …
+    status: v.string(),                // "pending" | "approved" | "rejected"
+    createdBy: v.id("users"),
+    approvedBy: v.optional(v.id("users")),
+    approvedAt: v.optional(v.number()),
     isActive: v.boolean(),
     createdAt: v.number(),
   })
     .index("by_brand", ["brandId"])
-    .index("by_design_system", ["designSystemId"]),
+    .index("by_brand_status", ["brandId", "status"]),
 
   // ── Community image bank ──────────────────────────────────────────────────
   // Real brand photography uploaded by the team. The description is mandatory —
@@ -155,6 +164,7 @@ export default defineSchema({
     renderType: v.string(),
     format: v.string(),
     designSystem: v.string(),
+    templateId: v.optional(v.id("templates")), // set when created from a template
     status: v.string(),
     validationErrors: v.optional(v.array(v.string())),
     retryCount: v.number(),

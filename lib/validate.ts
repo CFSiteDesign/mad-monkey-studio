@@ -315,7 +315,7 @@ function starburstViolations(
         const vert = Math.abs(ty) + fs / 2;
         if (Math.hypot(halfW, vert) > SAFE_R) {
           out.push(
-            `Text "${label}" doesn't fit inside its ${dev.sawtooth ? "sawtooth badge" : "starburst"} — every label line must stay within the shape's inner circle (≈${SAFE_R} local units of its 100-unit radius; this line needs ≈${Math.round(Math.hypot(halfW, vert))}). Use at most 2 SHORT lines, shrink the font-size, or shorten the words so nothing pokes past the shape's edge — or scale the whole badge up.`,
+            `Text "${label}" doesn't fit inside its ${dev.sawtooth ? "sawtooth badge" : "starburst"} — every label line must stay within the shape's inner circle (≈${SAFE_R} local units of its 100-unit radius; this line needs ≈${Math.round(Math.hypot(halfW, vert))}). Use at most 2 SHORT lines, shrink the font-size, or scale the whole badge up so nothing pokes past the shape's edge. NEVER change, shorten or drop a price, time or number to make it fit ($25 must stay $25) — enlarge the badge instead.`,
           );
         }
       }

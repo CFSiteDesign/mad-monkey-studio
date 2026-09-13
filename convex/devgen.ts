@@ -19,6 +19,8 @@ import { validateSvg, extractStatedColors, escapeStrayAmpersands } from "../lib/
 import { injectBrandKit } from "../lib/brand-kit";
 import { injectCountryKit, COUNTRY_KIT_DOC } from "../lib/country-kit";
 import { svgToPng } from "../lib/resvg-render";
+import { replicationBrief, buildTemplateUserContent, copiedReferenceText, missingBriefFacts, toMediaType, type ReferenceImage } from "../lib/template-replication";
+import { readFileSync } from "node:fs";
 
 // ⚠️ DEV ONLY — inline a comparison SVG's images and rasterise it to a PNG
 // (resvg = correct brand fonts) so it can be embedded in a PowerPoint.
@@ -69,10 +71,15 @@ export const devGenerate = internalAction({
     format: v.string(),
     designSystem: v.string(),
     tier: v.string(),
+    // Template replication test: a stored reference image + optional layout spec.
+    referenceStorageId: v.optional(v.id("_storage")),
+    templateName: v.optional(v.string()),
+    layoutSpec: v.optional(v.string()),
+    referenceText: v.optional(v.array(v.string())),
   },
   handler: async (
     ctx,
-    { brief, format, designSystem, tier: tierArg },
+    { brief, format, designSystem, tier: tierArg, referenceStorageId, templateName, layoutSpec, referenceText },
   ): Promise<{
     svg: string;
     model: string;
@@ -146,8 +153,22 @@ export const devGenerate = internalAction({
       timeout: 160_000,
       maxRetries: 1,
     });
-    const messages: { role: "user" | "assistant"; content: string }[] = [
-      { role: "user", content: brief },
+    // Optional reference image → vision block + replication brief (same path as prod).
+    let referenceImage: ReferenceImage | null = null;
+    if (referenceStorageId) {
+      const url = await ctx.storage.getUrl(referenceStorageId);
+      if (!url) throw new Error("reference image not found");
+      const r = await fetch(url);
+      referenceImage = {
+        base64: Buffer.from(await r.arrayBuffer()).toString("base64"),
+        mediaType: toMediaType(r.headers.get("content-type")),
+      };
+    }
+    const userText = referenceImage
+      ? replicationBrief({ templateName: templateName ?? "reference", format, brief, layoutSpec, referenceText })
+      : brief;
+    const messages: Anthropic.MessageParam[] = [
+      { role: "user", content: referenceImage ? buildTemplateUserContent(referenceImage, userText) : userText },
     ];
     let best: { code: string; hard: string[]; soft: string[] } | null = null;
     let inTok = 0;
@@ -176,6 +197,16 @@ export const devGenerate = internalAction({
         const overlaps = soft.filter((vv) => /^Text ".*" overlaps text /.test(vv));
         hard.push(...overlaps);
         soft = soft.filter((vv) => !overlaps.includes(vv));
+      }
+      if (referenceStorageId) {
+        for (const fact of missingBriefFacts(outputCode, brief)) {
+          hard.push(`The brief states "${fact}" but it does not appear on the design — prices/times must be reproduced EXACTLY; enlarge the badge rather than shorten the number.`);
+        }
+      }
+      if (referenceText?.length) {
+        for (const line of copiedReferenceText(outputCode, referenceText, brief)) {
+          hard.push(`The reference's words "${line}" were copied — reference text is a placeholder; replace it with the NEW event details (headline = new event name).`);
+        }
       }
       if (!/mm-logo-(white|black)\.png/.test(outputCode)) {
         hard.push("missing logo");
@@ -207,4 +238,31 @@ export const devGenerate = internalAction({
       notes: [...best.hard, ...best.soft].slice(0, 6),
     };
   },
+});
+
+
+// ⚠️ DEV ONLY — store a local image file in Convex storage so a reference
+// design can be tested through the template replication path from the CLI:
+//   npx convex run devgen:devStoreReference '{"path":"/abs/file.png"}'
+export const devStoreReference = internalAction({
+  args: { path: v.string() },
+  handler: async (ctx, { path }): Promise<{ storageId: string; bytes: number }> => {
+    const buf = readFileSync(path);
+    const type = /\.jpe?g$/i.test(path) ? "image/jpeg" : "image/png";
+    const storageId = await ctx.storage.store(new Blob([buf], { type }));
+    return { storageId, bytes: buf.length };
+  },
+});
+
+// ⚠️ DEV ONLY — probe what the DEPLOYED bundle actually does. Returns the
+// detector results for a given SVG + brief, plus a version marker so a stale
+// bundle is obvious. `npx convex run devgen:devCheckFacts '{"svg":"…","brief":"…"}'`
+export const DEVGEN_VERSION = "2026-09-14-facts-gate-v3";
+export const devCheckFacts = internalAction({
+  args: { svg: v.string(), brief: v.string(), referenceText: v.optional(v.array(v.string())) },
+  handler: async (_ctx, { svg, brief, referenceText }): Promise<{ version: string; missing: string[]; copied: string[] }> => ({
+    version: DEVGEN_VERSION,
+    missing: missingBriefFacts(svg, brief),
+    copied: copiedReferenceText(svg, referenceText ?? [], brief),
+  }),
 });

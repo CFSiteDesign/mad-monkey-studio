@@ -96,6 +96,7 @@ export const persistGeneration = internalMutation({
     status:             v.optional(v.string()),          // "complete" (default) | "failed"
     retryCount:         v.optional(v.number()),
     validationErrors:   v.optional(v.array(v.string())),
+    templateId:         v.optional(v.id("templates")),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -139,6 +140,7 @@ export const persistGeneration = internalMutation({
       renderType:         "png",
       format:             args.format,
       designSystem:       args.designSystem,
+      templateId:         args.templateId,
       status:             args.status ?? "complete",
       validationErrors:   args.validationErrors,
       retryCount:         args.retryCount ?? 0,

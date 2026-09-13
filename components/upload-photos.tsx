@@ -151,7 +151,7 @@ export function UploadPhotos({
         }}
       />
       <p className="text-[10px] leading-relaxed text-[#8C8278]">
-        Your photo is added to the community bank (auto-described) and featured in the design.
+        Added to the photo bank and featured in this design.
       </p>
     </div>
   );

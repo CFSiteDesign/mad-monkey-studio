@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { replicationBrief, buildTemplateUserContent, copiedReferenceText, missingBriefFacts, toMediaType, type ReferenceImage } from "../lib/template-replication";
 import Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt, stripFences, FORMAT_DIMENSIONS, DISPLAY_FONTS, ACCENT_FONTS } from "../lib/prompt";
 import { validateSvg, extractStatedColors, escapeStrayAmpersands, normalizeSvgRoot } from "../lib/validate";
@@ -167,6 +168,8 @@ export const generateAsset = action({
     includeStamp:       v.optional(v.boolean()),
     // Resize: adapt an existing design into a new format — its SVG is the basis.
     adaptFrom:          v.optional(v.object({ outputCode: v.string(), fromFormat: v.string() })),
+    // Template-driven creation: reproduce an approved reference design.
+    templateId:         v.optional(v.id("templates")),
   },
   // Explicit return type breaks the api self-reference cycle (ctx.runQuery(api…)
   // inside an action whose own type is part of `api`) that otherwise degrades
@@ -181,14 +184,9 @@ export const generateAsset = action({
     generationId: Id<"generations">;
     threadId: Id<"threads">;
   }> => {
-    const { brief, format, designSystem, threadId } = args;
-    const includeLogo        = args.includeLogo        ?? true;
-    // Minimal Bold is wordmark-only — NEVER the ALL IN sticker/monkey/stamp,
-    // whatever the UI ticked (the system bans them; prod used to obey the box).
-    const wordmarkOnly       = designSystem === "minimal-bold";
-    const includeAllIn       = wordmarkOnly ? false : (args.includeAllIn       ?? true);
-    const includeAllInMonkey = wordmarkOnly ? false : (args.includeAllInMonkey ?? false);
-    const includeStamp       = wordmarkOnly ? false : (args.includeStamp       ?? false);
+    const { brief, threadId } = args;
+    let format = args.format;
+    let designSystem = args.designSystem;
     // Auth — Convex Auth subject is "<userId>|<sessionId>"; use the helper.
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
@@ -197,6 +195,34 @@ export const generateAsset = action({
     const user = await ctx.runQuery(api.users.getCurrentUser);
     if (!user?.brandId) throw new Error("No brand assigned. Run seed first.");
     if (user.isActive === false) throw new Error("Account is disabled. Contact an admin.");
+
+    // ── Template-driven creation ──
+    // GMs (role "user") may ONLY create from an approved template; marketing
+    // and admins can free-form or use one. A template pins the canvas format
+    // and design system, and its reference image is shown to Claude (vision)
+    // so the layout is reproduced rather than reinterpreted. Refinements in an
+    // existing thread and resizes are allowed for everyone (the thread was
+    // template-born for a GM).
+    const isApprover = user.role === "admin" || user.role === "marketing";
+    let template: { name: string; layoutSpec?: string | null; referenceText?: string[] | null; referenceStorageId: Id<"_storage"> } | null = null;
+    if (args.templateId) {
+      const t = await ctx.runQuery(internal.templates.getTemplateInternal, { templateId: args.templateId });
+      if (!t || t.brandId !== user.brandId || !t.isActive) throw new Error("Template not found.");
+      if (t.status !== "approved" && !isApprover) throw new Error("That template hasn't been approved yet.");
+      template = { name: t.name, layoutSpec: t.layoutSpec, referenceText: t.referenceText, referenceStorageId: t.referenceStorageId };
+      format = t.format;
+      designSystem = t.designSystem;
+    } else if (!isApprover && !args.adaptFrom && !threadId) {
+      throw new Error("Pick an approved template to create a design.");
+    }
+
+    const includeLogo        = args.includeLogo        ?? true;
+    // Minimal Bold is wordmark-only — NEVER the ALL IN sticker/monkey/stamp,
+    // whatever the UI ticked (the system bans them; prod used to obey the box).
+    const wordmarkOnly       = designSystem === "minimal-bold";
+    const includeAllIn       = wordmarkOnly ? false : (args.includeAllIn       ?? true);
+    const includeAllInMonkey = wordmarkOnly ? false : (args.includeAllInMonkey ?? false);
+    const includeStamp       = wordmarkOnly ? false : (args.includeStamp       ?? false);
 
     // ── Gate 1: rate limit (before any paid work) ──
     const now = Date.now();
@@ -246,7 +272,7 @@ export const generateAsset = action({
     // ── Conversational refinement: rebuild the thread history ──
     // Earlier SVGs are replaced with a placeholder so only the most recent
     // design is re-sent in full — keeps refinement context cheap.
-    const messages: { role: "user" | "assistant"; content: string }[] = [];
+    const messages: Anthropic.MessageParam[] = [];
     if (threadId) {
       const history = await ctx.runQuery(
         internal.generationsInternal.getThreadContext,
@@ -269,12 +295,18 @@ export const generateAsset = action({
     // history, colour-exception extraction, or the starburst placement check.
     const adaptFrom = args.adaptFrom;
     const fmtLabel = FORMAT_DIMENSIONS[format]?.useCase ?? FORMAT_DIMENSIONS[format]?.label ?? format;
-    const storedBrief = adaptFrom
+    const storedBrief = template
+      ? brief.trim()
+        ? `${template.name} — ${brief.trim()}`
+        : template.name
+      : adaptFrom
       ? brief.trim()
         ? `Resized for ${fmtLabel} — ${brief.trim()}`
         : `Resized for ${fmtLabel}`
       : brief;
-    const claudeBrief = adaptFrom
+    const claudeBrief = template
+      ? replicationBrief({ templateName: template.name, format, brief, layoutSpec: template.layoutSpec, referenceText: template.referenceText })
+      : adaptFrom
       ? [
           `Recreate the EXISTING on-brand design below as a ${format} asset (${fmtLabel}). It was originally designed for ${adaptFrom.fromFormat}.`,
           `Keep it the SAME design: identical headline, sub-copy, any offer/price, the SAME photographs (reuse the exact same image href URLs that appear in the SVG below), the same colours and the same brand marks.`,
@@ -287,12 +319,35 @@ export const generateAsset = action({
           .filter(Boolean)
           .join("\n")
       : brief;
-    messages.push({ role: "user", content: claudeBrief });
+    // Template: the reference image rides along as a vision block so Claude
+    // sees the real composition it has to reproduce.
+    let referenceImage: ReferenceImage | null = null;
+    if (template) {
+      const url = await ctx.storage.getUrl(template.referenceStorageId);
+      if (!url) throw new Error("The template's reference image is missing.");
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Could not load the template's reference image.");
+      referenceImage = {
+        base64: Buffer.from(await res.arrayBuffer()).toString("base64"),
+        mediaType: toMediaType(res.headers.get("content-type")),
+      };
+    }
+    messages.push({
+      role: "user",
+      content: referenceImage ? buildTemplateUserContent(referenceImage, claudeBrief) : claudeBrief,
+    });
 
     // Permitted palette exceptions come from the marketer's words — for a resize
-    // read them from the short brief, never from the injected reference SVG.
+    // read them from the short brief, never from the injected reference SVG; for
+    // a template read ONLY the event brief (the layout spec names off-brand hues).
+    const textOf = (c: Anthropic.MessageParam["content"]) =>
+      typeof c === "string" ? c : c.map((b) => (b.type === "text" ? b.text : "")).join(" ");
     const colorTexts = messages.map((m, i) =>
-      m.role === "user" ? (adaptFrom && i === messages.length - 1 ? storedBrief : m.content) : "",
+      m.role === "user"
+        ? i === messages.length - 1 && (adaptFrom || template)
+          ? template ? brief : storedBrief
+          : textOf(m.content)
+        : "",
     );
     const statedColors = [...new Set(colorTexts.flatMap((t) => extractStatedColors(t)))];
 
@@ -521,6 +576,26 @@ export const generateAsset = action({
           );
         }
       }
+      // Template replica must SWAP the words, not copy them (HARD) — the
+      // reference's own text is a placeholder set; any distinctive line that
+      // reappears (and isn't in the new brief) means the headline/tagline was
+      // kept instead of replaced.
+      if (template?.referenceText?.length) {
+        for (const line of copiedReferenceText(outputCode, template.referenceText, brief)) {
+          hard.push(
+            `The reference's words "${line}" were copied into the design — the reference text is a PLACEHOLDER. Replace every line with the NEW EVENT DETAILS (the headline must be the new event's name) and keep only the layout and style.`,
+          );
+        }
+      }
+      // Template replica must keep every stated price/time verbatim (HARD) —
+      // a "fix" that squeezes $25 into a badge as $5 is a wrong poster.
+      if (template) {
+        for (const fact of missingBriefFacts(outputCode, brief)) {
+          hard.push(
+            `The brief states "${fact}" but it does not appear on the design — prices, times and dates must be reproduced EXACTLY (never shortened, rounded or dropped). If it doesn't fit its badge, enlarge the badge or reduce the font, and keep the number.`,
+          );
+        }
+      }
       // Exact canvas declaration — wrong/missing viewBox breaks scaling (HARD).
       if (
         fmtDim &&
@@ -582,6 +657,7 @@ export const generateAsset = action({
         outputTokens,
         costUsd,
         threadId,
+        templateId: args.templateId,
         status,
         retryCount,
         validationErrors: violations.length ? violations : undefined,

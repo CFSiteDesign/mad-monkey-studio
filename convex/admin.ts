@@ -4,6 +4,8 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 
 const DEFAULT_CAP_USD = 50;
+// Roles: admin (everything) · marketing (free-form Studio + templates) · user (GMs: templates only).
+const normRole = (r: unknown) => (r === "admin" ? "admin" : r === "marketing" ? "marketing" : "user");
 
 // ── Bootstrap the first admin (CLI only) ──
 // `npx convex run admin:bootstrapAdmin '{"email":"charlie@madmonkeyhostels.com"}'`
@@ -47,7 +49,7 @@ export const setUserRole = mutation({
   handler: async (ctx, { userId, role }) => {
     const adminId = await requireAdmin(ctx);
     if (userId === adminId) throw new Error("You can't change your own role.");
-    await ctx.db.patch(userId, { role: role === "admin" ? "admin" : "user" });
+    await ctx.db.patch(userId, { role: normRole(role) });
   },
 });
 
@@ -69,7 +71,7 @@ export const listMembers = query({
         _id: u._id,
         email: u.email ?? "",
         name: u.name ?? "",
-        role: u.role === "admin" ? "admin" : "user",
+        role: normRole(u.role),
         monthlyCapUsd: u.monthlyCapUsd ?? DEFAULT_CAP_USD,
         isActive: u.isActive ?? true,
       })),
@@ -144,7 +146,7 @@ export const usageOverview = query({
           userId: u._id,
           name: u.name ?? "",
           email: u.email ?? "",
-          role: u.role === "admin" ? "admin" : "user",
+          role: normRole(u.role),
           capUsd: cap,
           monthSpendUsd: e.spendMonth,
           monthUnits: e.unitsMonth,
@@ -264,7 +266,7 @@ export const userCreations = query({
     return {
       name: target.name ?? "",
       email: target.email ?? "",
-      role: target.role === "admin" ? "admin" : "user",
+      role: normRole(target.role),
       creationCount: creations.length,
       deckCount: decks.length,
       creations,
