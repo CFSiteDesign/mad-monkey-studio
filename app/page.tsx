@@ -718,6 +718,7 @@ export default function StudioPage() {
             designSystem,
             followUps: answeredFollowUps.length ? answeredFollowUps : undefined,
             extraDetails: [otherDetails.trim(), photoInstruction].filter(Boolean).join(" ") || undefined,
+            templateStyle: templateMeta?.name,
           },
       format,
       designSystem,

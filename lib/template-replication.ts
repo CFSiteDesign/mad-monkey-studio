@@ -35,33 +35,43 @@ export function replicationBrief(opts: {
     .map((w) => w.trim())
     .filter((w) => w.length > 2 && /[a-z]{3,}/i.test(w) && !/^[\s$€£\d.,:%&'-]+$/.test(w) && !GENERIC.test(w));
   return [
-    `REFERENCE DESIGN ATTACHED (template "${templateName}"). Reproduce its LAYOUT and STYLE for a completely NEW event. The reference's words are PLACEHOLDERS — every one of them gets replaced.`,
+    `STYLE REFERENCE ATTACHED (template "${templateName}"). It is inspiration, not a stencil: borrow its attitude, composition rhythm, type scale, colour logic and decorative language, then design an ORIGINAL Mad Monkey poster for the NEW event below. Nobody should be able to say it was traced; everybody should see the family resemblance.`,
     ``,
     `NEW EVENT DETAILS (the ONLY text allowed on the design comes from here):`,
     brief.trim(),
     ``,
-    `TEXT SWAP (hard rule — the validator rejects copied reference text):`,
-    `• The reference's HEADLINE slot must show the NEW event's name (the first thing in the details), set in the same style, case and size. Do NOT keep the reference headline.`,
-    `• The reference's tagline / hook slot gets a fresh one-line hook written for the NEW event. Badge, price, date, venue, body: all refilled from the details above.`,
-    `• NUMBERS ARE SACRED: every price, time and date in the details appears EXACTLY as given ($25 stays $25, never $5 or "25"; 4:30pm stays 4:30pm). If a badge or slot is too small for the number, ENLARGE the badge or use a smaller font, never shorten the number.`,
-    `• Separate details with a middle dot (·), a bullet or a line break. Never use dashes between details.`,
-    placeholders.length
-      ? `• Reference text you must NOT reuse anywhere: ${placeholders.map((w) => `"${w}"`).join(", ")}. If any of these words are not in the new event details, they must not appear.`
-      : `• Do not reuse any word or phrase you can read in the reference image unless it also appears in the new event details.`,
+    `TAKE FROM THE REFERENCE`,
+    `• Composition: where the weight sits (headline zone, hero zone, detail zone), the sense of scale, the negative space. Same zones, freely re-proportioned for this canvas.`,
+    `• Type attitude: heavy / condensed / stacked / repeated / outlined / wobbly, uppercase or not, one dominant word or a block. Set it in the closest APPROVED font.`,
+    `• Colour logic: dark ground or light ground, one accent or two, duotone photos or full colour. Map every colour to the closest APPROVED palette colour; never copy an off-brand hex.`,
+    `• Devices: repeated headline rows, starburst or oval frames, badges, barcodes, grids, chevrons, sparkles, torn edges, halftone. Reuse the KIND of device, built from the craft kit, placed where this design needs it. Nothing the reference would not have.`,
+    `• Glows, auras, blurs and gradients are NOT available (the validator rejects them). Render a glow or aura as flat concentric shapes, a halftone-dot burst or a solid colour field in palette colours; render soft edges as hard cut-outs.`,
     ``,
-    `HOW TO REPRODUCE IT — treat the reference as the source of truth for everything except the words:`,
-    `• COMPOSITION: same zones, same alignment grid, same placement of every element (headline block, sub-copy, offer/price, date/venue, photo(s), stickers/badges, decorative motifs). Same negative space. If the headline sits top-left in the reference, it sits top-left here.`,
-    `• HIERARCHY & SCALE: same relative type sizes — the headline is as dominant here as it is there; supporting lines stay as small as they are there. Same line count where the copy allows; wrap the new words to fit the same block, never spill.`,
-    `• STYLE: same energy, same case (uppercase stays uppercase), same weight, same text effects (outlines, hard shadows, plates/pills), same photo treatment (frame shape, rotation, filters, halftone, duotone) and the same kind and count of decorative elements, built from the craft-kit equivalents.`,
-    `• COLOUR & TYPE MAPPING: the reference may use colours or fonts outside this brand's approved set. Map each to the CLOSEST approved palette colour and approved font with the same role (display → display, caps → caps). Never copy an off-brand hex or font — the validator rejects it.`,
-    `• PHOTOS: same number of photos in the same positions and shapes; pick the best-matching bank photo for each slot from the IMAGE BANK by description. If the reference has no photo, use none.`,
-    `• CONTENT SWAP: replace the reference's headline, dates, prices, venue and body with the NEW EVENT DETAILS in the same slots. Do not invent extra lines the reference doesn't have; if a detail has no slot, put it in the smallest existing supporting slot.`,
-    `• Reproduce, don't reinterpret. Someone holding the reference next to your output should see the same poster with different words.`,
-    nativeFormat && nativeFormat !== format
-      ? `• SIZE ADAPTATION: the reference is ${nativeFormat}; this canvas is ${format}. Keep the same zones, order and hierarchy and re-flow them to the new proportions (compress or extend the vertical rhythm, scale type to the new width, let full-bleed fields stay full-bleed). Never distort, letterbox or leave empty bands.`
-      : "",
+    `REAL PHOTOGRAPHY IS MANDATORY`,
+    `• Use at least ONE real photo from the IMAGE BANK as the hero. Pick by description: the scene must match the event's setting and activity. Hostel marketing runs on real people having a real time.`,
+    `• Where the reference has an illustration, mascot, silhouette, aura figure, product shot or 3D object, put a bank PHOTO in that slot with a matching treatment: palette duotone or monochrome tint, halftone, hard cut-out, oval / circle / arch / starburst mask, thick outline. NEVER draw people, mascots, silhouettes or blobs as a stand-in for a photo.`,
+    `• If the reference is pure typography with no imagery, you may keep it type-only or add one framed photo; type-only must then be immaculate.`,
+    `• Photos are large and confident, never thumbnails. Text sits on a plate, a duotone or clear background, never on a busy part of a photo.`,
+    ``,
+    `WRITE FOR THE EVENT`,
+    `• The headline slot shows the NEW event's name (the first thing in the details), in the reference's headline style. Never keep or echo the reference's words.`,
+    `• NUMBERS ARE SACRED: every price, time and date appears EXACTLY as given ($25 stays $25, never $5 or "25"; 4:30pm stays 4:30pm). Enlarge the badge or shrink the font, never shorten a number.`,
+    `• Keep copy lean: headline, at most one hook line, the facts (when, where, price, one inclusion), one call to action. No filler. Separate details with a middle dot (·) or line breaks, never dashes.`,
+    placeholders.length
+      ? `• Reference text you must NOT reuse anywhere: ${placeholders.map((w) => `"${w}"`).join(", ")}. If any of these words are not in the event details, they must not appear.`
+      : `• Do not reuse any word or phrase you can read in the reference image unless it also appears in the event details.`,
+    ``,
+    `QUALITY BAR (it has to look like a designer made it)`,
+    `• ONE clear hero (the headline or the photo), one secondary element, everything else quiet. At most three type sizes.`,
+    `• Everything on a grid: consistent margins, aligned edges, deliberate spacing. Nothing touches anything by accident; badges only in genuinely empty space, and only if the reference's style has them.`,
+    `• NOTHING OVERLAPS THE HEADLINE: no pill, badge, sticker, photo edge or logo may touch the headline's letters. Pills and badges live in empty margins or corners, never on top of type or on a face.`,
+    `• Text is never hidden: no text under a photo, a shape or another text block. If a line does not fit, move it or shrink it; never let it tuck behind something.`,
+    `• Whitespace is a feature. Fewer, bigger, better.`,
     layoutSpec?.trim()
-      ? `\nSTRUCTURAL READ OF THE REFERENCE (use it to double-check positions and sizes):\n${layoutSpec.trim()}`
+      ? `\nSTRUCTURAL READ OF THE REFERENCE (guidance for zones and proportions, not a tracing map):\n${layoutSpec.trim()}`
+      : "",
+    nativeFormat && nativeFormat !== format
+      ? `\nSIZE: the reference is ${nativeFormat}; this canvas is ${format}. Keep the same zones, order and hierarchy and re-flow them to the new proportions. Never distort, letterbox or leave empty bands.`
       : "",
     ``,
     `Canvas: ${format}. Output the complete SVG only.`,
@@ -124,6 +134,6 @@ export const TEMPLATE_DESCRIBE_PROMPT = `You are cataloguing a reference DESIGN 
 
 "description": ONE punchy sentence a marketer would use to find this style (e.g. "loud lime-and-black party poster, giant stacked headline top-left, one framed photo bottom-right, sticker badges"). No full stop at the end.
 
-"layoutSpec": a precise structural read, 120–220 words, plain sentences, covering in order: canvas orientation and background treatment; the headline (position, approximate share of the canvas, case, line count, colour, effects like outline/shadow); supporting text blocks (what they are, where, size relative to headline); photos (count, position, shape/frame, treatment); decorative elements (badges, stickers, sparkles, patterns — what and where); colour blocking and dominant palette; overall mood. Describe positions as regions (top-left, centre band, bottom-right) and sizes as fractions of the canvas. Do not mention specific brand names or the actual words on the poster.
+"layoutSpec": a precise structural read, 120–220 words, plain sentences, then a final paragraph starting "STYLE DNA:" with 3–5 short clauses naming what makes this style recognisable (type attitude, colour logic, signature devices, how imagery is treated). The read covers in order: canvas orientation and background treatment; the headline (position, approximate share of the canvas, case, line count, colour, effects like outline/shadow); supporting text blocks (what they are, where, size relative to headline); photos (count, position, shape/frame, treatment); decorative elements (badges, stickers, sparkles, patterns — what and where); colour blocking and dominant palette; overall mood. Describe positions as regions (top-left, centre band, bottom-right) and sizes as fractions of the canvas. Do not mention specific brand names or the actual words on the poster.
 
 "words": every distinct line of text visible on the design, VERBATIM, as separate strings in reading order (headline lines, taglines, badge copy, prices, dates, venues). These are the placeholders a new design must replace, so be complete.`;

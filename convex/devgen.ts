@@ -8,6 +8,7 @@ import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import Anthropic from "@anthropic-ai/sdk";
+import { textOf } from "../lib/anthropic-text";
 import {
   buildSystemPrompt,
   stripFences,
@@ -60,8 +61,8 @@ export const devRenderPng = internalAction({
 });
 
 const TIERS = {
-  standard: { model: "claude-sonnet-4-6", inCost: 3 / 1_000_000, outCost: 15 / 1_000_000 },
-  extra: { model: "claude-opus-4-8", inCost: 5 / 1_000_000, outCost: 25 / 1_000_000 },
+  standard: { model: "claude-sonnet-5", inCost: 3 / 1_000_000, outCost: 15 / 1_000_000 },
+  extra: { model: "claude-opus-5", inCost: 5 / 1_000_000, outCost: 25 / 1_000_000 },
 } as const;
 const MAX_RETRIES = 2;
 
@@ -77,10 +78,13 @@ export const devGenerate = internalAction({
     layoutSpec: v.optional(v.string()),
     referenceText: v.optional(v.array(v.string())),
     nativeFormat: v.optional(v.string()),
+    // Dev knobs: total attempts (default MAX_RETRIES + 1); thinking "disabled" | "adaptive".
+    attempts: v.optional(v.number()),
+    thinking: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { brief, format, designSystem, tier: tierArg, referenceStorageId, templateName, layoutSpec, referenceText, nativeFormat },
+    { brief, format, designSystem, tier: tierArg, referenceStorageId, templateName, layoutSpec, referenceText, nativeFormat, attempts, thinking },
   ): Promise<{
     svg: string;
     model: string;
@@ -93,6 +97,8 @@ export const devGenerate = internalAction({
     hardCount: number;
     softCount: number;
     notes: string[];
+    stops: string[];
+    raws: string[];
   }> => {
     const t = tierArg === "extra" ? TIERS.extra : TIERS.standard;
     const brandData = await ctx.runQuery(api.brands.getActiveBrandConfig, { slug: "mad-monkey" });
@@ -127,7 +133,7 @@ export const devGenerate = internalAction({
         ? { includeLogo: true, includeAllIn: false, includeAllInMonkey: false }
         : { includeLogo: true, includeAllIn: true, includeAllInMonkey: false };
     const systemPrompt =
-      buildSystemPrompt(brandData.config, ds, format, imageManifest, marks, statedColors) +
+      buildSystemPrompt(brandData.config, ds, format, imageManifest, marks, statedColors, { styleFromReference: Boolean(referenceStorageId) }) +
       (format === "16:9" ? "\n\n" + COUNTRY_KIT_DOC : "");
     const validateOpts = {
       allowedColors,
@@ -151,7 +157,7 @@ export const devGenerate = internalAction({
 
     const client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY!,
-      timeout: 160_000,
+      timeout: 300_000,
       maxRetries: 1,
     });
     // Optional reference image → vision block + replication brief (same path as prod).
@@ -172,20 +178,37 @@ export const devGenerate = internalAction({
       { role: "user", content: referenceImage ? buildTemplateUserContent(referenceImage, userText) : userText },
     ];
     let best: { code: string; hard: string[]; soft: string[] } | null = null;
+    const raws: string[] = [];
+    const stops: string[] = [];
     let inTok = 0;
     let outTok = 0;
     let retries = 0;
 
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const res = await client.messages.create({
-        model: t.model,
-        max_tokens: 8000,
-        system: systemPrompt,
-        messages,
-      });
+    const maxRetries = attempts ? Math.max(0, Math.round(attempts) - 1) : MAX_RETRIES;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const t0 = Date.now();
+      let res: Anthropic.Message;
+      try {
+        res = await client.messages.create({
+          model: t.model,
+          max_tokens: 16000,
+          system: systemPrompt,
+          messages,
+          thinking: thinking === "adaptive" ? { type: "adaptive" as const } : { type: "disabled" as const },
+        });
+      } catch (e) {
+        const err = e as { message?: string; status?: number; error?: unknown; name?: string };
+        throw new Error(
+          `Anthropic call failed on attempt ${attempt + 1} after ${Math.round((Date.now() - t0) / 1000)}s: ${err?.name ?? ""} ${err?.status ?? ""} ${err?.message ?? String(e)} ${err?.error ? JSON.stringify(err.error).slice(0, 300) : ""}`,
+        );
+      }
+      stops.push(`t=${Math.round((Date.now() - t0) / 1000)}s`);
       inTok += res.usage.input_tokens;
+      stops.push(`${res.stop_reason}:${res.usage.output_tokens}`);
       outTok += res.usage.output_tokens;
-      const raw = res.content[0].type === "text" ? res.content[0].text : "";
+      const raw = textOf(res);
+      stops.push(res.content.map((b) => `${b.type}:${b.type === "text" ? b.text.length : b.type === "thinking" ? b.thinking.length : 0}`).join(","));
+      raws.push(raw.length > 2400 ? `${raw.slice(0, 1200)}\n…[${raw.length} chars]…\n${raw.slice(-1200)}` : raw);
       const outputCode = escapeStrayAmpersands(injectCountryKit(injectBrandKit(stripFences(raw))));
       // Base-run violations are HARD (brand/palette/marks/text-on-photo);
       // extras that only appear with the layout estimators on are SOFT.
@@ -240,6 +263,8 @@ export const devGenerate = internalAction({
       hardCount: best.hard.length,
       softCount: best.soft.length,
       notes: [...best.hard, ...best.soft].slice(0, 6),
+      stops,
+      raws,
     };
   },
 });
@@ -261,7 +286,7 @@ export const devStoreReference = internalAction({
 // ⚠️ DEV ONLY — probe what the DEPLOYED bundle actually does. Returns the
 // detector results for a given SVG + brief, plus a version marker so a stale
 // bundle is obvious. `npx convex run devgen:devCheckFacts '{"svg":"…","brief":"…"}'`
-export const DEVGEN_VERSION = "2026-09-14-facts-gate-v3";
+export const DEVGEN_VERSION = "2026-09-14-style-transfer-v4";
 export const devCheckFacts = internalAction({
   args: { svg: v.string(), brief: v.string(), referenceText: v.optional(v.array(v.string())) },
   handler: async (_ctx, { svg, brief, referenceText }): Promise<{ version: string; missing: string[]; copied: string[] }> => ({

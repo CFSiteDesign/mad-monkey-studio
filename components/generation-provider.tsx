@@ -42,6 +42,8 @@ type ComposeArgs = {
   designSystem: string;
   followUps?: { q: string; a: string }[];
   extraDetails?: string;
+  /** Template runs: the brief writer skips mood/sticker directions. */
+  templateStyle?: string;
 };
 
 export type RunAssetArgs = {

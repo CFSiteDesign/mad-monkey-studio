@@ -8,6 +8,7 @@ import type { ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { textOf } from "../lib/anthropic-text";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { TEMPLATE_DESCRIBE_PROMPT, toMediaType } from "../lib/template-replication";
@@ -27,7 +28,8 @@ async function describe(ctx: ActionCtx, templateId: Id<"templates">, styleNotes?
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+      thinking: { type: "disabled" },
+    model: "claude-sonnet-5",
     max_tokens: 700,
     messages: [
       {
@@ -39,7 +41,7 @@ async function describe(ctx: ActionCtx, templateId: Id<"templates">, styleNotes?
       },
     ],
   });
-  const raw = response.content[0].type === "text" ? response.content[0].text.trim() : "";
+  const raw = textOf(response);
   let description = "";
   let layoutSpec = "";
   let referenceText: string[] = [];

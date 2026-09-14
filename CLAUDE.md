@@ -154,6 +154,31 @@ system prompt and Claude picks by description match. Any signed-in user can uplo
 post-generation (`lib/inline-images.ts`) because SVG-as-img rasterisation blocks all
 external resources — without it, exports silently lose photos and logos.
 
+## Templates (Sep 2026): the style choice for everyone
+
+The design-system picker is gone from the UI. A **template** is an approved reference
+image (`templates` table: `referenceStorageId`, `layoutSpec` + `referenceText` written by
+`templatesActions.describeTemplate` with vision, `designSystem` = the colour/font rules it
+carries, default `brand`). Roles: `admin` / `marketing` upload + approve on `/templates`
+(self-approval allowed) and keep Blank canvas + Presentations; `user` (GMs) can only create
+from an approved template and cannot build decks (`decks.generateDeck` throws).
+
+Generation with a template (`generateAsset({ templateId })`): the reference is sent as a
+vision block with `lib/template-replication.ts > replicationBrief` = STYLE TRANSFER, not
+tracing (borrow composition, type attitude, colour logic, devices; a real image-bank photo is
+mandatory; illustrations/silhouettes in the reference become photos with a matching
+treatment; lean copy). `buildSystemPrompt(..., { styleFromReference: true })` cuts the brand
+doc to governance sections (`governanceOnly`) and drops the design-system guidelines. Hard
+gates: `copiedReferenceText` and `missingBriefFacts`. The user picks any size; the template
+only sets the default (`nativeFormat` adds a re-flow rule). `briefs.composeBrief` takes
+`templateStyle` and writes hook + facts only.
+
+Seeding the 25 built-in poster styles: `python3 scripts/crop-style-screenshots.py <dir>`
+then `node scripts/seed-style-templates.mjs [--prod]` (see `scripts/style-templates.json`).
+`/dev/ui` is a dev-only design playground (404 in production) for looking at the shell
+without signing in. Models: generation + decks `claude-opus-5`, brief writer + template
+describe `claude-sonnet-5`.
+
 ## Convex schema tables
 
 `brands` · `brand_config` · `design_systems` · `templates` · `threads` · `messages` · `generations` · `usage_ledger` · `users` · `invites` · `brand_images`

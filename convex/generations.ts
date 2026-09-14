@@ -7,6 +7,7 @@ import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { replicationBrief, buildTemplateUserContent, copiedReferenceText, missingBriefFacts, toMediaType, type ReferenceImage } from "../lib/template-replication";
 import Anthropic from "@anthropic-ai/sdk";
+import { textOf as responseText } from "../lib/anthropic-text";
 import { buildSystemPrompt, stripFences, FORMAT_DIMENSIONS, DISPLAY_FONTS, ACCENT_FONTS } from "../lib/prompt";
 import { validateSvg, extractStatedColors, escapeStrayAmpersands, normalizeSvgRoot } from "../lib/validate";
 import { pixelValidate, type PixelResult } from "../lib/pixel-validate";
@@ -15,7 +16,7 @@ import { injectBrandKit } from "../lib/brand-kit";
 // Single generation model: Opus 4.8 ($5/1M input, $25/1M output) — the most
 // capable model, far better at dense on-brand layout. (Sonnet/quality tiers
 // were removed; brief/outline composition still uses cheap Haiku separately.)
-const MODEL = { model: "claude-opus-4-8", inCost: 5 / 1_000_000, outCost: 25 / 1_000_000 } as const;
+const MODEL = { model: "claude-opus-5", inCost: 5 / 1_000_000, outCost: 25 / 1_000_000 } as const;
 
 // Standard per-user rate limits.
 const RATE_PER_MINUTE = 10;
@@ -363,6 +364,7 @@ export const generateAsset = action({
       imageManifest,
       { includeLogo, includeAllIn, includeAllInMonkey, includeStamp },
       statedColors,
+      { styleFromReference: Boolean(template) },
     );
 
     // ── Validation gate: generate → validate → auto-correct (hard gate) ──
@@ -414,6 +416,7 @@ export const generateAsset = action({
 
     for (let attempt = 0; attempt <= MAX_VALIDATION_RETRIES; attempt++) {
       const response = await anthropic.messages.create({
+      thinking: { type: "disabled" },
         model:      MODEL.model,
         // Dense collage SVGs (grain, sawtooth badges, stickers) regularly run
         // past 4k output tokens — a low cap truncates mid-file, cutting off
@@ -428,7 +431,7 @@ export const generateAsset = action({
         messages,
       });
 
-      const raw        = response.content[0].type === "text" ? response.content[0].text : "";
+      const raw        = responseText(response);
       // Inject the canonical craft kit (filters/patterns/shapes + fonts),
       // stripping any hand-drawn copies, so every output has guaranteed-correct
       // primitives. Then escape stray & so strict XML consumers (pixel
