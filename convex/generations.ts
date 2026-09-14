@@ -205,12 +205,16 @@ export const generateAsset = action({
     // template-born for a GM).
     const isApprover = user.role === "admin" || user.role === "marketing";
     let template: { name: string; layoutSpec?: string | null; referenceText?: string[] | null; referenceStorageId: Id<"_storage"> } | null = null;
+    let nativeFormat: string | null = null;
     if (args.templateId) {
       const t = await ctx.runQuery(internal.templates.getTemplateInternal, { templateId: args.templateId });
       if (!t || t.brandId !== user.brandId || !t.isActive) throw new Error("Template not found.");
       if (t.status !== "approved" && !isApprover) throw new Error("That template hasn't been approved yet.");
       template = { name: t.name, layoutSpec: t.layoutSpec, referenceText: t.referenceText, referenceStorageId: t.referenceStorageId };
-      format = t.format;
+      // The template pins the colour rules; the size is the user's call (a 4:5
+      // reference can be replicated as a story or a square).
+      nativeFormat = t.format;
+      format = args.format || t.format;
       designSystem = t.designSystem;
     } else if (!isApprover && !args.adaptFrom && !threadId) {
       throw new Error("Pick an approved template to create a design.");
@@ -305,7 +309,7 @@ export const generateAsset = action({
         : `Resized for ${fmtLabel}`
       : brief;
     const claudeBrief = template
-      ? replicationBrief({ templateName: template.name, format, brief, layoutSpec: template.layoutSpec, referenceText: template.referenceText })
+      ? replicationBrief({ templateName: template.name, format, nativeFormat, brief, layoutSpec: template.layoutSpec, referenceText: template.referenceText })
       : adaptFrom
       ? [
           `Recreate the EXISTING on-brand design below as a ${format} asset (${fmtLabel}). It was originally designed for ${adaptFrom.fromFormat}.`,
@@ -634,7 +638,9 @@ export const generateAsset = action({
     best = best ?? { code: "", hard: ["No output produced."], soft: [] };
     const outputCode    = best.code;
     const hardRemaining = best.hard;
-    const softRemaining = best.soft;
+    // Replicating a reference: its starburst placement is the truth, so the
+    // brand's "starbursts live top-right / must carry a label" notes are noise.
+    const softRemaining = template ? best.soft.filter((v) => !/starburst/i.test(v)) : best.soft;
     const costUsd = inputTokens * MODEL.inCost + outputTokens * MODEL.outCost;
     // Hard violations are exact brand breaks (off-palette, wrong font, missing
     // mark, bad canvas) — those never ship. Soft layout notes ship as a

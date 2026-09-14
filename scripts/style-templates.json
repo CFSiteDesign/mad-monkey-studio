@@ -97,7 +97,13 @@
   {
     "slug": "eurodance",
     "name": "Eurodance",
-    "notes": "Y2K anarchist split poster: upper two-thirds a vivid flat acid colour, lower third a black panel with a clean divide; a large chrome 3D four-point star centre with a flat dark human silhouette in profile over it; a vertical column of fragmented bold letters down the left edge; barcode strip and a big © year bottom-right."
+    "notes": "Y2K anarchist split poster: upper two-thirds a vivid flat acid colour, lower third a black panel with a clean divide; a large chrome 3D four-point star centre with a flat dark human silhouette in profile over it; a vertical column of fragmented bold letters down the left edge; barcode strip and a big © year bottom-right.",
+    "crop": [
+      0.149,
+      0.1025,
+      0.834,
+      0.5475
+    ]
   },
   {
     "slug": "keycap-pop",
@@ -107,7 +113,13 @@
   {
     "slug": "diy-punk",
     "name": "DIY punk",
-    "notes": "Punk gig poster: near-black ground, one large flat neon illustration (skeletons) in a dynamic contorted pose with no outlines or shading, bold condensed white band name and event lines stacked top-left, a tiny venue logo bottom-right. Three colours: black, white, one hot neon."
+    "notes": "Punk gig poster: near-black ground, one large flat neon illustration (skeletons) in a dynamic contorted pose with no outlines or shading, bold condensed white band name and event lines stacked top-left, a tiny venue logo bottom-right. Three colours: black, white, one hot neon.",
+    "crop": [
+      0.153,
+      0.1025,
+      0.822,
+      0.545
+    ]
   },
   {
     "slug": "cmyk-overprint",

@@ -1,45 +1,33 @@
 "use client";
 
-// Templates — the approved reference designs the team creates from.
+// Templates: the approved reference designs the team creates from.
 // GMs: browse and pick one (jumps into Studio with it selected).
 // Marketing/admins: upload references, approve, retire, delete.
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { BrandLogo } from "@/components/brand-logo";
+import { StudioHeader } from "@/components/studio-header";
 import { PoweredBy } from "@/components/powered-by";
 import { TemplatePicker } from "@/components/template-picker";
-import { ArrowLeft, LayoutTemplate } from "lucide-react";
 
 export default function TemplatesPage() {
   const router = useRouter();
   const user = useQuery(api.users.getCurrentUser);
   const canManage = user?.role === "admin" || user?.role === "marketing";
+  const initials = user?.name
+    ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "?";
 
   return (
     <div className="mm-ambient flex min-h-[100svh] flex-col">
-      <header className="z-20 flex items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-4 py-3.5 backdrop-blur-md lg:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <BrandLogo className="h-8 w-auto" />
-          <span className="hidden h-6 w-px bg-[rgba(242,238,230,0.12)] sm:block" />
-          <p className="truncate text-lg font-light leading-none text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>
-            Templates
-          </p>
-        </div>
-        <Link href="/" className="flex shrink-0 items-center gap-2 rounded-lg px-2 py-2 text-sm text-[#8C8278] transition-colors hover:text-[#F2EEE6] lg:px-3">
-          <ArrowLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Back to Studio</span>
-        </Link>
-      </header>
+      <StudioHeader user={user} initials={initials} title="Templates" backHref="/" />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 lg:px-6 lg:py-8">
         <div className="mm-fade-up mb-6">
-          <h1 className="flex items-center gap-2 text-xl font-light text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>
-            <LayoutTemplate className="h-5 w-5 text-[#CC7A5C]" />
+          <h1 className="text-[26px] font-light tracking-tight text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>
             {canManage ? "Templates" : "Pick a template"}
           </h1>
-          <p className="mt-1 text-xs text-[#8C8278]">
+          <p className="mt-1 text-[13px] text-[#8C8278]">
             {canManage
               ? "Upload a reference, approve it, and every GM can create from it."
               : "Choose a look. Add your event. Done."}

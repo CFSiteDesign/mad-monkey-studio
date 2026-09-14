@@ -35,12 +35,19 @@ export function TemplatePicker({
   mode,
   onPick,
   selectedId,
+  limit,
+  templates: override,
 }: {
   mode: "pick" | "manage";
   onPick?: (t: TemplateCard) => void;
   selectedId?: Id<"templates"> | null;
+  /** Pick mode: show at most this many, no search, nothing when empty. */
+  limit?: number;
+  /** Preview/dev: render these instead of the live query. */
+  templates?: TemplateCard[];
 }) {
-  const data = useQuery(api.templates.listTemplates);
+  const live = useQuery(api.templates.listTemplates);
+  const data = override ? { templates: override, canManage: false } : live;
   const approve = useMutation(api.templates.approveTemplate);
   const reject = useMutation(api.templates.rejectTemplate);
   const remove = useMutation(api.templates.deleteTemplate);
@@ -103,6 +110,10 @@ export function TemplatePicker({
     ) : null;
 
   if (mode === "pick") {
+    if (limit) {
+      const top = approved.slice(0, limit);
+      return top.length ? grid(top) : null;
+    }
     if (approved.length === 0) {
       return (
         <div className="mm-fade-up rounded-xl border border-dashed border-[rgba(242,238,230,0.12)] px-4 py-12 text-center">
@@ -405,10 +416,16 @@ function UploadReference() {
                 </option>
               ))}
             </select>
-            <select value={designSystem} onChange={(e) => setDesignSystem(e.target.value)} className="mm-field rounded-lg px-3 py-2 text-sm text-[#F2EEE6]">
+            <select
+              value={designSystem}
+              onChange={(e) => setDesignSystem(e.target.value)}
+              aria-label="Colour rules"
+              title="Colour rules the replica must follow"
+              className="mm-field rounded-lg px-3 py-2 text-sm text-[#F2EEE6]"
+            >
               {Object.entries(SYSTEM_LABEL).map(([k, v]) => (
                 <option key={k} value={k}>
-                  {v}
+                  {v} rules
                 </option>
               ))}
             </select>

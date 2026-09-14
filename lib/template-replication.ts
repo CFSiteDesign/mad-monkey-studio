@@ -23,8 +23,10 @@ export function replicationBrief(opts: {
   brief: string;
   layoutSpec?: string | null;
   referenceText?: string[] | null;
+  /** The reference's own canvas, when the user asked for a different size. */
+  nativeFormat?: string | null;
 }): string {
-  const { templateName, format, brief, layoutSpec, referenceText } = opts;
+  const { templateName, format, brief, layoutSpec, referenceText, nativeFormat } = opts;
   // Only DISTINCTIVE WORDS are placeholders. Never list prices, times, dates or
   // generic labels ("ONLY", "PER PERSON"): telling the model "never write $100"
   // measurably nudged it into writing $5 instead of the brief's $25.
@@ -42,6 +44,7 @@ export function replicationBrief(opts: {
     `• The reference's HEADLINE slot must show the NEW event's name (the first thing in the details), set in the same style, case and size. Do NOT keep the reference headline.`,
     `• The reference's tagline / hook slot gets a fresh one-line hook written for the NEW event. Badge, price, date, venue, body: all refilled from the details above.`,
     `• NUMBERS ARE SACRED: every price, time and date in the details appears EXACTLY as given ($25 stays $25, never $5 or "25"; 4:30pm stays 4:30pm). If a badge or slot is too small for the number, ENLARGE the badge or use a smaller font, never shorten the number.`,
+    `• Separate details with a middle dot (·), a bullet or a line break. Never use dashes between details.`,
     placeholders.length
       ? `• Reference text you must NOT reuse anywhere: ${placeholders.map((w) => `"${w}"`).join(", ")}. If any of these words are not in the new event details, they must not appear.`
       : `• Do not reuse any word or phrase you can read in the reference image unless it also appears in the new event details.`,
@@ -54,6 +57,9 @@ export function replicationBrief(opts: {
     `• PHOTOS: same number of photos in the same positions and shapes; pick the best-matching bank photo for each slot from the IMAGE BANK by description. If the reference has no photo, use none.`,
     `• CONTENT SWAP: replace the reference's headline, dates, prices, venue and body with the NEW EVENT DETAILS in the same slots. Do not invent extra lines the reference doesn't have; if a detail has no slot, put it in the smallest existing supporting slot.`,
     `• Reproduce, don't reinterpret. Someone holding the reference next to your output should see the same poster with different words.`,
+    nativeFormat && nativeFormat !== format
+      ? `• SIZE ADAPTATION: the reference is ${nativeFormat}; this canvas is ${format}. Keep the same zones, order and hierarchy and re-flow them to the new proportions (compress or extend the vertical rhythm, scale type to the new width, let full-bleed fields stay full-bleed). Never distort, letterbox or leave empty bands.`
+      : "",
     layoutSpec?.trim()
       ? `\nSTRUCTURAL READ OF THE REFERENCE (use it to double-check positions and sizes):\n${layoutSpec.trim()}`
       : "",

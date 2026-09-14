@@ -7,13 +7,13 @@ import { sanitizeSvg, scopeSvgIds } from "@/lib/sanitize-svg";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { SignOutButton } from "@/components/sign-out-button";
-import { BrandLogo } from "@/components/brand-logo";
 import { UploadPhotos, type UploadedImage } from "@/components/upload-photos";
 import { extractTextFromFile } from "@/lib/extract-text";
 import { GenerationLoader } from "@/components/generation-loader";
 import { GenerationCard, type FeedGeneration } from "@/components/generation-card";
 import { TemplatePicker } from "@/components/template-picker";
+import { StudioHeader } from "@/components/studio-header";
+import { ComposerFrame } from "@/components/composer-frame";
 import { useGeneration } from "@/components/generation-provider";
 import { PoweredBy } from "@/components/powered-by";
 import { Walkthrough, type TourStep } from "@/components/walkthrough";
@@ -21,10 +21,7 @@ import { FORMAT_DIMENSIONS } from "@/lib/prompt";
 import {
   Loader2,
   Sparkles,
-  Megaphone,
   ImageOff,
-  Check,
-  Contrast,
   Plus,
   Trash2,
   Wand2,
@@ -33,42 +30,15 @@ import {
   Presentation,
   ArrowRight,
   FileText,
-  Heart,
-  HelpCircle,
-  Home,
-  MessageSquare,
-  Menu,
   Paperclip,
   X,
-  LayoutTemplate,
 } from "lucide-react";
 
 const FORMATS = [
-  { id: "1:1", ratio: "aspect-square", name: "a Square" },
-  { id: "4:5", ratio: "aspect-[4/5]", name: "Insta Post Size" },
-  { id: "9:16", ratio: "aspect-[9/16]", name: "Story, Reel or TikTok shapes" },
-  { id: "A4", ratio: "aspect-[794/1123]", name: "Poster" },
-] as const;
-
-const DESIGN_SYSTEMS = [
-  {
-    name: "brand",
-    label: "Brand",
-    desc: "One universal system — posts, stories, print & decks",
-    Icon: Megaphone,
-  },
-  {
-    name: "girly-pop",
-    label: "Girly Pop",
-    desc: "Dreamy retro-pop script + travel scrapbook — pinks & pastels",
-    Icon: Heart,
-  },
-  {
-    name: "minimal-bold",
-    label: "Minimal Bold",
-    desc: "Monochrome editorial — giant type over a black & white photo",
-    Icon: Contrast,
-  },
+  { id: "1:1", ratio: "aspect-square", name: "Square" },
+  { id: "4:5", ratio: "aspect-[4/5]", name: "Insta post" },
+  { id: "9:16", ratio: "aspect-[9/16]", name: "Story" },
+  { id: "A4", ratio: "aspect-[794/1123]", name: "A4 poster" },
 ] as const;
 
 // The freshly-returned generation, shown until the thread query catches up.
@@ -103,21 +73,6 @@ function GalleryThumb({ svg, format }: { svg: string; format: string }) {
       className={`${ASPECT[format] ?? "aspect-square"} w-full overflow-hidden bg-white [&>svg]:h-full [&>svg]:w-full [&>svg]:object-contain`}
       dangerouslySetInnerHTML={{ __html: safe }}
     />
-  );
-}
-
-function StepDot({ n, label, active, done }: { n: number; label: string; active: boolean; done: boolean }) {
-  return (
-    <span className={`flex items-center gap-1.5 ${active ? "text-[#F2EEE6]" : "text-[#8C8278]"}`}>
-      <span
-        className={`grid h-5 w-5 place-items-center rounded-full text-[10px] font-semibold transition-colors duration-300 ${
-          active ? "bg-[#CC7A5C] text-[#1C1A18]" : done ? "bg-[#CC7A5C]/25 text-[#E0936F]" : "border border-[rgba(242,238,230,0.15)]"
-        }`}
-      >
-        {n}
-      </span>
-      <span className="hidden sm:inline">{label}</span>
-    </span>
   );
 }
 
@@ -321,194 +276,141 @@ export default function StudioPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id]);
 
-  const TOUR_STEPS: TourStep[] = [
-    {
-      title: "Welcome to Mad Monkey Studio 🐵",
-      body: "A 60-second tour of everything. Take it once and you'll know the whole tool. Use the buttons or your ← → arrow keys.",
-      onEnter: () => resetDemo(),
-    },
-    {
-      target: '[data-tour="design-system"]',
-      title: "1 · Your design system",
-      body: (
-        <div className="space-y-1.5">
-          <p>
-            There's just one — <b className="text-[#F2EEE6]">Brand</b>. A single universal system that does
-            everything and stays perfectly on-brand.
-          </p>
-          <p className="text-[#8C8278]">
-            It adapts to whatever format you pick: loud &amp; dark for social posts and stories, editorial for
-            print, clean &amp; structured for presentations. Nothing to choose — you're always on-brand.
-          </p>
-        </div>
-      ),
-      onEnter: () => setDesignSystem("brand"),
-    },
-    {
-      target: '[data-tour="format"]',
-      title: "2 · Choose the format",
-      body: "Pick the size and the Brand system tailors the look to it — 1:1, 4:5 or 9:16 for social, A4 for print, or Presentation for a multi-slide deck. The layout locks to this before you write a word.",
-      onEnter: () => {
-        setDesignSystem("brand");
-        setFormat("4:5");
+  // One tour, filtered by role: GMs never see sizes, marks or presentations.
+  const TOUR_STEPS: TourStep[] = (
+    [
+      {
+        title: "Welcome to Mad Monkey Studio 🐵",
+        body: "A quick tour: pick a template, add your event, answer a couple of questions. Use the buttons or your ← → arrow keys.",
+        onEnter: () => {
+          resetDemo();
+          setStepDir("fwd");
+          setComposerStep("template");
+        },
       },
-    },
-    {
-      target: '[data-tour="event-fields"]',
-      title: "3 · Answer a few basics",
-      body: "Tell us about the event — title, date, location, optional cost. Keep it factual; the AI turns it into a brand-perfect brief, so you never write the brief yourself.",
-      onEnter: () => {
-        cancelTyping();
-        setDesignSystem("brand");
-        setFormat("4:5");
-        setBriefStep("base");
-        setEventTitle(""); setEventDate(""); setEventCost(""); setEventLocation("");
-        void typeFields([
-          [setEventTitle, "Foam Party"],
-          [setEventDate, "Saturday 9pm"],
-          [setEventCost, "$8"],
-          [setEventLocation, "Mad Monkey Uluwatu, Bali"],
-        ]);
+      {
+        target: '[data-tour="templates"]',
+        title: "Pick a template",
+        body: "Every template is an approved design. Yours keeps its look and layout, so you never start from a blank page.",
+        onEnter: () => {
+          cancelTyping();
+          setStepDir("back");
+          setComposerStep("template");
+        },
       },
-    },
-    {
-      target: '[data-tour="cta"]',
-      title: "4 · Hit Continue",
-      body: "Instead of generating straight away, the AI reads your answers and asks 3 sharp follow-up questions tailored to THIS event — the details that make the result land.",
-      onEnter: () => restoreEventDemo(false),
-    },
-    {
-      target: '[data-tour="followups"]',
-      title: "5 · Answer the smart follow-ups",
-      body: "These 3 are generated for your exact event. Answer them in a few words for a noticeably better design — or use “skip the extra questions” if you're in a hurry.",
-      onEnter: () => restoreEventDemo(true),
-    },
-    {
-      target: '[data-tour="other-details"]',
-      title: "6 · Any other details",
-      body: "A catch-all for anything else — a must-have detail, a vibe, a call-to-action. Totally optional.",
-      onEnter: () => {
-        restoreEventDemo(true);
-        setOtherDetails("Free shot for the first 50 through the door.");
+      {
+        target: '[data-tour="event-fields"]',
+        title: "Add your event",
+        body: "Title, when, where and the price. Keep it factual: the AI writes the brief and swaps every word on the template for yours.",
+        onEnter: () => {
+          cancelTyping();
+          setStepDir("fwd");
+          setComposerStep("details");
+          setFormat("4:5");
+          setBriefStep("base");
+          setEventTitle(""); setEventDate(""); setEventCost(""); setEventLocation("");
+          void typeFields([
+            [setEventTitle, "Foam Party"],
+            [setEventDate, "Saturday 9pm"],
+            [setEventCost, "$8"],
+            [setEventLocation, "Mad Monkey Uluwatu, Bali"],
+          ]);
+        },
       },
-    },
-    {
-      target: '[data-tour="brand-marks"]',
-      title: "7 · Choose your logo & brand marks",
-      body: "This is where you pick which marks go on the asset — tick the Mad Monkey logo, the ALL IN stickers, and/or the Mad Monkey Stamp (any combination). Hover any box to preview exactly which logo/sticker it adds, right by your cursor.",
-      onEnter: () => {
-        restoreEventDemo(true);
-        setIncludeAllIn(true);
+      canFreeform && {
+        target: '[data-tour="format"]',
+        title: "Choose the size",
+        body: "Square, Insta post, Story or A4 poster. The layout adapts to the size before a word is written.",
+        onEnter: () => {
+          setComposerStep("details");
+          restoreEventDemo(false);
+        },
       },
-    },
-    {
-      target: '[data-tour="cta"]',
-      title: "8 · Generate",
-      body: "Hit Generate. ~20s later you've got a validated, on-brand design — no off-palette colours, no clipped text, no overlapping stickers.",
-      onEnter: () => restoreEventDemo(true),
-    },
-    {
-      target: '[data-tour="present-fields"]',
-      title: "9 · Presentations",
-      body: "Pick the Presentation format and you're building a full multi-slide deck — same Brand system, just a different output. Give the topic and a slide count; the AI plans the outline and designs every slide on-brand, then exports straight to PowerPoint.",
-      onEnter: () => {
-        cancelTyping();
-        setDesignSystem("brand");
-        setFormat("presentation");
-        setDeckSlides(8);
-        void (async () => {
-          await tourSleep(160);
-          await typeFields(
-            [[setDeckBrief, "Investor pitch for our Bali expansion — 3 new properties, the team, and the $4M ask."]],
-            14,
-          );
-        })();
+      {
+        target: '[data-tour="cta"]',
+        title: "Hit Continue",
+        body: "The AI reads your answers and asks three sharp follow-up questions tailored to this event.",
+        onEnter: () => {
+          setComposerStep("details");
+          restoreEventDemo(false);
+        },
       },
-    },
-    {
-      target: '[data-tour="gallery"]',
-      title: "10 · Your gallery",
-      body: "Everything you create lands here. Click any version to refine it in plain English, hand-edit it with Quick Fix, or export to PNG / JPG / PDF / PowerPoint.",
-    },
-    {
-      target: '[data-tour="account-menu"]',
-      title: "11 · The image bank",
-      body: (
-        <div className="space-y-1.5">
-          <p>
-            Click your avatar (up here) → <b className="text-[#F2EEE6]">Image bank</b>. It's the shared library of
-            real Mad Monkey photos — foam parties, pool days, dorms, beach runs.
-          </p>
-          <p className="text-[#8C8278]">
-            Upload a shot with a short description and the AI automatically drops the best-matching photo into your
-            designs. A fresh bank starts empty — load it up, because the more real photos it holds, the better every
-            poster and deck looks.
-          </p>
-        </div>
-      ),
-    },
-    {
-      title: "That's everything — you're ALL IN 🐵",
-      body: "You now know the whole tool: systems, formats, the smart questions, presentations, the gallery and the image bank. Replay this tour anytime from “How it works” in the top bar.",
-    },
-  ];
-
-  // GMs get a shorter tour: template → event → generate. Systems, formats,
-  // marks and presentations aren't theirs to see.
-  const GM_TOUR_STEPS: TourStep[] = [
-    {
-      title: "Welcome to Mad Monkey Studio 🐵",
-      body: "Three steps: pick a template, add your event, answer a couple of questions. Use the buttons or your ← → arrow keys.",
-      onEnter: () => {
-        resetDemo();
-        setStepDir("fwd");
-        setComposerStep("template");
+      {
+        target: '[data-tour="followups"]',
+        title: "Answer the smart follow-ups",
+        body: "Generated for your exact event. A few words each makes a noticeably better design, or skip them if you're in a hurry.",
+        onEnter: () => restoreEventDemo(true),
       },
-    },
-    {
-      target: '[data-tour="templates"]',
-      title: "1 · Pick a template",
-      body: "Every template is a design the marketing team has approved. Your poster keeps its look and layout, so you never start from a blank page.",
-      onEnter: () => {
-        cancelTyping();
-        setStepDir("back");
-        setComposerStep("template");
+      {
+        target: '[data-tour="other-details"]',
+        title: "Any other details",
+        body: "A must-have detail, a vibe, a call to action. Optional.",
+        onEnter: () => {
+          restoreEventDemo(true);
+          setOtherDetails("Free shot for the first 50 through the door.");
+        },
       },
-    },
-    {
-      target: '[data-tour="event-fields"]',
-      title: "2 · Add your event",
-      body: "Title, when, where and the price. Keep it factual: the AI writes the brief and swaps every word on the template for yours.",
-      onEnter: () => {
-        cancelTyping();
-        setStepDir("fwd");
-        setComposerStep("details");
-        setBriefStep("base");
-        setEventTitle(""); setEventDate(""); setEventCost(""); setEventLocation("");
-        void typeFields([
-          [setEventTitle, "Foam Party"],
-          [setEventDate, "Saturday 9pm"],
-          [setEventCost, "$8"],
-          [setEventLocation, "Mad Monkey Uluwatu, Bali"],
-        ]);
+      canFreeform && {
+        target: '[data-tour="brand-marks"]',
+        title: "Logo and brand marks",
+        body: "Tick the Mad Monkey logo, the ALL IN stickers or the stamp, in any combination. Hover a box to preview it.",
+        onEnter: () => {
+          restoreEventDemo(true);
+          setIncludeAllIn(true);
+        },
       },
-    },
-    {
-      target: '[data-tour="cta"]',
-      title: "3 · Continue, then Generate",
-      body: "Continue asks three quick questions about this event. Generate takes about 20 seconds and only ships a design that passes every brand check.",
-      onEnter: () => restoreEventDemo(false),
-    },
-    {
-      target: '[data-tour="gallery"]',
-      title: "Your gallery",
-      body: "Everything you make lands here. Open one to refine it in plain English or export it as PNG, JPG or PDF.",
-    },
-    {
-      title: "That's it — you're ALL IN 🐵",
-      body: "Replay this anytime from “How it works” in the top bar.",
-    },
-  ];
+      {
+        target: '[data-tour="cta"]',
+        title: "Generate",
+        body: "About 20 seconds later you have a validated, on-brand design: no off-palette colours, no clipped text, no overlapping stickers.",
+        onEnter: () => restoreEventDemo(true),
+      },
+      canFreeform && {
+        target: '[data-tour="present-fields"]',
+        title: "Presentations",
+        body: "Give a topic and a slide count. The AI plans the outline, designs every slide on-brand, then exports to PowerPoint.",
+        onEnter: () => {
+          cancelTyping();
+          setTemplateId(null);
+          setComposerStep("details");
+          setFormat("presentation");
+          setDeckSlides(8);
+          void (async () => {
+            await tourSleep(160);
+            await typeFields(
+              [[setDeckBrief, "Investor pitch for our Bali expansion: 3 new properties, the team, and the $4M ask."]],
+              14,
+            );
+          })();
+        },
+      },
+      {
+        target: '[data-tour="gallery"]',
+        title: "Your gallery",
+        body: "Everything you create lands here. Open one to refine it in plain English, hand-edit it with Quick Fix, or export PNG, JPG, PDF or PowerPoint.",
+      },
+      {
+        target: '[data-tour="account-menu"]',
+        title: "The image bank",
+        body: (
+          <div className="space-y-1.5">
+            <p>
+              Click your avatar (up here) → <b className="text-[#F2EEE6]">Image bank</b>. It's the shared library of
+              real Mad Monkey photos.
+            </p>
+            <p className="text-[#8C8278]">
+              Upload a shot with a short description and the AI drops the best-matching photo into your designs.
+              The more real photos it holds, the better every poster looks.
+            </p>
+          </div>
+        ),
+      },
+      {
+        title: "That's everything, you're ALL IN 🐵",
+        body: "Replay this anytime from “How it works” in the top bar.",
+      },
+    ] as (TourStep | false)[]
+  ).filter((x): x is TourStep => Boolean(x));
 
   // ── Gallery (past creations) ──
   const threads = useQuery(api.threads.list);
@@ -569,7 +471,7 @@ export default function StudioPage() {
     if (!tourOpen || threadId) return;
     setTemplateId(null);
     setStepDir("fwd");
-    setComposerStep(canFreeform ? "details" : "template");
+    setComposerStep("template");
     setComposerOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tourOpen]);
@@ -888,419 +790,15 @@ export default function StudioPage() {
 
   const charCount = brief.length;
 
-  return (
-    <div className="mm-ambient relative flex min-h-[100svh] flex-col dt:h-screen dt:overflow-hidden">
-      {/* ── Header ── */}
-      <header className="z-20 flex shrink-0 items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-3 py-2.5 backdrop-blur-md sm:px-4 sm:py-3 lg:px-6 lg:py-3.5">
-        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-          {/* Mobile: open the gallery drawer */}
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(true)}
-            aria-label="Open gallery"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] dt:hidden"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <BrandLogo className="block h-7 w-auto shrink-0 sm:h-8" />
-          <span className="hidden h-6 w-px bg-[rgba(242,238,230,0.12)] sm:block" />
-          <p
-            className="hidden text-lg font-light leading-none text-[#F2EEE6] sm:block"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Studio
-          </p>
-          {user?.role && (
-            <span className="ml-1 hidden rounded-full border border-[rgba(242,238,230,0.1)] px-2.5 py-0.5 text-[10px] uppercase tracking-widest text-[#8C8278] sm:inline">
-              {user.role === "user" ? "GM" : user.role}
-            </span>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <button
-            type="button"
-            onClick={() => createNew(false)}
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3 sm:py-1.5"
-            title="Start fresh — back to a new creation"
-          >
-            <Home className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">Home</span>
-          </button>
-          <Link
-            href="/templates"
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3"
-            title="Templates"
-          >
-            <LayoutTemplate className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">Templates</span>
-          </Link>
-          <a
-            href="https://docs.google.com/forms/d/e/1FAIpQLSdCGDQJTQHuj1OY3I8mAtQL7vyTAfK3Ym-gEmfQHjursAm1Vw/viewform"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3 sm:py-1.5"
-            title="Share feedback (opens a form in a new tab)"
-          >
-            <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">Feedback</span>
-          </a>
-          <button
-            type="button"
-            onClick={() => setTourOpen(true)}
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3 sm:py-1.5"
-            title="Take the tour"
-          >
-            <HelpCircle className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">How it works</span>
-          </button>
-          <SignOutButton initials={initials} email={user?.email} role={user?.role} />
-        </div>
-      </header>
-
-      <Walkthrough steps={canFreeform ? TOUR_STEPS : GM_TOUR_STEPS} open={tourOpen} onClose={closeTour} />
-
-      {/* ── Body ── */}
-      <div className="relative flex flex-1 flex-col overflow-visible dt:flex-row dt:overflow-hidden">
-        {/* Mobile: dim backdrop behind the gallery drawer */}
-        {mobileNavOpen && (
-          <div
-            onClick={() => setMobileNavOpen(false)}
-            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm dt:hidden"
-            aria-hidden
-          />
-        )}
-        {/* ── Gallery sidebar — collapsible rail on desktop, slide-over drawer on mobile ── */}
-        <aside
-          data-tour="gallery"
-          className={`fixed inset-y-0 left-0 z-40 flex w-[17rem] shrink-0 flex-col overflow-hidden border-r border-[rgba(242,238,230,0.08)] bg-[#161412] shadow-2xl transition-transform duration-300 ease-in-out dt:relative dt:z-auto dt:translate-x-0 dt:bg-[#1C1A18]/60 dt:shadow-none dt:transition-[width] ${
-            mobileNavOpen ? "translate-x-0" : "-translate-x-full dt:translate-x-0"
-          } ${galleryOpen ? "dt:w-56 xl:w-64" : "dt:w-12"}`}
-        >
-          {/* Persistent header — toggle always reachable */}
-          <div className="flex shrink-0 items-center justify-between px-2.5 pb-1 pt-3.5">
-            {/* Width collapses with the rail — opacity alone would leave the
-                label's footprint pushing the chevron out of the 48px rail */}
-            <p
-              className={`mm-eyebrow overflow-hidden whitespace-nowrap transition-all duration-200 ${
-                galleryOpen ? "max-w-[6rem] pl-1.5 opacity-100" : "max-w-0 pl-0 opacity-0"
-              }`}
-            >
-              Gallery
-            </p>
-            {/* Mobile: close the drawer */}
-            <button
-              onClick={() => setMobileNavOpen(false)}
-              aria-label="Close gallery"
-              className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] dt:hidden"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            {/* Desktop: collapse the rail */}
-            <button
-              onClick={() => setGalleryOpen((o) => !o)}
-              aria-label={galleryOpen ? "Collapse gallery" : "Expand gallery"}
-              className="hidden h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] dt:grid"
-            >
-              <ChevronLeft
-                className={`h-4 w-4 transition-transform duration-300 ${
-                  galleryOpen ? "" : "rotate-180"
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Collapsed quick-create — crossfades in when the rail is closed.
-              Only disable it while collapsed: when the gallery is open it's
-              hidden (opacity-0), and disabled:opacity-40 would otherwise win on
-              specificity and ghost the icon through the real button mid-generation. */}
-          <button
-            onClick={() => createNew(true)}
-            disabled={loading && !galleryOpen}
-            aria-label="Create something new"
-            title="Create something new"
-            className={`mm-cta absolute left-1/2 top-[3.25rem] hidden h-8 w-8 -translate-x-1/2 cursor-pointer place-items-center rounded-md text-[#F7F3EC] transition-opacity duration-200 disabled:opacity-40 dt:grid ${
-              galleryOpen ? "pointer-events-none opacity-0" : "opacity-100"
-            }`}
-          >
-            <ImagePlus className="h-4 w-4" />
-          </button>
-
-          {/* Body — fixed width so it clips cleanly instead of reflowing as the rail shrinks */}
-          <div
-            className={`flex w-[17rem] min-h-0 flex-1 flex-col transition-opacity duration-200 dt:w-56 xl:w-64 ${
-              galleryOpen ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
-          >
-            {/* Create something new */}
-            <div className="px-3 pb-3 pt-1">
-              <button
-                onClick={() => createNew(true)}
-                disabled={loading}
-                className="mm-cta flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-[#F7F3EC] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Plus className="h-4 w-4" />
-                Create something new
-              </button>
-            </div>
-
-            {/* Gallery grid */}
-            <div className="flex-1 overflow-y-auto px-3 pb-4">
-              {threads === undefined ? (
-                <div className="flex items-center gap-2 px-1 py-2 text-xs text-[#8C8278]">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-[#CC7A5C]" />
-                  Loading…
-                </div>
-              ) : threads.length === 0 ? (
-                <p className="px-1 py-2 text-xs leading-relaxed text-[#8C8278]/70">
-                  {failedCount > 0
-                    ? `${failedCount} recent ${failedCount === 1 ? "run" : "runs"} didn't pass brand checks, so nothing's landed here yet. Only on-brand designs appear — tweak the brief and try again.`
-                    : "Nothing here yet — hit Create something new and your first asset lands in this gallery."}
-                </p>
-              ) : (
-                <ul className="grid grid-cols-2 gap-2.5">
-                  {threads.map((t) => {
-                    const active = t.id === threadId;
-                    const confirming = confirmDeleteId === t.id;
-                    return (
-                      <li key={t.id} className="group relative">
-                        <button
-                          onClick={() => selectThread(t.id)}
-                          disabled={loading}
-                          className={`block w-full overflow-hidden rounded-lg border text-left transition-all duration-200 disabled:cursor-not-allowed ${
-                            active
-                              ? "border-[#CC7A5C]/70 ring-1 ring-[#CC7A5C]/40"
-                              : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.25)]"
-                          } ${loading ? "" : "cursor-pointer"}`}
-                        >
-                          {t.thumbnail ? (
-                            <GalleryThumb svg={t.thumbnail} format={t.format} />
-                          ) : (
-                            <div className="grid aspect-square w-full place-items-center bg-[rgba(242,238,230,0.03)]">
-                              <ImageOff className="h-5 w-5 text-[#8C8278]/50" />
-                            </div>
-                          )}
-                          <p className="line-clamp-2 px-2 py-1.5 text-[11px] leading-snug text-[#CFC8BD]">
-                            {t.caption || "Untitled"}
-                          </p>
-                        </button>
-
-                        {/* Delete trigger */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmDeleteId(t.id);
-                          }}
-                          disabled={loading}
-                          aria-label="Delete creation"
-                          className="absolute right-1.5 top-1.5 grid h-6 w-6 cursor-pointer place-items-center rounded-md bg-[#1C1A18]/80 text-[#8C8278] opacity-0 backdrop-blur transition-opacity hover:text-red-300 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-0"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-
-                        {/* Are-you-sure overlay */}
-                        {confirming && (
-                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-[#1C1A18]/95 p-2 text-center backdrop-blur-sm">
-                            <p className="text-[11px] font-medium leading-snug text-[#F2EEE6]">
-                              Delete this creation?
-                            </p>
-                            <div className="flex gap-1.5">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(t.id);
-                                }}
-                                className="cursor-pointer rounded-md bg-red-500/80 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-red-500"
-                              >
-                                Delete
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setConfirmDeleteId(null);
-                                }}
-                                className="cursor-pointer rounded-md bg-[rgba(242,238,230,0.1)] px-2.5 py-1 text-[11px] font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.18)]"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-
-              {/* Presentations */}
-              {canFreeform && decks && decks.length > 0 && (
-                <div className="mt-5 space-y-2">
-                  <p className="mm-eyebrow flex items-center gap-1.5">
-                    <Presentation className="h-3 w-3" /> Presentations
-                  </p>
-                  <ul className="space-y-1.5">
-                    {decks.map((d) => (
-                      <li key={d._id} className="group relative">
-                        <button
-                          onClick={() => {
-                            setMobileNavOpen(false);
-                            router.push(`/presentation/${d._id}`);
-                          }}
-                          className="block w-full overflow-hidden rounded-lg border border-[rgba(242,238,230,0.08)] text-left transition-colors hover:border-[rgba(242,238,230,0.25)]"
-                        >
-                          {/* First slide as the thumbnail (16:9), same treatment as the design tiles */}
-                          {d.status === "generating" ? (
-                            <div className="grid aspect-[16/9] w-full place-items-center bg-[rgba(242,238,230,0.03)]">
-                              <Loader2 className="h-4 w-4 animate-spin text-[#CC7A5C]" />
-                            </div>
-                          ) : d.thumbnail ? (
-                            <GalleryThumb svg={d.thumbnail} format="16:9" />
-                          ) : (
-                            <div className="grid aspect-[16/9] w-full place-items-center bg-[rgba(242,238,230,0.03)]">
-                              <Presentation className="h-5 w-5 text-[#8C8278]/50" />
-                            </div>
-                          )}
-                          <span className="flex items-center gap-1.5 px-2 py-1.5 pr-8">
-                            <Presentation className="h-3 w-3 shrink-0 text-[#CC7A5C]" />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[11px] font-medium text-[#CFC8BD]">
-                                {d.title || "Untitled deck"}
-                              </span>
-                              <span className="block text-[10px] text-[#8C8278]">
-                                {d.status === "generating"
-                                  ? `${d.slidesDone}/${d.slideCount} slides…`
-                                  : `${d.slidesDone} slides`}
-                              </span>
-                            </span>
-                          </span>
-                        </button>
-
-                        {/* Delete trigger */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmDeleteDeckId(d._id);
-                          }}
-                          aria-label="Delete presentation"
-                          className="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 cursor-pointer place-items-center rounded-md bg-[#1C1A18]/80 text-[#8C8278] opacity-0 backdrop-blur transition-opacity hover:text-red-300 group-hover:opacity-100"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-
-                        {/* Are-you-sure overlay */}
-                        {confirmDeleteDeckId === d._id && (
-                          <div className="absolute inset-0 z-10 flex items-center justify-center gap-1.5 rounded-lg bg-[#1C1A18]/95 px-2 backdrop-blur-sm">
-                            <span className="text-[11px] font-medium text-[#F2EEE6]">Delete?</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteDeck({ deckId: d._id });
-                                setConfirmDeleteDeckId(null);
-                              }}
-                              className="cursor-pointer rounded-md bg-red-500/80 px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-red-500"
-                            >
-                              Delete
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setConfirmDeleteDeckId(null);
-                              }}
-                              className="cursor-pointer rounded-md bg-[rgba(242,238,230,0.1)] px-2 py-1 text-[11px] font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.18)]"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        </aside>
-
-        {/* ── Left control panel — a compact start panel when idle, a centred
-            modal (blurred canvas behind) for every new creation, and the inline
-            refine form once a design exists. ── */}
-        {isComposerModal && (
-          <div className="mm-backdrop-in fixed inset-0 z-40 bg-black/60 backdrop-blur-md" onClick={closeComposer} aria-hidden />
-        )}
-        {!threadId && !composerOpen ? (
-          <aside className="flex w-full shrink-0 flex-col justify-center gap-3 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/40 p-5 dt:w-72 dt:border-b-0 dt:border-r xl:w-80">
-            <button
-              type="button"
-              onClick={() => createNew(true)}
-              className="mm-cta flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-[#F7F3EC]"
-            >
-              <Sparkles className="h-4 w-4" /> Create something new
-            </button>
-            <p className="text-center text-[11px] leading-relaxed text-[#8C8278]">
-              {canFreeform ? "Template, blank canvas or presentation." : "Pick a template, add your event. Done."}
-            </p>
-          </aside>
-        ) : (
-        <aside
-          className={
-            isComposerModal
-              ? "mm-modal-in fixed inset-x-3 top-[4svh] z-50 mx-auto flex max-h-[92svh] flex-col overflow-hidden rounded-2xl border border-[rgba(242,238,230,0.12)] bg-[#1C1A18] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)] sm:inset-x-6 lg:max-w-[920px]"
-              : "flex w-full shrink-0 flex-col border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/40 dt:w-72 dt:overflow-y-auto dt:border-b-0 dt:border-r xl:w-80"
-          }
-          role={isComposerModal ? "dialog" : undefined}
-          aria-modal={isComposerModal || undefined}
-        >
-          {isComposerModal && (
-            <div className="flex shrink-0 items-center justify-between border-b border-[rgba(242,238,230,0.08)] px-4 py-3 sm:px-5">
-              <div className="flex items-center gap-2 text-[11px] text-[#8C8278]">
-                {composerStep !== "template" && (
-                  <button type="button" onClick={backToTemplates} className="mr-1 flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)]">
-                    <ChevronLeft className="h-3.5 w-3.5" /> Back
-                  </button>
-                )}
-                <StepDot n={1} label="Template" active={composerStep === "template"} done={composerStep !== "template"} />
-                <span className="h-px w-4 bg-[rgba(242,238,230,0.15)]" />
-                <StepDot n={2} label="Details" active={composerStep === "details" && briefStep === "base"} done={briefStep === "followup"} />
-                <span className="h-px w-4 bg-[rgba(242,238,230,0.15)]" />
-                <StepDot n={3} label="Questions" active={briefStep === "followup"} done={false} />
-              </div>
-              <button type="button" onClick={closeComposer} aria-label="Close" className="grid h-8 w-8 cursor-pointer place-items-center rounded-full text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6]">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-          {isComposerModal && composerStep === "template" ? (
-            <div key="step-template" className={`${stepDir === "back" ? "mm-step-back" : "mm-step-in"} min-h-0 flex-1 overflow-y-auto p-5 sm:p-6`}>
-              {canFreeform ? (
-                <>
-                  <h2 className="text-lg font-light text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>What are you making?</h2>
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <button type="button" onClick={pickBlank} className="mm-press group flex cursor-pointer items-center gap-3 rounded-xl border border-[rgba(242,238,230,0.1)] bg-[rgba(242,238,230,0.02)] px-4 py-3.5 text-left transition-[border-color,background-color] duration-300 hover:border-[#CC7A5C]/60 hover:bg-[#CC7A5C]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#CC7A5C]/60">
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#CC7A5C]/15 text-[#CC7A5C] transition-transform duration-300 group-hover:scale-110"><Sparkles className="h-4 w-4" /></span>
-                      <span><span className="block text-sm font-medium text-[#F2EEE6]">Blank canvas</span><span className="block text-[11px] text-[#8C8278]">Any system, any format</span></span>
-                    </button>
-                    <button type="button" onClick={pickPresentation} className="mm-press group flex cursor-pointer items-center gap-3 rounded-xl border border-[rgba(242,238,230,0.1)] bg-[rgba(242,238,230,0.02)] px-4 py-3.5 text-left transition-[border-color,background-color] duration-300 hover:border-[#CC7A5C]/60 hover:bg-[#CC7A5C]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#CC7A5C]/60">
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#CC7A5C]/15 text-[#CC7A5C] transition-transform duration-300 group-hover:scale-110"><Presentation className="h-4 w-4" /></span>
-                      <span><span className="block text-sm font-medium text-[#F2EEE6]">Presentation</span><span className="block text-[11px] text-[#8C8278]">Multi-slide deck</span></span>
-                    </button>
-                  </div>
-                  <div className="mt-7 flex items-center justify-between">
-                    <h3 className="mm-eyebrow">Or start from a template</h3>
-                    <Link href="/templates" className="text-[11px] text-[#8C8278] transition-colors hover:text-[#F2EEE6]">Manage →</Link>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h2 className="text-lg font-light text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>Pick a template</h2>
-                  <p className="mt-1 text-xs text-[#8C8278]">Your design keeps this look. You add the event.</p>
-                </>
-              )}
-              <div className="mt-3" data-tour="templates">
-                <TemplatePicker mode="pick" selectedId={templateId} onPick={pickTemplate} />
-              </div>
-            </div>
-          ) : (
-          <form onSubmit={handleGenerate} className={`flex flex-1 flex-col ${isComposerModal ? "mm-step-in min-h-0 overflow-y-auto" : ""}`}>
+  // The composer form is shared by the sheet (new design) and the inline
+  // refine panel (existing thread).
+  const composerForm = (
+          <form onSubmit={handleGenerate} className={`flex min-h-0 flex-1 flex-col ${isComposerModal ? "mm-step-in" : ""}`}>
             {/* Locked while a generation is in flight — nothing about the
                 in-progress design can change mid-run. */}
             <fieldset
               disabled={loading}
-              className={`m-0 flex flex-1 flex-col gap-6 border-0 p-5 transition-opacity [min-inline-size:0] xl:gap-7 xl:p-6 ${
+              className={`m-0 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto border-0 transition-opacity [min-inline-size:0] xl:gap-7 ${isComposerModal ? "px-5 py-6 sm:px-10 lg:px-24" : "p-5"} ${
                 loading ? "pointer-events-none opacity-50" : ""
               }`}
             >
@@ -1649,59 +1147,11 @@ export default function StudioPage() {
               </p>
             </div>
 
-            {/* Design system — hidden while refining (a refinement keeps it) and
-                for presentations (they use the one fixed deck style). */}
-            {!threadId && !isPresentation && !templateId && canFreeform && (
-            <div className="space-y-2.5" data-tour="design-system">
-              <label className="mm-eyebrow">Design system</label>
-              <div className="space-y-2">
-                {DESIGN_SYSTEMS.map(({ name, label, desc, Icon }) => {
-                  const active = designSystem === name;
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      onClick={() => setDesignSystem(name)}
-                      aria-pressed={active}
-                      className={`group flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 cursor-pointer ${
-                        active
-                          ? "border-[#CC7A5C]/70 bg-[#CC7A5C]/10"
-                          : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.2)] hover:bg-[rgba(242,238,230,0.02)]"
-                      }`}
-                    >
-                      <span
-                        className={`grid h-8 w-8 shrink-0 place-items-center rounded-md transition-colors ${
-                          active
-                            ? "bg-[#CC7A5C] text-[#F7F3EC]"
-                            : "bg-[rgba(242,238,230,0.05)] text-[#8C8278] group-hover:text-[#F2EEE6]"
-                        }`}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span
-                          className={`block text-sm font-medium ${
-                            active ? "text-[#F2EEE6]" : "text-[#CFC8BD]"
-                          }`}
-                        >
-                          {label}
-                        </span>
-                        <span className="block text-[11px] text-[#8C8278]">{desc}</span>
-                      </span>
-                      {active && <Check className="h-4 w-4 shrink-0 text-[#CC7A5C]" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            )}
-
-            {/* Format — hidden while refining (a refinement keeps it) and for
-                presentations (a deck is always 16:9). */}
-            {!threadId && !isPresentation && !templateId && canFreeform && (
+            {/* Size: any fresh design can be any size; the template only sets the default. */}
+            {!threadId && !isPresentation && (
             <div className="space-y-2.5" data-tour="format">
-              <label className="mm-eyebrow">Format</label>
-              <div className="grid grid-cols-2 gap-2">
+              <label className="mm-eyebrow">Size</label>
+              <div className="grid grid-cols-4 gap-1 rounded-xl bg-[rgba(242,238,230,0.035)] p-1">
                 {FORMATS.map(({ id, ratio, name }) => {
                   const active = format === id;
                   return (
@@ -1711,61 +1161,34 @@ export default function StudioPage() {
                       onClick={() => setFormat(id)}
                       aria-pressed={active}
                       title={FORMAT_DIMENSIONS[id]?.label ?? id}
-                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-all duration-200 ${
-                        active
-                          ? "border-[#CC7A5C]/70 bg-[#CC7A5C]/10"
-                          : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.2)]"
+                      className={`mm-press flex cursor-pointer flex-col items-center gap-1.5 rounded-lg px-1 py-2.5 transition-colors duration-200 ${
+                        active ? "bg-[rgba(242,238,230,0.09)] text-[#F2EEE6] shadow-[0_1px_0_rgba(242,238,230,0.06)_inset]" : "text-[#8C8278] hover:text-[#CFC8BD]"
                       }`}
                     >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+                      <span className="flex h-7 items-center">
                         <span
-                          className={`${ratio} w-auto rounded-[3px] border ${
-                            active
-                              ? "border-[#CC7A5C] bg-[#CC7A5C]/25"
-                              : "border-[#8C8278]/50 bg-[rgba(242,238,230,0.04)]"
+                          className={`${ratio} rounded-[3px] border transition-colors duration-200 ${
+                            active ? "border-[#CC7A5C] bg-[#CC7A5C]/25" : "border-[#8C8278]/50 bg-[rgba(242,238,230,0.04)]"
                           }`}
-                          style={{ height: "1.6rem" }}
+                          style={{ height: "1.5rem" }}
                         />
                       </span>
-                      <span className="min-w-0">
-                        <span
-                          className={`block text-[12px] font-semibold leading-tight ${
-                            active ? "text-[#F2EEE6]" : "text-[#CFC8BD]"
-                          }`}
-                        >
-                          {id}
-                        </span>
-                        <span className="block text-[10px] leading-tight text-[#8C8278]">
-                          {name}
-                        </span>
-                      </span>
+                      <span className="text-[11px] font-medium leading-none">{name}</span>
                     </button>
                   );
                 })}
               </div>
-
-              {/* Selected-format intent — what Claude will design for */}
               {FORMAT_DIMENSIONS[format] && (
-                <div className="rounded-lg border border-[rgba(242,238,230,0.08)] bg-[rgba(242,238,230,0.02)] px-3 py-2.5">
-                  <p className="text-[11px] font-medium text-[#CFC8BD]">
-                    {FORMAT_DIMENSIONS[format].useCase}
-                  </p>
-                  <p className="mt-0.5 font-mono text-[10px] text-[#8C8278]">
-                    {FORMAT_DIMENSIONS[format].w} × {FORMAT_DIMENSIONS[format].h} px ·{" "}
-                    {FORMAT_DIMENSIONS[format].orientation}
-                  </p>
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-[#8C8278]">
-                    Layout locked to this format before your brief drops in.
-                  </p>
-                </div>
+                <p className="text-[11px] text-[#8C8278]">
+                  {FORMAT_DIMENSIONS[format].w} × {FORMAT_DIMENSIONS[format].h} px · {FORMAT_DIMENSIONS[format].orientation}
+                </p>
               )}
             </div>
             )}
 
-            <div className="hidden dt:block dt:flex-1" />
-
-            {/* Generate */}
-            <div className="space-y-3">
+            </fieldset>
+            <div className={`shrink-0 border-t border-[rgba(242,238,230,0.06)] ${isComposerModal ? "px-5 py-4 sm:px-10 lg:px-24" : "p-5"}`}>
+            <div className={isComposerModal ? "flex flex-row-reverse flex-wrap items-center gap-3" : "space-y-3"}>
               <button
                 type="submit"
                 data-tour="cta"
@@ -1776,7 +1199,7 @@ export default function StudioPage() {
                     ? !brief.trim()
                     : !baseReady)
                 }
-                className="mm-cta flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-[#F7F3EC] disabled:cursor-not-allowed disabled:opacity-40"
+                className={`mm-cta flex cursor-pointer items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium text-[#F7F3EC] disabled:cursor-not-allowed disabled:opacity-40 ${isComposerModal ? "min-w-[200px]" : "w-full"}`}
               >
                 {loading ? (
                   <>
@@ -1812,7 +1235,7 @@ export default function StudioPage() {
                 <button
                   type="button"
                   onClick={() => handleGenerate(undefined, { skip: true })}
-                  className="w-full text-center text-[11px] text-[#8C8278] transition-colors hover:text-[#CFC8BD]"
+                  className={`text-[11px] text-[#8C8278] transition-colors hover:text-[#CFC8BD] ${isComposerModal ? "flex-1 text-left" : "w-full text-center"}`}
                 >
                   skip the extra questions →
                 </button>
@@ -1821,17 +1244,296 @@ export default function StudioPage() {
               {error && (
                 <p
                   role="alert"
-                  className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs leading-relaxed text-red-300"
+                  className="w-full rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs leading-relaxed text-red-300"
                 >
                   {error}
                 </p>
               )}
             </div>
-            </fieldset>
+            </div>
           </form>
-          )}
-        </aside>
+  );
+
+  return (
+    <div className="mm-ambient relative flex min-h-[100svh] flex-col dt:h-screen dt:overflow-hidden">
+      <StudioHeader
+        user={user}
+        initials={initials}
+        onHome={() => createNew(false)}
+        onCreate={() => createNew(true)}
+        createDisabled={loading}
+        onOpenGallery={() => setMobileNavOpen(true)}
+        onTour={() => setTourOpen(true)}
+      />
+
+      <Walkthrough steps={TOUR_STEPS} open={tourOpen} onClose={closeTour} />
+
+      {/* ── Body ── */}
+      <div className="relative flex flex-1 flex-col overflow-visible dt:flex-row dt:overflow-hidden">
+        {/* Mobile: dim backdrop behind the gallery drawer */}
+        {mobileNavOpen && (
+          <div
+            onClick={() => setMobileNavOpen(false)}
+            className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm dt:hidden"
+            aria-hidden
+          />
         )}
+        {/* ── Gallery sidebar — collapsible rail on desktop, slide-over drawer on mobile ── */}
+        <aside
+          data-tour="gallery"
+          className={`fixed inset-y-0 left-0 z-40 flex w-[17rem] shrink-0 flex-col overflow-hidden border-r border-[rgba(242,238,230,0.08)] bg-[#161412] shadow-2xl transition-transform duration-300 ease-in-out dt:relative dt:z-auto dt:translate-x-0 dt:bg-[#1C1A18]/60 dt:shadow-none dt:transition-[width] ${
+            mobileNavOpen ? "translate-x-0" : "-translate-x-full dt:translate-x-0"
+          } ${galleryOpen ? "dt:w-56 xl:w-64" : "dt:w-12"}`}
+        >
+          {/* Persistent header — toggle always reachable */}
+          <div className="flex shrink-0 items-center justify-between px-2.5 pb-1 pt-3.5">
+            {/* Width collapses with the rail — opacity alone would leave the
+                label's footprint pushing the chevron out of the 48px rail */}
+            <p
+              className={`mm-eyebrow overflow-hidden whitespace-nowrap transition-all duration-200 ${
+                galleryOpen ? "max-w-[6rem] pl-1.5 opacity-100" : "max-w-0 pl-0 opacity-0"
+              }`}
+            >
+              Gallery
+            </p>
+            {/* Mobile: close the drawer */}
+            <button
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Close gallery"
+              className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] dt:hidden"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {/* Desktop: collapse the rail */}
+            <button
+              onClick={() => setGalleryOpen((o) => !o)}
+              aria-label={galleryOpen ? "Collapse gallery" : "Expand gallery"}
+              className="hidden h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] dt:grid"
+            >
+              <ChevronLeft
+                className={`h-4 w-4 transition-transform duration-300 ${
+                  galleryOpen ? "" : "rotate-180"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Body — fixed width so it clips cleanly instead of reflowing as the rail shrinks */}
+          <div
+            className={`flex w-[17rem] min-h-0 flex-1 flex-col transition-opacity duration-200 dt:w-56 xl:w-64 ${
+              galleryOpen ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
+          >
+            {/* Gallery grid */}
+            <div className="flex-1 overflow-y-auto px-3 pb-4">
+              {threads === undefined ? (
+                <div className="flex items-center gap-2 px-1 py-2 text-xs text-[#8C8278]">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-[#CC7A5C]" />
+                  Loading…
+                </div>
+              ) : threads.length === 0 ? (
+                <p className="px-1 py-2 text-xs leading-relaxed text-[#8C8278]/70">
+                  {failedCount > 0
+                    ? `${failedCount} recent ${failedCount === 1 ? "run" : "runs"} didn't pass brand checks, so nothing's landed here yet. Only on-brand designs appear — tweak the brief and try again.`
+                    : "Nothing here yet — hit Create something new and your first asset lands in this gallery."}
+                </p>
+              ) : (
+                <ul className="grid grid-cols-2 gap-2.5">
+                  {threads.map((t) => {
+                    const active = t.id === threadId;
+                    const confirming = confirmDeleteId === t.id;
+                    return (
+                      <li key={t.id} className="group relative">
+                        <button
+                          onClick={() => selectThread(t.id)}
+                          disabled={loading}
+                          className={`block w-full overflow-hidden rounded-lg border text-left transition-all duration-200 disabled:cursor-not-allowed ${
+                            active
+                              ? "border-[#CC7A5C]/70 ring-1 ring-[#CC7A5C]/40"
+                              : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.25)]"
+                          } ${loading ? "" : "cursor-pointer"}`}
+                        >
+                          {t.thumbnail ? (
+                            <GalleryThumb svg={t.thumbnail} format={t.format} />
+                          ) : (
+                            <div className="grid aspect-square w-full place-items-center bg-[rgba(242,238,230,0.03)]">
+                              <ImageOff className="h-5 w-5 text-[#8C8278]/50" />
+                            </div>
+                          )}
+                          <p className="line-clamp-2 px-2 py-1.5 text-[11px] leading-snug text-[#CFC8BD]">
+                            {t.caption || "Untitled"}
+                          </p>
+                        </button>
+
+                        {/* Delete trigger */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteId(t.id);
+                          }}
+                          disabled={loading}
+                          aria-label="Delete creation"
+                          className="absolute right-1.5 top-1.5 grid h-6 w-6 cursor-pointer place-items-center rounded-md bg-[#1C1A18]/80 text-[#8C8278] opacity-0 backdrop-blur transition-opacity hover:text-red-300 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-0"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+
+                        {/* Are-you-sure overlay */}
+                        {confirming && (
+                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-[#1C1A18]/95 p-2 text-center backdrop-blur-sm">
+                            <p className="text-[11px] font-medium leading-snug text-[#F2EEE6]">
+                              Delete this creation?
+                            </p>
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(t.id);
+                                }}
+                                className="cursor-pointer rounded-md bg-red-500/80 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-red-500"
+                              >
+                                Delete
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConfirmDeleteId(null);
+                                }}
+                                className="cursor-pointer rounded-md bg-[rgba(242,238,230,0.1)] px-2.5 py-1 text-[11px] font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.18)]"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {/* Presentations */}
+              {canFreeform && decks && decks.length > 0 && (
+                <div className="mt-5 space-y-2">
+                  <p className="mm-eyebrow flex items-center gap-1.5">
+                    <Presentation className="h-3 w-3" /> Presentations
+                  </p>
+                  <ul className="space-y-1.5">
+                    {decks.map((d) => (
+                      <li key={d._id} className="group relative">
+                        <button
+                          onClick={() => {
+                            setMobileNavOpen(false);
+                            router.push(`/presentation/${d._id}`);
+                          }}
+                          className="block w-full overflow-hidden rounded-lg border border-[rgba(242,238,230,0.08)] text-left transition-colors hover:border-[rgba(242,238,230,0.25)]"
+                        >
+                          {/* First slide as the thumbnail (16:9), same treatment as the design tiles */}
+                          {d.status === "generating" ? (
+                            <div className="grid aspect-[16/9] w-full place-items-center bg-[rgba(242,238,230,0.03)]">
+                              <Loader2 className="h-4 w-4 animate-spin text-[#CC7A5C]" />
+                            </div>
+                          ) : d.thumbnail ? (
+                            <GalleryThumb svg={d.thumbnail} format="16:9" />
+                          ) : (
+                            <div className="grid aspect-[16/9] w-full place-items-center bg-[rgba(242,238,230,0.03)]">
+                              <Presentation className="h-5 w-5 text-[#8C8278]/50" />
+                            </div>
+                          )}
+                          <span className="flex items-center gap-1.5 px-2 py-1.5 pr-8">
+                            <Presentation className="h-3 w-3 shrink-0 text-[#CC7A5C]" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[11px] font-medium text-[#CFC8BD]">
+                                {d.title || "Untitled deck"}
+                              </span>
+                              <span className="block text-[10px] text-[#8C8278]">
+                                {d.status === "generating"
+                                  ? `${d.slidesDone}/${d.slideCount} slides…`
+                                  : `${d.slidesDone} slides`}
+                              </span>
+                            </span>
+                          </span>
+                        </button>
+
+                        {/* Delete trigger */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteDeckId(d._id);
+                          }}
+                          aria-label="Delete presentation"
+                          className="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 cursor-pointer place-items-center rounded-md bg-[#1C1A18]/80 text-[#8C8278] opacity-0 backdrop-blur transition-opacity hover:text-red-300 group-hover:opacity-100"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+
+                        {/* Are-you-sure overlay */}
+                        {confirmDeleteDeckId === d._id && (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center gap-1.5 rounded-lg bg-[#1C1A18]/95 px-2 backdrop-blur-sm">
+                            <span className="text-[11px] font-medium text-[#F2EEE6]">Delete?</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteDeck({ deckId: d._id });
+                                setConfirmDeleteDeckId(null);
+                              }}
+                              className="cursor-pointer rounded-md bg-red-500/80 px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-red-500"
+                            >
+                              Delete
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDeleteDeckId(null);
+                              }}
+                              className="cursor-pointer rounded-md bg-[rgba(242,238,230,0.1)] px-2 py-1 text-[11px] font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.18)]"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </aside>
+
+        {/* ── Left control panel — a compact start panel when idle, a centred
+            modal (blurred canvas behind) for every new creation, and the inline
+            refine form once a design exists. ── */}
+        {isComposerModal ? (
+          <ComposerFrame step={composerStep} briefStep={briefStep} onBack={backToTemplates} onClose={closeComposer}>
+            {composerStep === "template" ? (
+            <div key="step-template" className={`${stepDir === "back" ? "mm-step-back" : "mm-step-in"} min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8`}>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-[22px] font-light tracking-tight text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>Pick a template</h2>
+                  <p className="mt-1 text-[13px] text-[#8C8278]">Your design keeps this look. You add the event.</p>
+                </div>
+                {canFreeform && (
+                  <div className="flex items-center gap-0.5">
+                    <button type="button" onClick={pickPresentation} className="mm-ghost"><Presentation className="h-3.5 w-3.5" /> Presentation</button>
+                    <button type="button" onClick={pickBlank} className="mm-ghost"><Sparkles className="h-3.5 w-3.5" /> Blank canvas</button>
+                    <Link href="/templates" className="mm-ghost">Manage</Link>
+                  </div>
+                )}
+              </div>
+              <div className="mt-6" data-tour="templates">
+                <TemplatePicker mode="pick" selectedId={templateId} onPick={pickTemplate} />
+              </div>
+            </div>
+            ) : (
+              composerForm
+            )}
+          </ComposerFrame>
+        ) : threadId ? (
+          <aside className="flex w-full shrink-0 flex-col border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/40 dt:w-72 dt:overflow-hidden dt:border-b-0 dt:border-r xl:w-80">
+            {composerForm}
+          </aside>
+        ) : null}
 
         {/* ── Canvas: scrollable chat feed of every version ── */}
         <main
@@ -1848,27 +1550,35 @@ export default function StudioPage() {
               Loading chat…
             </div>
           ) : feed.length === 0 && !loading ? (
-            <div className="m-auto flex max-w-xs flex-col items-center gap-4 text-center">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl border border-[rgba(242,238,230,0.08)] bg-[rgba(242,238,230,0.02)]">
-                <ImageOff className="h-7 w-7 text-[#8C8278]/60" strokeWidth={1.5} />
-              </div>
-              <div className="space-y-1.5">
+            <div className="m-auto flex w-full max-w-3xl flex-col items-center gap-7 py-6 text-center">
+              <div className="mm-fade-up space-y-2.5">
                 <p
-                  className="text-xl font-light text-[#F2EEE6]"
+                  className="text-[34px] font-light leading-[1.1] tracking-tight text-[#F2EEE6] sm:text-[42px]"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
-                  Your canvas awaits
+                  What are we making today?
                 </p>
-                <p className="text-sm leading-relaxed text-[#8C8278]">
-                  Pick a template, add the details, and your on-brand design lands here.
-                </p>
+                <p className="text-[14px] text-[#8C8278]">Pick a template, add your event, and the design lands here.</p>
               </div>
-              <div className="mt-1 flex items-center gap-2 rounded-full border border-[rgba(242,238,230,0.08)] px-3 py-1 text-[11px] text-[#8C8278]">
-                <span className="capitalize text-[#CFC8BD]">{designSystem}</span>
-                <span className="text-[#8C8278]/40">·</span>
-                <span className="text-[#CFC8BD]">{format}</span>
-                <span className="text-[#8C8278]/40">·</span>
-                <span>{FORMAT_DIMENSIONS[format]?.label?.split("—")[0]?.trim() ?? format}</span>
+              <button
+                type="button"
+                onClick={() => createNew(true)}
+                disabled={loading}
+                className="mm-cta mm-fade-up flex h-11 cursor-pointer items-center gap-2 rounded-full pl-4 pr-5 text-sm font-medium text-[#F7F3EC] disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ animationDelay: "70ms" }}
+              >
+                <Plus className="h-4 w-4" /> Create
+              </button>
+              <div className="mm-fade-up mt-2 w-full text-left" style={{ animationDelay: "140ms" }}>
+                <p className="mm-eyebrow mb-3">Start from a template</p>
+                <TemplatePicker
+                  mode="pick"
+                  limit={8}
+                  onPick={(t) => {
+                    createNew(true);
+                    pickTemplate(t);
+                  }}
+                />
               </div>
             </div>
           ) : (

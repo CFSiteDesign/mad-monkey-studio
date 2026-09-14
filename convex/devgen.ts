@@ -76,10 +76,11 @@ export const devGenerate = internalAction({
     templateName: v.optional(v.string()),
     layoutSpec: v.optional(v.string()),
     referenceText: v.optional(v.array(v.string())),
+    nativeFormat: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { brief, format, designSystem, tier: tierArg, referenceStorageId, templateName, layoutSpec, referenceText },
+    { brief, format, designSystem, tier: tierArg, referenceStorageId, templateName, layoutSpec, referenceText, nativeFormat },
   ): Promise<{
     svg: string;
     model: string;
@@ -165,7 +166,7 @@ export const devGenerate = internalAction({
       };
     }
     const userText = referenceImage
-      ? replicationBrief({ templateName: templateName ?? "reference", format, brief, layoutSpec, referenceText })
+      ? replicationBrief({ templateName: templateName ?? "reference", format, nativeFormat: nativeFormat ?? null, brief, layoutSpec, referenceText })
       : brief;
     const messages: Anthropic.MessageParam[] = [
       { role: "user", content: referenceImage ? buildTemplateUserContent(referenceImage, userText) : userText },
@@ -192,6 +193,9 @@ export const devGenerate = internalAction({
       let soft = validateSvg(outputCode, { ...validateOpts, checkTextOverlap: true, checkContainers: true }).filter(
         (vv) => !hard.includes(vv),
       );
+      // Replicating a reference: its own starburst placement is the truth, so the
+      // brand's "starbursts live top-right / must carry a label" notes are noise.
+      if (referenceStorageId) soft = soft.filter((vv) => !/starburst/i.test(vv));
       // Per-system: text-overlap violations escalate to HARD (Minimal Bold).
       if (ds?.effects?.strictTextOverlap) {
         const overlaps = soft.filter((vv) => /^Text ".*" overlaps text /.test(vv));
