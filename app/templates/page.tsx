@@ -41,8 +41,8 @@ export default function TemplatesPage() {
           </h1>
           <p className="mt-1 text-xs text-[#8C8278]">
             {canManage
-              ? "Upload a reference design, approve it, and it goes live for every GM."
-              : "Choose a look, add your event details, and Studio does the rest."}
+              ? "Upload a reference, approve it, and every GM can create from it."
+              : "Choose a look. Add your event. Done."}
           </p>
         </div>
 

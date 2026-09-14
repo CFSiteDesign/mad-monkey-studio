@@ -423,3 +423,18 @@
 @media (prefers-reduced-motion: reduce) {
   .mm-backdrop-in, .mm-modal-in, .mm-step-in, .mm-step-back, .mm-fade-up { animation: none; }
 }
+
+/* ── Template tiles + micro-interactions ─────────────────────────────────── */
+@keyframes mm-pop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.mm-pop { animation: mm-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.mm-tile { transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1); will-change: transform; }
+.mm-tile:hover { transform: translateY(-3px); }
+.mm-tile:active { transform: translateY(-1px) scale(0.99); transition-duration: 0.12s; }
+.mm-tile > div:first-child { transition: box-shadow 0.35s ease, border-color 0.25s ease; }
+.mm-tile:hover > div:first-child { box-shadow: 0 22px 44px -20px rgba(0, 0, 0, 0.75); }
+.mm-press { transition: transform 0.15s ease; }
+.mm-press:active:not(:disabled) { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
+  .mm-pop { animation: none; }
+  .mm-tile, .mm-tile:hover, .mm-tile:active, .mm-press:active:not(:disabled) { transform: none; }
+}

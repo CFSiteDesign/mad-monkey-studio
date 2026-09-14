@@ -306,16 +306,20 @@ export default function StudioPage() {
   function closeTour() {
     setTourOpen(false);
     resetDemo();
+    setComposerOpen(false);
+    setComposerStep("template");
+    setTemplateId(null);
     if (typeof window !== "undefined") localStorage.setItem("mm-tour-v1", "1");
   }
   // Auto-launch once for first-time users.
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !user) return;
     if (!localStorage.getItem("mm-tour-v1")) {
       const t = setTimeout(() => setTourOpen(true), 600);
       return () => clearTimeout(t);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]);
 
   const TOUR_STEPS: TourStep[] = [
     {
@@ -449,9 +453,66 @@ export default function StudioPage() {
     },
   ];
 
+  // GMs get a shorter tour: template → event → generate. Systems, formats,
+  // marks and presentations aren't theirs to see.
+  const GM_TOUR_STEPS: TourStep[] = [
+    {
+      title: "Welcome to Mad Monkey Studio 🐵",
+      body: "Three steps: pick a template, add your event, answer a couple of questions. Use the buttons or your ← → arrow keys.",
+      onEnter: () => {
+        resetDemo();
+        setStepDir("fwd");
+        setComposerStep("template");
+      },
+    },
+    {
+      target: '[data-tour="templates"]',
+      title: "1 · Pick a template",
+      body: "Every template is a design the marketing team has approved. Your poster keeps its look and layout, so you never start from a blank page.",
+      onEnter: () => {
+        cancelTyping();
+        setStepDir("back");
+        setComposerStep("template");
+      },
+    },
+    {
+      target: '[data-tour="event-fields"]',
+      title: "2 · Add your event",
+      body: "Title, when, where and the price. Keep it factual: the AI writes the brief and swaps every word on the template for yours.",
+      onEnter: () => {
+        cancelTyping();
+        setStepDir("fwd");
+        setComposerStep("details");
+        setBriefStep("base");
+        setEventTitle(""); setEventDate(""); setEventCost(""); setEventLocation("");
+        void typeFields([
+          [setEventTitle, "Foam Party"],
+          [setEventDate, "Saturday 9pm"],
+          [setEventCost, "$8"],
+          [setEventLocation, "Mad Monkey Uluwatu, Bali"],
+        ]);
+      },
+    },
+    {
+      target: '[data-tour="cta"]',
+      title: "3 · Continue, then Generate",
+      body: "Continue asks three quick questions about this event. Generate takes about 20 seconds and only ships a design that passes every brand check.",
+      onEnter: () => restoreEventDemo(false),
+    },
+    {
+      target: '[data-tour="gallery"]',
+      title: "Your gallery",
+      body: "Everything you make lands here. Open one to refine it in plain English or export it as PNG, JPG or PDF.",
+    },
+    {
+      title: "That's it — you're ALL IN 🐵",
+      body: "Replay this anytime from “How it works” in the top bar.",
+    },
+  ];
+
   // ── Gallery (past creations) ──
   const threads = useQuery(api.threads.list);
-  const decks = useQuery(api.decksInternal.listDecks);
+  const decks = useQuery(api.decksInternal.listDecks, canFreeform ? {} : "skip");
   // Recent failed runs — so an empty gallery can explain "media created" that
   // didn't pass brand checks rather than looking mysteriously empty.
   const stats = useQuery(api.usage.myStats);
@@ -500,6 +561,18 @@ export default function StudioPage() {
     setComposerOpen(false);
   }
   const isComposerModal = !threadId && composerOpen;
+
+  // The tour spotlights fields that live inside the composer, so opening it
+  // brings the composer up: marketing straight to the details step, GMs to
+  // the template step.
+  useEffect(() => {
+    if (!tourOpen || threadId) return;
+    setTemplateId(null);
+    setStepDir("fwd");
+    setComposerStep(canFreeform ? "details" : "template");
+    setComposerOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourOpen]);
 
   // Escape closes the composer.
   useEffect(() => {
@@ -839,7 +912,7 @@ export default function StudioPage() {
           </p>
           {user?.role && (
             <span className="ml-1 hidden rounded-full border border-[rgba(242,238,230,0.1)] px-2.5 py-0.5 text-[10px] uppercase tracking-widest text-[#8C8278] sm:inline">
-              {user.role}
+              {user.role === "user" ? "GM" : user.role}
             </span>
           )}
         </div>
@@ -880,7 +953,7 @@ export default function StudioPage() {
         </div>
       </header>
 
-      <Walkthrough steps={TOUR_STEPS} open={tourOpen} onClose={closeTour} />
+      <Walkthrough steps={canFreeform ? TOUR_STEPS : GM_TOUR_STEPS} open={tourOpen} onClose={closeTour} />
 
       {/* ── Body ── */}
       <div className="relative flex flex-1 flex-col overflow-visible dt:flex-row dt:overflow-hidden">
@@ -1055,7 +1128,7 @@ export default function StudioPage() {
               )}
 
               {/* Presentations */}
-              {decks && decks.length > 0 && (
+              {canFreeform && decks && decks.length > 0 && (
                 <div className="mt-5 space-y-2">
                   <p className="mm-eyebrow flex items-center gap-1.5">
                     <Presentation className="h-3 w-3" /> Presentations
@@ -1159,7 +1232,7 @@ export default function StudioPage() {
               <Sparkles className="h-4 w-4" /> Create something new
             </button>
             <p className="text-center text-[11px] leading-relaxed text-[#8C8278]">
-              {canFreeform ? "Pick a template, start blank, or build a deck." : "Pick a template, add your event details, done."}
+              {canFreeform ? "Template, blank canvas or presentation." : "Pick a template, add your event. Done."}
             </p>
           </aside>
         ) : (
@@ -1193,25 +1266,31 @@ export default function StudioPage() {
           )}
           {isComposerModal && composerStep === "template" ? (
             <div key="step-template" className={`${stepDir === "back" ? "mm-step-back" : "mm-step-in"} min-h-0 flex-1 overflow-y-auto p-5 sm:p-6`}>
-              <h2 className="text-lg font-light text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>What are you making?</h2>
-              <p className="mt-1 text-xs text-[#8C8278]">{canFreeform ? "Pick a template, start blank, or build a presentation." : "Pick a template, or build a presentation."}</p>
-              <div className={`mt-4 grid gap-3 ${canFreeform ? "grid-cols-2" : "grid-cols-1"}`}>
-                {canFreeform && (
-                  <button type="button" onClick={pickBlank} className="group flex cursor-pointer items-center gap-3 rounded-xl border border-[rgba(242,238,230,0.1)] bg-[rgba(242,238,230,0.02)] px-4 py-3.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-[#CC7A5C]/60">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#CC7A5C]/15 text-[#CC7A5C]"><Sparkles className="h-4 w-4" /></span>
-                    <span><span className="block text-sm font-medium text-[#F2EEE6]">Blank canvas</span><span className="block text-[11px] text-[#8C8278]">Any system, any format</span></span>
-                  </button>
-                )}
-                <button type="button" onClick={pickPresentation} className="group flex cursor-pointer items-center gap-3 rounded-xl border border-[rgba(242,238,230,0.1)] bg-[rgba(242,238,230,0.02)] px-4 py-3.5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-[#CC7A5C]/60">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#CC7A5C]/15 text-[#CC7A5C]"><Presentation className="h-4 w-4" /></span>
-                  <span><span className="block text-sm font-medium text-[#F2EEE6]">Presentation</span><span className="block text-[11px] text-[#8C8278]">Multi-slide deck, PowerPoint export</span></span>
-                </button>
-              </div>
-              <div className="mt-6 flex items-center justify-between">
-                <h3 className="mm-eyebrow">Templates</h3>
-                {canFreeform && <Link href="/templates" className="text-[11px] text-[#8C8278] transition-colors hover:text-[#F2EEE6]">Manage templates →</Link>}
-              </div>
-              <div className="mt-3">
+              {canFreeform ? (
+                <>
+                  <h2 className="text-lg font-light text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>What are you making?</h2>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <button type="button" onClick={pickBlank} className="mm-press group flex cursor-pointer items-center gap-3 rounded-xl border border-[rgba(242,238,230,0.1)] bg-[rgba(242,238,230,0.02)] px-4 py-3.5 text-left transition-[border-color,background-color] duration-300 hover:border-[#CC7A5C]/60 hover:bg-[#CC7A5C]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#CC7A5C]/60">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#CC7A5C]/15 text-[#CC7A5C] transition-transform duration-300 group-hover:scale-110"><Sparkles className="h-4 w-4" /></span>
+                      <span><span className="block text-sm font-medium text-[#F2EEE6]">Blank canvas</span><span className="block text-[11px] text-[#8C8278]">Any system, any format</span></span>
+                    </button>
+                    <button type="button" onClick={pickPresentation} className="mm-press group flex cursor-pointer items-center gap-3 rounded-xl border border-[rgba(242,238,230,0.1)] bg-[rgba(242,238,230,0.02)] px-4 py-3.5 text-left transition-[border-color,background-color] duration-300 hover:border-[#CC7A5C]/60 hover:bg-[#CC7A5C]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#CC7A5C]/60">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#CC7A5C]/15 text-[#CC7A5C] transition-transform duration-300 group-hover:scale-110"><Presentation className="h-4 w-4" /></span>
+                      <span><span className="block text-sm font-medium text-[#F2EEE6]">Presentation</span><span className="block text-[11px] text-[#8C8278]">Multi-slide deck</span></span>
+                    </button>
+                  </div>
+                  <div className="mt-7 flex items-center justify-between">
+                    <h3 className="mm-eyebrow">Or start from a template</h3>
+                    <Link href="/templates" className="text-[11px] text-[#8C8278] transition-colors hover:text-[#F2EEE6]">Manage →</Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-light text-[#F2EEE6]" style={{ fontFamily: "var(--font-display)" }}>Pick a template</h2>
+                  <p className="mt-1 text-xs text-[#8C8278]">Your design keeps this look. You add the event.</p>
+                </>
+              )}
+              <div className="mt-3" data-tour="templates">
                 <TemplatePicker mode="pick" selectedId={templateId} onPick={pickTemplate} />
               </div>
             </div>
@@ -1572,7 +1651,7 @@ export default function StudioPage() {
 
             {/* Design system — hidden while refining (a refinement keeps it) and
                 for presentations (they use the one fixed deck style). */}
-            {!threadId && !isPresentation && !templateId && (
+            {!threadId && !isPresentation && !templateId && canFreeform && (
             <div className="space-y-2.5" data-tour="design-system">
               <label className="mm-eyebrow">Design system</label>
               <div className="space-y-2">
@@ -1619,7 +1698,7 @@ export default function StudioPage() {
 
             {/* Format — hidden while refining (a refinement keeps it) and for
                 presentations (a deck is always 16:9). */}
-            {!threadId && !isPresentation && !templateId && (
+            {!threadId && !isPresentation && !templateId && canFreeform && (
             <div className="space-y-2.5" data-tour="format">
               <label className="mm-eyebrow">Format</label>
               <div className="grid grid-cols-2 gap-2">

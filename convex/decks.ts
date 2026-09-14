@@ -6,6 +6,7 @@ import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { isApproverRole } from "./templates";
 import {
   buildSystemPrompt,
   stripFences,
@@ -283,6 +284,10 @@ export const generateDeck = action({
     if (!userId) throw new ConvexError("You're signed out — sign in and try again.");
     const user = await ctx.runQuery(api.users.getCurrentUser);
     if (!user?.brandId) throw new ConvexError("No brand assigned to your account.");
+    // GMs create from approved templates only; decks are a marketing/admin tool.
+    if (!isApproverRole(user.role)) {
+      throw new ConvexError("Presentations are a marketing-team tool. Pick a template to create a design.");
+    }
 
     if (!process.env.ANTHROPIC_API_KEY) {
       throw new ConvexError("The presentation engine isn't configured (missing API key). Ping an admin.");

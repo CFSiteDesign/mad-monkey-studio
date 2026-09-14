@@ -28,6 +28,7 @@ import type * as render from "../render.js";
 import type * as seed from "../seed.js";
 import type * as templates from "../templates.js";
 import type * as templatesActions from "../templatesActions.js";
+import type * as templatesSeed from "../templatesSeed.js";
 import type * as threads from "../threads.js";
 import type * as usage from "../usage.js";
 import type * as users from "../users.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   templates: typeof templates;
   templatesActions: typeof templatesActions;
+  templatesSeed: typeof templatesSeed;
   threads: typeof threads;
   usage: typeof usage;
   users: typeof users;
