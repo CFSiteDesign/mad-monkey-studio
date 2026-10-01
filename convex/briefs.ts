@@ -5,12 +5,11 @@ import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { textOf } from "../lib/anthropic-text";
 import { FORMAT_DIMENSIONS } from "../lib/prompt";
 
-// Sonnet 5 turns four event answers into a brand-voiced generation brief
-// (the copy on the poster comes from here, so it is worth a real writer).
-const MODEL = "claude-sonnet-5";
+// Haiku turns four event answers into a brand-voiced generation brief.
+// Cheap (~$0.001/call): claude-haiku-4-5 at $0.80/$4 per 1M tokens.
+const MODEL = "claude-haiku-4-5-20251001";
 
 export const composeBrief = action({
   args: {
@@ -24,9 +23,6 @@ export const composeBrief = action({
     // woven in to sharpen the hook and copy.
     followUps:    v.optional(v.array(v.object({ q: v.string(), a: v.string() }))),
     extraDetails: v.optional(v.string()),
-    // Template runs: the style is the template's, so the brief carries only the
-    // hook and the facts (no mood, no sticker copy).
-    templateStyle: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<{ brief: string }> => {
     const userId = await getAuthUserId(ctx);
@@ -46,16 +42,12 @@ The brief you write instructs an SVG poster engine. From the event details provi
 - A suggested hook headline (1–3 punchy UPPERCASE words, ideally a question or challenge) and a cheeky payoff line — the joke lands across the pair.
   THE HOOK MUST BE ABOUT THE ACTUAL EVENT — its setting, drink, or activity. Anchor it to a concrete noun from the event (the beach, the beers, the boat, the pool), not just the day of the week. A "Beers on the Beach" night should feel beachy/beery (e.g. SANDY & SMASHED, BEACH BEERS O'CLOCK) — do NOT drift to an unrelated pun like "WEDNESDAY JUST GOT WETTER" that ignores the beach and the beer. If you can't tie the pun to the event's real subject, choose a plainer on-theme hook.
 - The event details to display, kept VERBATIM as given: title, date, cost (if any), location(s).
-${args.templateStyle
-  ? `- Nothing else. The look is already fixed by the "${args.templateStyle}" template, so do NOT suggest a mood, devices, stickers, badges or colours.
-
-Target asset: a poster in the "${args.templateStyle}" style. Format: ${dim?.label ?? args.format} (${dim?.useCase ?? ""}).`
-  : `- A mood: "pop collage" (loud, sticker-bombed) or "retro print" (bone background, near-monochrome, deadpan) — pick whichever suits the event's energy.
+- A mood: "pop collage" (loud, sticker-bombed) or "retro print" (bone background, near-monochrome, deadpan) — pick whichever suits the event's energy.
 - 1–2 short sticker/badge copy suggestions (≤3 words each, e.g. "FREE SHOTS", "$9 BEDS").
 
-Target asset: ${args.designSystem} design system — ${ds?.description ?? ""}. Format: ${dim?.label ?? args.format} (${dim?.useCase ?? ""}).`}
+Target asset: ${args.designSystem} design system — ${ds?.description ?? ""}. Format: ${dim?.label ?? args.format} (${dim?.useCase ?? ""}).
 
-Rules: ${args.templateStyle ? "40–80" : "60–110"} words. Plain text only — no markdown, no headings, no preamble, no quotes around the whole thing.
+Rules: 60–110 words. Plain text only — no markdown, no headings, no preamble, no quotes around the whole thing.
 NEVER invent or imply any fact that wasn't provided. This includes prices, times, dates and perks, AND any place-specific claim — scenery or geography ("limestone cliffs", "white-sand beach", "jungle", "waterfalls"), landmarks, distances ("5 min from the beach"), "famous for…", "home to…", named nearby attractions, history, weather, or statistics. You may sell brand energy, vibe and the event details given — but if a concrete detail about the place or event wasn't supplied, do NOT state it as fact. When in doubt, keep it about the party and the people, not invented specifics of the location.`;
 
     const followUpLines = (args.followUps ?? [])
@@ -78,14 +70,13 @@ NEVER invent or imply any fact that wasn't provided. This includes prices, times
       maxRetries: 1,
     });
     const res = await anthropic.messages.create({
-      thinking: { type: "disabled" },
       model: MODEL,
       max_tokens: 300,
       system,
       messages: [{ role: "user", content: userMsg }],
     });
 
-    const brief = textOf(res);
+    const brief = res.content[0].type === "text" ? res.content[0].text.trim() : "";
     if (!brief) throw new Error("Couldn't compose the brief — try again.");
     return { brief };
   },
@@ -138,13 +129,12 @@ Return ONLY a JSON array of EXACTLY 3 objects, nothing else:
         maxRetries: 1,
       });
       const res = await anthropic.messages.create({
-      thinking: { type: "disabled" },
         model: MODEL,
         max_tokens: 400,
         system,
         messages: [{ role: "user", content: userMsg }],
       });
-      const text = textOf(res);
+      const text = res.content[0].type === "text" ? res.content[0].text.trim() : "";
       const start = text.indexOf("[");
       const end = text.lastIndexOf("]");
       if (start !== -1 && end > start) {

@@ -4,7 +4,6 @@ import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { textOf } from "../lib/anthropic-text";
 
 const DESCRIBE_PROMPT = `Describe this image in one punchy sentence for a brand image search tool. Mad Monkey Hostels — party hostels, Gen Z travellers, Southeast Asia + Australia.
 
@@ -35,7 +34,6 @@ export const describeImage = action({
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
     const response = await anthropic.messages.create({
-      thinking: { type: "disabled" },
       model: "claude-haiku-4-5-20251001",
       max_tokens: 120,
       messages: [
@@ -52,6 +50,8 @@ export const describeImage = action({
       ],
     });
 
-    return textOf(response);
+    return response.content[0].type === "text"
+      ? response.content[0].text.trim()
+      : "";
   },
 });

@@ -6,8 +6,6 @@ import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { textOf } from "../lib/anthropic-text";
-import { isApproverRole } from "./templates";
 import {
   buildSystemPrompt,
   stripFences,
@@ -23,7 +21,7 @@ import { injectCountryKit, COUNTRY_KIT_DOC } from "../lib/country-kit";
 const OUTLINE_MODEL = "claude-haiku-4-5-20251001";
 // Single slide-generation model: Opus 4.8 ($5/1M in, $25/1M out). The cheap
 // Haiku OUTLINE_MODEL above still plans the deck; slides are always Opus.
-const MODEL = { model: "claude-opus-5", inCost: 5 / 1_000_000, outCost: 25 / 1_000_000 } as const;
+const MODEL = { model: "claude-opus-4-8", inCost: 5 / 1_000_000, outCost: 25 / 1_000_000 } as const;
 
 // Slides are simpler than posters — one correction attempt keeps deck cost sane;
 // a slide that still has hard breaks ships best-effort rather than failing the deck.
@@ -85,13 +83,12 @@ Rules:
 - Headings are punchy and concrete. The deck targets: ${designSystemDesc}.`;
 
   const res = await client.messages.create({
-      thinking: { type: "disabled" },
     model: OUTLINE_MODEL,
     max_tokens: 1500,
     system,
     messages: [{ role: "user", content: brief }],
   });
-  const text = textOf(res);
+  const text = res.content[0].type === "text" ? res.content[0].text : "";
   const cleaned = stripFences(text).trim();
   // Prefer a straight parse; fall back to slicing the outermost { … } object
   // out of any surrounding prose the model may have added.
@@ -160,7 +157,6 @@ async function generateSlide(
 
   for (let attempt = 0; attempt <= MAX_SLIDE_RETRIES; attempt++) {
     const res = await client.messages.create({
-      thinking: { type: "disabled" },
       model,
       max_tokens: 8000,
       system: systemPrompt,
@@ -168,7 +164,7 @@ async function generateSlide(
     });
     inTok += res.usage.input_tokens;
     outTok += res.usage.output_tokens;
-    const raw = textOf(res);
+    const raw = res.content[0].type === "text" ? res.content[0].text : "";
     const outputCode = normalizeSvgRoot(escapeStrayAmpersands(injectCountryKit(injectBrandKit(stripFences(raw)))));
 
     const soft = validateSvg(outputCode, { ...validateOpts, checkTextOverlap: true, checkContainers: true, checkImageTextClip: true });
@@ -287,10 +283,6 @@ export const generateDeck = action({
     if (!userId) throw new ConvexError("You're signed out — sign in and try again.");
     const user = await ctx.runQuery(api.users.getCurrentUser);
     if (!user?.brandId) throw new ConvexError("No brand assigned to your account.");
-    // GMs create from approved templates only; decks are a marketing/admin tool.
-    if (!isApproverRole(user.role)) {
-      throw new ConvexError("Presentations are a marketing-team tool. Pick a template to create a design.");
-    }
 
     if (!process.env.ANTHROPIC_API_KEY) {
       throw new ConvexError("The presentation engine isn't configured (missing API key). Ping an admin.");

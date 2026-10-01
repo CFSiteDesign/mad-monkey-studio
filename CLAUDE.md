@@ -154,30 +154,17 @@ system prompt and Claude picks by description match. Any signed-in user can uplo
 post-generation (`lib/inline-images.ts`) because SVG-as-img rasterisation blocks all
 external resources — without it, exports silently lose photos and logos.
 
-## Templates (Sep 2026): the style choice for everyone
+## Branches: public vs private build (1 Oct 2026)
 
-The design-system picker is gone from the UI. A **template** is an approved reference
-image (`templates` table: `referenceStorageId`, `layoutSpec` + `referenceText` written by
-`templatesActions.describeTemplate` with vision, `designSystem` = the colour/font rules it
-carries, default `brand`). Roles: `admin` / `marketing` upload + approve on `/templates`
-(self-approval allowed) and keep Blank canvas + Presentations; `user` (GMs) can only create
-from an approved template and cannot build decks (`decks.generateDeck` throws).
+`main` = the PUBLIC Studio: design-system picker (Brand / Girly Pop / Minimal Bold),
+Presentations for every role, no templates. Vercel deploys `main`; `npx convex deploy`
+from `main` is production.
 
-Generation with a template (`generateAsset({ templateId })`): the reference is sent as a
-vision block with `lib/template-replication.ts > replicationBrief` = STYLE TRANSFER, not
-tracing (borrow composition, type attitude, colour logic, devices; a real image-bank photo is
-mandatory; illustrations/silhouettes in the reference become photos with a matching
-treatment; lean copy). `buildSystemPrompt(..., { styleFromReference: true })` cuts the brand
-doc to governance sections (`governanceOnly`) and drops the design-system guidelines. Hard
-gates: `copiedReferenceText` and `missingBriefFacts`. The user picks any size; the template
-only sets the default (`nativeFormat` adds a re-flow rule). `briefs.composeBrief` takes
-`templateStyle` and writes hook + facts only.
-
-Seeding the 25 built-in poster styles: `python3 scripts/crop-style-screenshots.py <dir>`
-then `node scripts/seed-style-templates.mjs [--prod]` (see `scripts/style-templates.json`).
-`/dev/ui` is a dev-only design playground (404 in production) for looking at the shell
-without signing in. Models: generation + decks `claude-opus-5`, brief writer + template
-describe `claude-sonnet-5`.
+`templates-next` = the PRIVATE build of template-driven creation (reference images,
+style transfer, the 25 poster styles, composer sheet, Claude 5 models). Develop it on the
+local Convex backend only; never deploy it to production until Charlie says so. The
+`templates` table and `generations.templateId` stay in `main`'s schema purely so the rows
+that build wrote to production keep validating.
 
 ## Convex schema tables
 

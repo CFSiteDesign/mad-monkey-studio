@@ -103,21 +103,6 @@ export type BrandMarks = {
 
 const PENDING_PREFIX = "PENDING";
 
-const GOVERNANCE_SECTIONS = /^(COLOURS|TYPOGRAPHY|GLOBAL LAYOUT PRINCIPLES|LAYOUT HYGIENE|LOGO|PHOTO TREATMENTS|VOICE|OUTPUT)\b/;
-
-/** The brand doc with its style recipes removed: sections are `━━ NAME ━━` blocks. */
-export function governanceOnly(doc: string): string {
-  const parts = doc.split(/(?=━━ [^━]+ ━━)/);
-  return parts
-    .filter((p, i) => {
-      if (i === 0) return true; // intro: who the brand is
-      const m = p.match(/^━━ ([^━]+?) ━━/);
-      return m ? GOVERNANCE_SECTIONS.test(m[1].trim()) : false;
-    })
-    .join("")
-    .trim();
-}
-
 export function buildSystemPrompt(
   config: BrandConfig,
   ds: DesignSystem,
@@ -125,14 +110,8 @@ export function buildSystemPrompt(
   images: BankImage[] = [],
   marks: BrandMarks = {},
   extraColors: string[] = [],
-  opts: { styleFromReference?: boolean } = {},
 ): string {
   const dim = FORMAT_DIMENSIONS[format];
-  // Template runs: the reference image in the user turn owns the STYLE, so the
-  // brand doc is cut down to governance (colours, type, layout hygiene, logo,
-  // photo craft, voice, output) and the default sticker-collage devices,
-  // shadows, grain and composition recipes are left out.
-  const brandDoc = opts.styleFromReference ? governanceOnly(config.claudeMd) : config.claudeMd;
   // A design system with its own palette replaces the brand colours outright.
   const pal = ds?.palette ?? config.palette;
   const allColours = [...pal.primary, ...pal.secondary, ...pal.neutral];
@@ -141,7 +120,7 @@ export function buildSystemPrompt(
   const h = dim?.h ?? 1080;
 
   const sections: string[] = [
-    brandDoc,
+    config.claudeMd,
     "",
     BRAND_KIT_DOC,
     `━━ TARGET FORMAT (decide layout BEFORE anything else) ━━`,
@@ -156,13 +135,7 @@ export function buildSystemPrompt(
     "",
   ];
 
-  if (opts.styleFromReference) {
-    sections.push(`━━ STYLE: FROM THE ATTACHED REFERENCE ━━`);
-    sections.push(
-      `The look of this asset comes from the STYLE REFERENCE image in the user message, not from a house style. Everything above is governance (approved colours and fonts, layout hygiene, logo, photo craft, voice, output). Where the reference's type treatment, colour blocking, composition or decorative language differs from any default recipe above (outlined headlines, hard shadows, sticker layers, grain, rotated elements), follow the reference. Add nothing the reference's style would not have.`,
-    );
-    sections.push("");
-  } else if (ds && !ds.guidelines.startsWith(PENDING_PREFIX)) {
+  if (ds && !ds.guidelines.startsWith(PENDING_PREFIX)) {
     sections.push(`━━ DESIGN SYSTEM: ${ds.label.toUpperCase()} ━━`);
     sections.push(ds.guidelines);
     sections.push("");

@@ -97,10 +97,11 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_brand", ["brandId"]),
 
-  // Approved reference designs GMs create from (see convex/templates.ts).
-  // Marketing/admins upload an inspiration image → "pending" → one of them
-  // approves → GMs can pick it. The reference image is shown to Claude (vision)
-  // at generation time so the layout is reproduced, not reinterpreted.
+  // Reference-design templates. The feature is being built privately on the
+  // `templates-next` branch and is NOT part of the public Studio; this table
+  // (and generations.templateId below) stay defined here only so production
+  // data written by that build keeps validating on deploy. Nothing on this
+  // branch reads or writes it.
   templates: defineTable({
     brandId: v.id("brands"),
     name: v.string(),
