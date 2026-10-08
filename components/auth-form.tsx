@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, ArrowRight, Check } from "lucide-react";
@@ -53,6 +53,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Shareable link: /sign-up?email=community@madmonkeyhostels.com pre-fills the
+  // address so a team creates the ONE shared account it was sent, not their own.
+  // Read from window (not useSearchParams) to stay clear of Suspense requirements.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("email");
+    if (q && /@madmonkeyhostels\.com$/i.test(q.trim())) setEmail(q.trim().toLowerCase());
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
