@@ -38,6 +38,15 @@ export const FORMAT_DIMENSIONS: Record<string, FormatSpec> = {
     guidance:
       "Full-bleed vertical canvas. Keep the focal message in the upper-middle. SAFE ZONES: keep critical text/logo out of the top ~14% (250px) and bottom ~20% (380px) where app UI overlays sit. Big, thumb-stopping type; single idea; high contrast. Compose specifically tall — never centre a square design in the frame.",
   },
+  whatsapp: {
+    w: 1080,
+    h: 1350,
+    label: "1080 × 1350 px — WhatsApp chat image",
+    orientation: "portrait",
+    useCase: "WhatsApp group / broadcast message image (shown in full inside the chat bubble, read at thumbnail size)",
+    guidance:
+      "This image is read inside a WhatsApp chat bubble about 330px wide, often without being opened, and WhatsApp re-compresses it. Design for THUMBNAIL legibility: ONE short headline at least 1/6 of the canvas height, then the facts (when · where · price) in 2–3 lines at ≥48px, one CTA line, nothing else. No fine print, no small stickers, no thin outlines or hairline details (compression eats them). Extra-high contrast: solid colour fields, big flat shapes, one bold photo block at most. Generous margins (~8%) so nothing sits under the bubble's rounded corners. The wordmark stays small but clear. If it is not readable at a quarter of its size, it is wrong.",
+  },
   "A4": {
     w: 794,
     h: 1123,

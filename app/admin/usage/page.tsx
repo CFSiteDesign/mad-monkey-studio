@@ -29,6 +29,7 @@ const ASPECT: Record<string, string> = {
   "4:5": "aspect-[4/5]",
   "9:16": "aspect-[9/16]",
   A4: "aspect-[794/1123]",
+  whatsapp: "aspect-[4/5]",
 };
 
 /** Sanitised SVG thumbnail for a creation (renders bank photos via their URL refs). */
@@ -60,7 +61,7 @@ function SvgThumb({ code, format, className = "" }: { code: string; format?: str
 
 function arOf(format?: string): number {
   return (
-    ({ "1:1": 1, "4:5": 4 / 5, "9:16": 9 / 16, A4: 794 / 1123, presentation: 16 / 9 } as Record<string, number>)[
+    ({ "1:1": 1, "4:5": 4 / 5, "9:16": 9 / 16, A4: 794 / 1123, whatsapp: 4 / 5, presentation: 16 / 9 } as Record<string, number>)[
       format ?? ""
     ] ?? 1
   );

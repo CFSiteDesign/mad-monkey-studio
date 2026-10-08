@@ -37,6 +37,7 @@ const RESIZE_FORMATS: { id: string; label: string }[] = [
   { id: "4:5", label: "Insta post · 4:5" },
   { id: "9:16", label: "Story / Reel / TikTok · 9:16" },
   { id: "A4", label: "Poster · A4" },
+  { id: "whatsapp", label: "WhatsApp message · 4:5" },
 ];
 
 const EXPORT_ICONS: Record<ExportKind, typeof FileImage> = {
@@ -52,6 +53,7 @@ const ASPECT: Record<string, string> = {
   "4:5": "aspect-[4/5]",
   "9:16": "aspect-[9/16]",
   "A4": "aspect-[794/1123]",
+  whatsapp: "aspect-[4/5]",
 };
 
 // width ÷ height — used to size the artwork to fit both the canvas width and the
@@ -61,6 +63,7 @@ const AR_NUM: Record<string, number> = {
   "4:5": 4 / 5,
   "9:16": 9 / 16,
   "A4": 794 / 1123,
+  whatsapp: 4 / 5,
 };
 
 export type FeedGeneration = {
