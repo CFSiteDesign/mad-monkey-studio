@@ -45,7 +45,8 @@ const FORMATS = [
   { id: "4:5", ratio: "aspect-[4/5]", name: "Insta Post Size" },
   { id: "9:16", ratio: "aspect-[9/16]", name: "Story, Reel or TikTok shapes" },
   { id: "A4", ratio: "aspect-[794/1123]", name: "Poster" },
-  { id: "whatsapp", ratio: "aspect-[4/5]", name: "Chat image, shows in full", span: true },
+  { id: "whatsapp", ratio: "aspect-[4/5]", name: "Portrait chat image", title: "WhatsApp" },
+  { id: "whatsapp-landscape", ratio: "aspect-[1600/1052]", name: "Landscape chat image", title: "WhatsApp", landscape: true },
 ] as const;
 
 const DESIGN_SYSTEMS = [
@@ -76,6 +77,7 @@ const ASPECT: Record<string, string> = {
   "9:16": "aspect-[9/16]",
   "A4": "aspect-[794/1123]",
   whatsapp: "aspect-[4/5]", // WhatsApp chat image (1080×1350, shows in full in the bubble)
+  "whatsapp-landscape": "aspect-[1600/1052]", // WhatsApp landscape chat image (1600×1052)
   "16:9": "aspect-[16/9]", // presentation slides (1920×1080)
   presentation: "aspect-[16/9]",
 };
@@ -312,7 +314,7 @@ export default function StudioPage() {
     {
       target: '[data-tour="format"]',
       title: "2 · Choose the format",
-      body: "Pick the size and the Brand system tailors the look to it — 1:1, 4:5 or 9:16 for social, WhatsApp for a chat-ready image, A4 for print, or Presentation for a multi-slide deck. The layout locks to this before you write a word.",
+      body: "Pick the size and the Brand system tailors the look to it — 1:1, 4:5 or 9:16 for social, WhatsApp (portrait or landscape) for a chat-ready image, A4 for print, or Presentation for a multi-slide deck. The layout locks to this before you write a word.",
       onEnter: () => {
         setDesignSystem("brand");
         setFormat("4:5");
@@ -1437,7 +1439,8 @@ export default function StudioPage() {
               <div className="grid grid-cols-2 gap-2">
                 {FORMATS.map((f) => {
                   const { id, ratio, name } = f;
-                  const span = "span" in f && f.span;
+                  const title = "title" in f ? f.title : id;
+                  const landscape = "landscape" in f && f.landscape;
                   const active = format === id;
                   return (
                     <button
@@ -1446,7 +1449,7 @@ export default function StudioPage() {
                       onClick={() => setFormat(id)}
                       aria-pressed={active}
                       title={FORMAT_DIMENSIONS[id]?.label ?? id}
-                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-all duration-200 ${span ? "col-span-2" : ""} ${
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-all duration-200 ${
                         active
                           ? "border-[#CC7A5C]/70 bg-[#CC7A5C]/10"
                           : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.2)]"
@@ -1454,12 +1457,12 @@ export default function StudioPage() {
                     >
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center">
                         <span
-                          className={`${ratio} w-auto rounded-[3px] border ${
+                          className={`${ratio} rounded-[3px] border ${landscape ? "h-auto" : "w-auto"} ${
                             active
                               ? "border-[#CC7A5C] bg-[#CC7A5C]/25"
                               : "border-[#8C8278]/50 bg-[rgba(242,238,230,0.04)]"
                           }`}
-                          style={{ height: "1.6rem" }}
+                          style={landscape ? { width: "1.7rem" } : { height: "1.6rem" }}
                         />
                       </span>
                       <span className="min-w-0">
@@ -1468,7 +1471,7 @@ export default function StudioPage() {
                             active ? "text-[#F2EEE6]" : "text-[#CFC8BD]"
                           }`}
                         >
-                          {id === "whatsapp" ? "WhatsApp" : id}
+                          {title}
                         </span>
                         <span className="block text-[10px] leading-tight text-[#8C8278]">
                           {name}

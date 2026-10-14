@@ -47,6 +47,15 @@ export const FORMAT_DIMENSIONS: Record<string, FormatSpec> = {
     guidance:
       "This image is read inside a WhatsApp chat bubble about 330px wide, often without being opened, and WhatsApp re-compresses it. Design for THUMBNAIL legibility: ONE short headline at least 1/6 of the canvas height, then the facts (when · where · price) in 2–3 lines at ≥48px, one CTA line, nothing else. No fine print, no small stickers, no thin outlines or hairline details (compression eats them). Extra-high contrast: solid colour fields, big flat shapes, one bold photo block at most. Generous margins (~8%) so nothing sits under the bubble's rounded corners. The wordmark stays small but clear. If it is not readable at a quarter of its size, it is wrong.",
   },
+  "whatsapp-landscape": {
+    w: 1600,
+    h: 1052,
+    label: "1600 × 1052 px — WhatsApp landscape image",
+    orientation: "landscape",
+    useCase: "WhatsApp group / broadcast message image, landscape (fills the chat bubble width, read at thumbnail size)",
+    guidance:
+      "Wide banner read inside a WhatsApp chat bubble about 330px wide, often without being opened, and re-compressed by WhatsApp. Split the canvas into two side-by-side zones: a bold photo or colour block on one side, the text column on the other (never text across the whole width). ONE short headline at least 1/5 of the canvas height, then the facts (when · where · price) in 2–3 lines at ≥52px, one CTA line, nothing else. No fine print, no small stickers, no hairline details. Extra-high contrast, solid colour fields. Generous margins (~6%) so nothing sits under the bubble's rounded corners. If it is not readable at a quarter of its size, it is wrong.",
+  },
   "A4": {
     w: 794,
     h: 1123,
