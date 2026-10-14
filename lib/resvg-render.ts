@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { encode as jpegEncode } from "jpeg-js";
 import { MONTSERRAT_FONTS_B64, DISPLAY_FONTS_B64, MONT_FAMILY, INTER_FONTS_B64, INTER_FAMILY } from "./brand-fonts";
 import { GIRLY_FONTS_B64 } from "./girly-fonts";
+import { CURRENCY_FONTS_B64 } from "./currency-fonts";
 import { normalizeSvgRoot } from "./validate";
 
 let fontsPromise: Promise<Buffer[]> | null = null;
@@ -30,9 +31,13 @@ let fontFilesPromise: Promise<string[]> | null = null;
 // and the SVG's font-weight is rewritten to that family (remapMontserratWeights).
 // The Girly Pop faces are bundled as Latin subsets (see girly-fonts.ts); Caveat
 // and Baloo 2 keep their variable weight axis so 700/800 render correctly.
+// Currency signs: no brand face has ฿ or ៛ (and several lack ₫ ₱ ₭), so three
+// glyph-only fallback fonts (currency-fonts.ts) are loaded first; resvg falls
+// back per glyph, so "฿600" exports instead of a box (Katrina, 14 Oct 2026).
 const FONT_URLS: string[] = [];
 
 const BUNDLED_BUFFERS: Buffer[] = [
+  ...CURRENCY_FONTS_B64, // ฿ ៛ ₫ ₱ ₭ fallbacks FIRST so missing signs resolve to a heavy glyph
   ...Object.values(MONTSERRAT_FONTS_B64),
   ...Object.values(DISPLAY_FONTS_B64),
   ...Object.values(INTER_FONTS_B64),
