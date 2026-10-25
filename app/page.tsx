@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sanitizeSvg, scopeSvgIds } from "@/lib/sanitize-svg";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -23,6 +23,11 @@ import {
   ImageOff,
   Check,
   Contrast,
+  Camera,
+  Bold,
+  Star,
+  Type,
+  Moon,
   Plus,
   Trash2,
   Wand2,
@@ -67,6 +72,42 @@ const DESIGN_SYSTEMS = [
     label: "Minimal Bold",
     desc: "Monochrome editorial — giant type over a black & white photo",
     Icon: Contrast,
+  },
+  // Event templates (Oct 2026): built for nightly events, Story + WhatsApp landscape.
+  {
+    name: "event-photo",
+    label: "Event Photo",
+    desc: "The event's own photo, big white title, details and time",
+    Icon: Camera,
+    group: "Event templates",
+  },
+  {
+    name: "big-block",
+    label: "Big Block",
+    desc: "Vibe photo, giant slanted block title in colour",
+    Icon: Bold,
+    group: "Event templates",
+  },
+  {
+    name: "spotlight",
+    label: "Spotlight",
+    desc: "Purple page, giant orange title, cut-out people in front",
+    Icon: Star,
+    group: "Event templates",
+  },
+  {
+    name: "giant-type",
+    label: "Giant Type",
+    desc: "One bold colour, giant stacked title, people in front",
+    Icon: Type,
+    group: "Event templates",
+  },
+  {
+    name: "underground",
+    label: "Underground",
+    desc: "Moody black & white photo, small type, giant date",
+    Icon: Moon,
+    group: "Event templates",
   },
 ] as const;
 
@@ -1390,11 +1431,20 @@ export default function StudioPage() {
             <div className="space-y-2.5" data-tour="design-system">
               <label className="mm-eyebrow">Design system</label>
               <div className="space-y-2">
-                {DESIGN_SYSTEMS.map(({ name, label, desc, Icon }) => {
+                {DESIGN_SYSTEMS.map((sys, i) => {
+                  const { name, label, desc, Icon } = sys;
+                  const group = "group" in sys ? sys.group : undefined;
+                  const prev = i > 0 ? DESIGN_SYSTEMS[i - 1] : undefined;
+                  const startsGroup = Boolean(group) && !(prev && "group" in prev && prev.group === group);
                   const active = designSystem === name;
                   return (
+                    <Fragment key={name}>
+                    {startsGroup && (
+                      <p className="pt-2 text-[10px] uppercase tracking-[0.18em] text-[#8C8278]">
+                        {group} <span className="normal-case tracking-normal text-[#8C8278]/70">· best as Story or WhatsApp landscape</span>
+                      </p>
+                    )}
                     <button
-                      key={name}
                       type="button"
                       onClick={() => setDesignSystem(name)}
                       aria-pressed={active}
@@ -1425,6 +1475,7 @@ export default function StudioPage() {
                       </span>
                       {active && <Check className="h-4 w-4 shrink-0 text-[#CC7A5C]" />}
                     </button>
+                    </Fragment>
                   );
                 })}
               </div>

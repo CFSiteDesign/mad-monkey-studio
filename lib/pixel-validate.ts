@@ -8,6 +8,7 @@
 // and treat any throw as "skip" — this layer is best-effort by design; the
 // attribute checks and prompt rules still apply underneath it.
 
+import { isDecorativeText } from "./validate";
 import { renderSvg } from "./resvg-render";
 
 type RGB = [number, number, number];
@@ -20,6 +21,14 @@ export type PixelValidateOptions = {
   marks: PixelMark[];
   /** Min px every brand mark must keep from each canvas edge. Default 36. */
   edgePad?: number;
+  /** Image hrefs that are transparent cut-outs (people lifted off their
+   *  background). Painted as a grey box they would "hide" the headline they
+   *  are designed to stand in front of, so they are left out of the audit... */
+  seeThrough?: string[];
+  /** ...unless their pixels are supplied here (href → data URL): then they
+   *  are drawn with their real transparency, so only the people themselves
+   *  count as covering a letter. */
+  cutoutData?: Record<string, string>;
 };
 
 const TOL = 30;            // per-channel sentinel match tolerance
@@ -212,6 +221,7 @@ function paintSvg(svg: string, opts: PixelValidateOptions, sentinels: RGB[]): Pa
     /<text\b([^>]*)>([\s\S]*?)<\/text>/gi,
     (full, attrs: string, inner: string, offset: number) => {
       if (defs1.some(([s, e]) => offset > s && offset < e)) return full;
+      if (isDecorativeText(attrs)) return full; // ghost/background type is meant to bleed and sit under everything
       const rgb = take();
       if (!rgb) return full;
       const hex = rgbToHex(rgb);
@@ -243,6 +253,9 @@ function paintSvg(svg: string, opts: PixelValidateOptions, sentinels: RGB[]): Pa
         "";
       const w = numAttr(attrs, "width");
       if (w === null) return full;
+      const data = opts.cutoutData?.[href];
+      if (data) return full.replace(/((?:xlink:)?href\s*=\s*["'])[^"']*(["'])/i, `$1${data}$2`);
+      if (opts.seeThrough?.includes(href)) return "";
       const mark = opts.marks.find((mk) => mk.pattern.test(href));
       const h = numAttr(attrs, "height") ?? (/logo/.test(href) ? w * 0.3 : w);
       const x = numAttr(attrs, "x") ?? 0;
@@ -479,7 +492,7 @@ export async function pixelValidate(
     if (inCanvas > 24 && vis / inCanvas < COVERED_MAX) {
       hard.push(
         el.kind === "text"
-          ? `PIXEL CHECK — the text "${el.name}" is mostly hidden behind other elements — nothing may sit on top of text. Move the covering shape/photo or relocate the text so it is fully visible.`
+          ? `PIXEL CHECK — the text "${el.name}" is mostly hidden behind other elements: more than 45% of it is covered (by a shape, photo or cut-out people). Keep at least 55% of every line visible: move or shrink whatever covers it, or move the text.`
           : `PIXEL CHECK — the ${el.name} is mostly hidden behind other elements — brand marks must be fully visible. Move whatever covers it.`,
       );
     }

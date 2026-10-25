@@ -98,9 +98,105 @@ type DesignSystem = {
   // defaults (palette hexes in the prompt, the FONT ENFORCEMENT block).
   palette?: Palette | null;
   fontRules?: string | null;
+  effects?: { ownStyle?: boolean; photoRequired?: boolean; useCutouts?: boolean } | null;
 } | null | undefined;
 
-export type BankImage = { url: string; description: string };
+/** A bank photo as the model sees it. Analysis fields (normalised 0..1) are
+ *  present when the photo has been analysed (scripts/analyze-bank or upload). */
+export type BankImage = {
+  url: string;
+  description: string;
+  width?: number;
+  height?: number;
+  subjectBox?: { x0: number; y0: number; x1: number; y1: number };
+  faceBand?: { y0: number; y1: number; x0?: number; x1?: number };
+  cutoutUrl?: string;
+  cutoutWidth?: number;
+  cutoutHeight?: number;
+  cutoutSliced?: string;
+  hasText?: boolean;
+};
+
+// Brand-doc sections that are governance (kept for "own style" templates). The
+// rest — SHADOWS, COMPOSITION, BRAND DEVICES, TYPOGRAPHY recipes, PHOTO
+// TREATMENTS, TEXTURE, BANNED, LAYOUT HYGIENE's photo rules — is the house
+// sticker-collage recipe, which a template's own guidelines replace.
+const GOVERNANCE_SECTIONS = /^(COLOURS|GLOBAL LAYOUT PRINCIPLES|LOGO|VOICE|OUTPUT)\b/;
+
+/** The brand doc cut to governance: intro + the GOVERNANCE_SECTIONS blocks. */
+export function governanceOnly(doc: string): string {
+  return doc
+    .split(/(?=━━ [^━]+ ━━)/)
+    .filter((part, i) => {
+      if (i === 0) return true;
+      const m = part.match(/^━━ ([^━]+?) ━━/);
+      return m ? GOVERNANCE_SECTIONS.test(m[1].trim()) : false;
+    })
+    .join("")
+    .trim();
+}
+
+const pct = (v: number) => Math.round(Math.max(0, Math.min(100, v)));
+
+/**
+ * Exact full-bleed geometry for a photo on a W×H canvas, framed so the FACES
+ * stay in view (horizontally centred on them; vertically choosing the position
+ * that leaves the biggest face-free band for text), plus where the faces and
+ * subject land in canvas %. Returns null when the photo hasn't been analysed.
+ */
+export function fullBleedHint(img: BankImage, W: number, H: number): string | null {
+  if (!img.width || !img.height) return null;
+  const s = Math.max(W / img.width, H / img.height);
+  const dw = img.width * s;
+  const dh = img.height * s;
+  const faces = img.faceBand;
+  const subj = img.subjectBox;
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  // Horizontal: centre the faces (else the subject) when the photo is wider.
+  let ox = (W - dw) / 2;
+  if (dw - W > 1) {
+    const fx =
+      faces?.x0 != null && faces?.x1 != null
+        ? (faces.x0 + faces.x1) / 2
+        : subj
+          ? (subj.x0 + subj.x1) / 2
+          : 0.5;
+    ox = clamp(W / 2 - fx * dw, W - dw, 0);
+  }
+  // Vertical: of top / middle / bottom, keep faces in and maximise free space.
+  let oy = (H - dh) / 2;
+  if (dh - H > 1) {
+    const options = [0, (H - dh) / 2, H - dh];
+    const score = (o: number) => {
+      const my = (y: number) => ((o + y * dh) / H) * 100;
+      if (faces) {
+        const f0 = my(faces.y0), f1 = my(faces.y1);
+        return Math.max(f0 - 4, 100 - (f1 + 4)) - (f0 < -1 || f1 > 101 ? 1000 : 0);
+      }
+      return subj ? -Math.abs(my((subj.y0 + subj.y1) / 2) - 55) : 0;
+    };
+    oy = options.sort((a, b) => score(b) - score(a))[0];
+  }
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  const my = (y: number) => ((oy + y * dh) / H) * 100;
+  const mx = (x: number) => ((ox + x * dw) / W) * 100;
+  const parts = [
+    `full-bleed: x="${r1(ox)}" y="${r1(oy)}" width="${r1(dw)}" height="${r1(dh)}" preserveAspectRatio="none"`,
+  ];
+  if (subj) parts.push(`subject x ${pct(mx(subj.x0))}–${pct(mx(subj.x1))}%, y ${pct(my(subj.y0))}–${pct(my(subj.y1))}%`);
+  if (faces) {
+    const f0 = pct(my(faces.y0)), f1 = pct(my(faces.y1));
+    const fx = faces.x0 != null && faces.x1 != null ? `, x ${pct(mx(faces.x0))}–${pct(mx(faces.x1))}%` : "";
+    parts.push(`FACES y ${f0}–${f1}%${fx}`);
+    const bands: string[] = [];
+    if (f0 - 4 >= 18) bands.push(`top y 0–${f0 - 4}%`);
+    if (100 - (f1 + 4) >= 18) bands.push(`bottom y ${f1 + 4}–100%`);
+    parts.push(bands.length ? `text-safe: ${bands.join(", ")}` : `no face-free band: needs a scrim`);
+  } else {
+    parts.push(`no faces detected`);
+  }
+  return parts.join("; ");
+}
 
 /** Display faces matched to the real poster styles (all Google Fonts). */
 export const DISPLAY_FONTS = ["Montserrat", "Anton", "Archivo Black", "Titan One", "Baloo 2"];
@@ -137,8 +233,13 @@ export function buildSystemPrompt(
   const w = dim?.w ?? 1080;
   const h = dim?.h ?? 1080;
 
+  // "Own style" templates keep the brand's governance but not its house recipe.
+  const brandDoc = ds?.effects?.ownStyle ? governanceOnly(config.claudeMd) : config.claudeMd;
+  const photoLed = Boolean(ds?.effects?.photoRequired);
+  const useCutouts = Boolean(ds?.effects?.useCutouts);
+
   const sections: string[] = [
-    config.claudeMd,
+    brandDoc,
     "",
     BRAND_KIT_DOC,
     `━━ TARGET FORMAT (decide layout BEFORE anything else) ━━`,
@@ -163,7 +264,35 @@ export function buildSystemPrompt(
     sections.push("");
   }
 
-  if (images.length > 0) {
+  if (images.length > 0 && photoLed) {
+    sections.push(
+      `━━ IMAGE BANK (real brand photography) — THIS STYLE IS PHOTO-LED ━━`,
+      `Every design in this style uses ONE real photo from this list. Never replace it with flat shapes, never invent a URL. Choose by DESCRIPTION — you cannot see the pixels:`,
+      `1. FIRST CHOICE: a photo of THIS event's literal activity or setting (bicycle tour → people on bikes; river/boat cruise → people ON a boat or deck; karaoke or club night → a bar/club night crowd; beer pong → a drinking game; beach event → the beach; pool party → the pool).`,
+      `   NEVER pick a photo whose activity contradicts the event: an underwater dive is not a cruise, a pool is not a beach, a daytime beach is not a club night, a food plate is not a party.`,
+      `   ACTIVITY BEATS MOOD: the literal activity or setting outranks time of day and lighting. A boat cruise uses a boat or deck photo even if it is daytime; a bike tour uses bikes even without a sunset. The brief's PHOTO line says what to look for.`,
+      `2. If no photo shows that activity, use a GENERAL MAD MONKEY VIBE photo: a group of young travellers clearly having a great time (party crowd, bar night, pool or beach group), matching the event's time of day where possible (night event → night/bar/club shot; daytime trip → daylight outdoor group).`,
+      `3. NEVER use: food or drink close-ups, product shots (cans, bottles, syringes), menus, flyers, posters, maps, diagrams or flowcharts, empty landscapes, or staff/reception line-ups, unless the event is literally about that thing (a food night may use a food shot).`,
+      `The headline may be a pun: pick by the real activity, never the joke.`,
+      `Per-photo layout data (when shown) is MEASURED from the pixels for THIS ${w}×${h} canvas: for a full-bleed photo copy the given x / y / width / height / preserveAspectRatio EXACTLY (they frame the faces), and keep every text block inside a "text-safe" band. Text must NEVER sit across the FACES band.`,
+      ...images.map((img, i) => {
+        const hint = fullBleedHint(img, w, h);
+        const cut =
+          useCutouts && img.cutoutUrl
+            ? `\n   CUTOUT (people lifted out, transparent PNG, ${img.cutoutWidth ?? "?"}×${img.cutoutHeight ?? "?"} px${img.cutoutSliced ? `, people cut off at its ${img.cutoutSliced.toUpperCase()} edge: place it flush against the poster's ${img.cutoutSliced} edge` : ""}): ${img.cutoutUrl}`
+            : "";
+        const words = img.hasText ? `\n   [HAS PRINTED WORDS in the picture: never use it as a background]` : "";
+        return `${i + 1}. ${img.url}\n   → ${img.description}${words}${hint ? `\n   [${hint}]` : ""}${cut}`;
+      }),
+      `Embedding rules:`,
+      `- Full-bleed photo: <image href="EXACT_URL_FROM_LIST" …/> with the exact x / y / width / height / preserveAspectRatio given in that photo's [full-bleed: …] data. For a photo without layout data use x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice".`,
+      useCutouts
+        ? `- A CUTOUT url is a transparent PNG of the photo's people: place it with preserveAspectRatio="xMidYMax meet" and a width/height in the listed aspect ratio. Only use a cutout URL exactly as listed; photos without a CUTOUT line have none.`
+        : "",
+      `- Use ONLY URLs from this list, character-for-character. NEVER invent, modify, or guess an image URL.`,
+      "",
+    );
+  } else if (images.length > 0) {
     sections.push(
       `━━ IMAGE BANK (real brand photography) ━━`,
       `These are real Mad Monkey photos. Choose by DESCRIPTION — you cannot see the pixels.`,

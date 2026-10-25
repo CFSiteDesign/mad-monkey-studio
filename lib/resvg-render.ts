@@ -14,6 +14,7 @@ import { MONTSERRAT_FONTS_B64, DISPLAY_FONTS_B64, MONT_FAMILY, INTER_FONTS_B64, 
 import { GIRLY_FONTS_B64 } from "./girly-fonts";
 import { CURRENCY_FONTS_B64 } from "./currency-fonts";
 import { normalizeSvgRoot } from "./validate";
+import { fillMarkSizes, pushDownTextAttrs } from "./svg-text-attrs";
 
 let fontsPromise: Promise<Buffer[]> | null = null;
 let fontFilesPromise: Promise<string[]> | null = null;
@@ -119,7 +120,7 @@ function loadBrandFontFiles(): Promise<string[]> {
 
 /** Make the SVG valid for resvg's strict XML parser. */
 function cleanForResvg(svg: string): string {
-  return normalizeSvgRoot(remapMontserratWeights(svg))
+  return normalizeSvgRoot(remapMontserratWeights(fillMarkSizes(pushDownTextAttrs(svg))))
     .replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, "&amp;")
     .replace(/@import\s+url\([^)]*\)\s*;?/gi, ""); // resvg uses bundled fonts, not remote CSS
 }

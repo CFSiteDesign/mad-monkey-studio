@@ -154,6 +154,24 @@ system prompt and Claude picks by description match. Any signed-in user can uplo
 post-generation (`lib/inline-images.ts`) because SVG-as-img rasterisation blocks all
 external resources — without it, exports silently lose photos and logos.
 
+## Event templates (Oct 2026)
+
+Five photo-led styles for nightly-event posters (IG story + WhatsApp landscape),
+from the marketing brief + moodboard: `event-photo`, `big-block`, `spotlight`,
+`giant-type`, `underground`. They are rows in `design_systems`, seeded by
+`convex/seedTemplates.ts` (the spec text lives there; edit, wait for "functions
+ready", then reseed: `npx convex run seedTemplates:seedEventTemplates [--prod]`).
+Their `effects` switch on: own style spec, a mandatory bank photo, the title-mode
+brief (`convex/briefs.ts` + `lib/brief-tidy.ts`), cut-outs, and exact validators in
+`lib/validate.ts` (faces, cut-out placement, line collisions, required/repeated
+facts, story safe zone, stack size). Quality checks ship as notes if they are all
+that is left after the last retry (`EVENT_QUALITY_PATTERNS` in generations.ts).
+
+Photo analysis (face band, subject, people cut-out, printed-words flag) comes from
+macOS Vision, so it runs on a Mac: `node scripts/analyze-bank.mjs [--prod] [--force]`.
+Re-run it after new bank uploads to give them cut-outs; uploads get a rough Haiku
+estimate (`imageBankActions.analyzeUpload`) in the meantime.
+
 ## Branches: public vs private build (1 Oct 2026)
 
 `main` = the PUBLIC Studio: design-system picker (Brand / Girly Pop / Minimal Bold),

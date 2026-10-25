@@ -2,6 +2,8 @@
 // Parses Claude's SVG for off-palette colours, unapproved fonts, soft
 // shadows and gradient abuse. Any violation triggers auto-regeneration.
 
+import { FONT_ADVANCES } from "./font-advances";
+
 export interface ValidateOptions {
   /** Hex allow-list (any case, 3/4/6/8-digit accepted on both sides). */
   allowedColors: string[];
@@ -57,7 +59,62 @@ export interface ValidateOptions {
   /** Per-system (Minimal Bold): no headline "tower" — max 2 tightly-stacked
    *  lines per corner block (BINGO/NIGHT/OR/BUST as one 4-line run is wrong). */
   forbidHeadlineTower?: boolean;
+  /** Event templates: at least one real bank photo (or cut-out) must be used. */
+  requirePhoto?: boolean;
+  /** Event templates (full-bleed photos with measured face bands): skip the
+   *  blind "marks stay out of the middle of any photo" rule. */
+  photoRequired?: boolean;
+  /** Event templates: every fact appears once (HARD). Includes times, days
+   *  and dates, which are too short for the phrase check. */
+  forbidRepeats?: boolean;
+  /** The poster's headline (event title), so a title like "FRIDAY FEELS"
+   *  isn't counted as a second mention of the day. */
+  headline?: string;
+  /** The brief's WHEN line: a year printed on the poster must come from it,
+   *  and every day and time in it must be printed (requiredFacts). */
+  when?: string;
+  /** The brief's PRICE line (requiredFacts). */
+  price?: string;
+  /** Event templates (HARD): every weekday, time and price the user gave is
+   *  on the poster. Templates print a short KEY LINE, which can drop them. */
+  requiredFacts?: boolean;
+  /** Giant stacked headline (Giant Type, HARD): each Anton headline line fills
+   *  `width` x W (portrait) or `landscapeWidth` x W, the whole stack capped at
+   *  `maxHeight` x H. Catches timid stacks that leave the poster half empty. */
+  stackFill?: { width: number; landscapeWidth: number; maxHeight: number; landscapeMaxHeight?: number };
+  /** Event templates (HARD): no line spills off the canvas or past the ends of
+   *  the solid bar it sits on, measured with exact per-letter widths. */
+  checkTextBounds?: boolean;
+  /** 9:16 stories: Instagram UI covers the top/bottom; text + marks must sit
+   *  between these y values (HARD). */
+  storySafeZone?: { top: number; bottom: number };
+  /** Event templates: the analysed bank photos (pixel size, face band,
+   *  cut-out). Enables the exact face and cut-out checks below. */
+  photoData?: PhotoData[];
+  /** No text on the faces of a placed photo (HARD). Needs photoData. */
+  textOffFaces?: boolean;
+  /** No wordmark on the faces of a placed photo (HARD). Needs photoData. */
+  marksOffFaces?: boolean;
+  /** Cut-out templates (HARD): use a cut-out when the bank has one; its bottom
+   *  runs off the canvas or lands inside a solid shape drawn after it; a side
+   *  the photo sliced sits flush with the canvas edge. Needs photoData+canvas. */
+  cutoutRules?: boolean;
+  /** Stacked lines may not collide, measured with each font's real cap height
+   *  (HARD). Catches a squeezed headline pitch the 30%-box estimate misses. */
+  checkStackedLines?: boolean;
 }
+
+/** What the validator needs to know about a bank photo (fractions 0..1). */
+export type PhotoData = {
+  url: string;
+  width?: number;
+  height?: number;
+  faceBand?: { y0: number; y1: number; x0?: number; x1?: number };
+  cutoutUrl?: string;
+  cutoutWidth?: number;
+  cutoutHeight?: number;
+  cutoutSliced?: string;
+};
 
 type Box = { x1: number; y1: number; x2: number; y2: number; label: string };
 
@@ -80,6 +137,9 @@ function numFrom(attrs: string, name: string): number | null {
 }
 
 type TextEl = {
+  /** Set by positionedTexts when an ancestor skews the line (its ink box is
+   *  then only approximate). */
+  skewed?: boolean;
   x: number;
   y: number;
   fontSize: number;
@@ -128,12 +188,50 @@ function transformedRanges(src: string): Array<[number, number]> {
 }
 
 /**
+ * Decorative background type: outline-only (fill="none"), near-transparent
+ * (opacity / fill-opacity ≤ 0.35) or explicitly tagged data-deco. Ghost words
+ * behind a design are meant to bleed off the edges and sit under everything, so
+ * the overlap / edge / covered checks skip them. Attributes must be on the
+ * <text> itself.
+ */
+export function isDecorativeText(attrs: string): boolean {
+  if (/\bdata-deco\s*=/i.test(attrs)) return true;
+  if (/\bfill\s*=\s*["']\s*none\s*["']/i.test(attrs)) return true;
+  for (const a of ["opacity", "fill-opacity"]) {
+    const m = attrs.match(new RegExp(`(?:^|\\s)${a}\\s*=\\s*["']\\s*([\\d.]+)`, "i"));
+    if (m && parseFloat(m[1]) <= 0.35) return true;
+  }
+  return false;
+}
+
+/**
  * Parse untransformed <text> elements with their raw centring attributes.
  * Width ≈ chars × font-size × 0.6; box height is cap-height-tight so normally
  * line-spaced stacked headlines don't false-positive. Text that is itself
  * transformed, tspan-repositioned, or inside a transformed <g> (local
  * coordinates) is skipped — the prompt rules cover those.
  */
+// Anton advance widths per em, measured from the bundled font.
+const ANTON_ADV: Record<string, number> = {
+  A: 0.485, B: 0.479, C: 0.474, D: 0.493, E: 0.412, F: 0.399, G: 0.485, H: 0.499, I: 0.227,
+  J: 0.466, K: 0.472, L: 0.397, M: 0.746, N: 0.498, O: 0.486, P: 0.472, Q: 0.494, R: 0.477,
+  S: 0.461, T: 0.396, U: 0.474, V: 0.469, W: 0.712, X: 0.484, Y: 0.446, Z: 0.41, "1": 0.331,
+  " ": 0.234, "&": 0.52, "-": 0.311, "'": 0.214, ".": 0.229, "!": 0.229, ",": 0.236, ":": 0.242, "/": 0.405,
+};
+// Spaces, dots, brackets and other thin glyphs are about half a letter wide;
+// counting them as full letters flagged "[SAT . 22 . 08]" as off-canvas.
+function genericWidth(content: string): number {
+  let n = 0;
+  for (const ch of content) n += /[\s.,:;'|!()[\]iIl1\-]/.test(ch) ? 0.5 : 1;
+  return n;
+}
+
+function antonWidth(content: string): number {
+  let w = 0;
+  for (const ch of content.toUpperCase()) w += ANTON_ADV[ch] ?? (/[0-9]/.test(ch) ? 0.494 : 0.47);
+  return w;
+}
+
 function parseTexts(svg: string): TextEl[] {
   const body = svg.replace(/<defs[\s\S]*?<\/defs>/gi, "");
   const gRanges = transformedRanges(body);
@@ -144,6 +242,7 @@ function parseTexts(svg: string): TextEl[] {
     const attrs = m[1];
     const inner = m[2];
     if (/transform\s*=/i.test(attrs)) continue;
+    if (isDecorativeText(attrs)) continue;
     const at = m.index;
     if (gRanges.some(([s, e]) => at > s && at < e)) continue;
     if (/<tspan[^>]*\b(?:dy|dx|x|y)\s*=/i.test(inner)) continue;
@@ -157,8 +256,14 @@ function parseTexts(svg: string): TextEl[] {
     const baseline = (attrs.match(/dominant-baseline\s*[:=]\s*["']?\s*([a-z-]+)/i)?.[1] ?? "").toLowerCase();
     // Wide display faces (Archivo Black) run ~0.7em/char — a 0.6 estimate lets
     // giant headlines clip off-canvas undetected.
-    const wide = /archivo/i.test(attrs.match(/font-family\s*=\s*["']([^"']*)["']/i)?.[1] ?? "");
-    const width = content.length * fontSize * (wide ? 0.7 : 0.6);
+    const family = attrs.match(/font-family\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
+    const wide = /archivo/i.test(family);
+    // Anton is condensed (~0.47em a letter): the generic 0.6 estimate flagged
+    // correctly sized giant Anton type as running off the canvas, and the
+    // correction shrank it. Measure it letter by letter instead.
+    const width = /anton/i.test(family)
+      ? antonWidth(content) * fontSize
+      : genericWidth(content) * fontSize * (wide ? 0.7 : 0.6);
     const x1 = anchor === "middle" ? x - width / 2 : anchor === "end" ? x - width : x;
     els.push({
       x, y, fontSize, anchor, baseline, content, at: m.index, attrs,
@@ -849,6 +954,224 @@ export function emptyPhotoFrameViolations(svg: string): string[] {
   return out;
 }
 
+// Measured from the bundled fonts (cap height and mean capital advance, per em).
+function fontMetrics(attrs: string): { cap: number; adv: number } {
+  const fam = (attrs.match(/font-family\s*[:=]\s*["']?\s*([^"';]+)/i)?.[1] ?? "").toLowerCase();
+  if (fam.includes("anton")) return { cap: 0.86, adv: 0.48 };
+  if (fam.includes("archivo")) return { cap: 0.69, adv: 0.77 };
+  if (fam.includes("inter")) return { cap: 0.73, adv: 0.7 };
+  if (fam.includes("montserrat")) return { cap: 0.7, adv: 0.74 };
+  return { cap: 0.72, adv: 0.65 };
+}
+
+type Mat = [number, number, number, number, number, number];
+const mul = (m: Mat, n: Mat): Mat => [
+  m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1],
+  m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3],
+  m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5],
+];
+/** translate / scale / skewX / skewY / matrix; null for rotation or garbage. */
+function parseTransform(tf: string): Mat | null {
+  let m: Mat = [1, 0, 0, 1, 0, 0];
+  const re = /(\w+)\s*\(([^)]*)\)/g;
+  let f: RegExpExecArray | null;
+  while ((f = re.exec(tf))) {
+    const a = f[2].split(/[\s,]+/).filter(Boolean).map(Number);
+    if (a.some((v) => !Number.isFinite(v))) return null;
+    const t = (a[0] ?? 0) * (Math.PI / 180);
+    const fn = f[1];
+    const n: Mat | null =
+      fn === "translate" ? [1, 0, 0, 1, a[0] ?? 0, a[1] ?? 0]
+      : fn === "scale" ? [a[0] ?? 1, 0, 0, a[1] ?? a[0] ?? 1, 0, 0]
+      : fn === "skewX" ? [1, 0, Math.tan(t), 1, 0, 0]
+      : fn === "skewY" ? [1, Math.tan(t), 0, 1, 0, 0]
+      : fn === "matrix" && a.length === 6 ? (a as Mat)
+      : fn === "rotate" && !(a[0] ?? 0) ? [1, 0, 0, 1, 0, 0]
+      : null;
+    if (!n || Math.abs(n[1]) > 0.01) return null; // rotation: geometry unknown
+    m = mul(m, n);
+  }
+  return m;
+}
+
+/** Every non-decorative <text> with its anchor point and size resolved through
+ *  ancestor translate / scale / skew (Big Block's slanted headline group). */
+function positionedTexts(svg: string): TextEl[] {
+  const body = svg.replace(/<defs[\s\S]*?<\/defs>/gi, (d) => " ".repeat(d.length));
+  const out: TextEl[] = [];
+  const stack: Array<Mat | null> = [];
+  const re = /<(\/?)(g|a|svg)\b([^>]*?)(\/?)>|<text\b([^>]*)>([\s\S]*?)<\/text>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body))) {
+    const parent = stack.length ? stack[stack.length - 1] : ([1, 0, 0, 1, 0, 0] as Mat);
+    if (m[2]) {
+      if (m[1]) stack.pop();
+      else if (!m[4]) {
+        const tf = m[3].match(/\stransform\s*=\s*"([^"]*)"/i)?.[1];
+        const own = tf ? parseTransform(tf) : ([1, 0, 0, 1, 0, 0] as Mat);
+        stack.push(parent && own ? mul(parent, own) : null);
+      }
+      continue;
+    }
+    const attrs = m[5];
+    const inner = m[6];
+    if (!parent || isDecorativeText(attrs)) continue;
+    if (/<tspan[^>]*\b(?:dy|dx|x|y)\s*=/i.test(inner)) continue;
+    const tf = attrs.match(/\stransform\s*=\s*"([^"]*)"/i)?.[1];
+    const own = tf ? parseTransform(tf) : ([1, 0, 0, 1, 0, 0] as Mat);
+    if (!own) continue;
+    const M = mul(parent, own);
+    const content = inner.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+    if (!content) continue;
+    const lx = numFrom(attrs, "x") ?? 0, ly = numFrom(attrs, "y") ?? 0;
+    const fs = (numFrom(attrs, "font-size") ?? 16) * Math.abs(M[3]);
+    const anchor = (attrs.match(/text-anchor\s*[:=]\s*["']?\s*(middle|end|start)/i)?.[1] ?? "start").toLowerCase() as TextEl["anchor"];
+    const baseline = (attrs.match(/dominant-baseline\s*[:=]\s*["']?\s*([a-z-]+)/i)?.[1] ?? "").toLowerCase();
+    const x = M[0] * lx + M[2] * ly + M[4];
+    const y = M[1] * lx + M[3] * ly + M[5];
+    out.push({ x, y, fontSize: fs, anchor, baseline, content, at: m.index, attrs, skewed: Math.abs(M[2]) > 0.01,
+      box: { x1: x, y1: y - fs * 0.75, x2: x, y2: y, label: content.slice(0, 28) } });
+  }
+  return out;
+}
+
+/** Advance table for a text's family + weight, if it is a bundled poster face. */
+function advanceTable(attrs: string) {
+  const fam = (attrs.match(/font-family\s*[:=]\s*["']?\s*([^"';]+)/i)?.[1] ?? "").toLowerCase();
+  const wRaw = attrs.match(/font-weight\s*[:=]\s*["']?\s*(\w+)/i)?.[1] ?? "400";
+  const weight = wRaw === "bold" ? 700 : parseInt(wRaw, 10) || 400;
+  const nearest = (opts: number[]) => opts.reduce((a, b) => (Math.abs(b - weight) < Math.abs(a - weight) ? b : a));
+  if (fam.includes("anton")) return FONT_ADVANCES.anton;
+  if (fam.includes("archivo")) return FONT_ADVANCES.archivo;
+  if (fam.includes("montserrat")) return FONT_ADVANCES[`mont${nearest([400, 600, 700, 800, 900])}`];
+  if (fam.includes("inter")) return FONT_ADVANCES[`inter${nearest([400, 600, 900])}`];
+  return null;
+}
+
+/** Line width in em from the face's real advances (null for unknown faces). */
+function lineWidthEm(content: string, attrs: string): number | null {
+  const t = advanceTable(attrs);
+  if (!t) return null;
+  let w = 0;
+  for (const ch of content) {
+    const i = t.chars.indexOf(ch);
+    w += i >= 0 ? t.adv[i] : t.avg;
+  }
+  return w;
+}
+
+/** Ink box of a line of text: cap-height tall, width from the face's advance. */
+function inkBox(t: TextEl): Box & { base: number; top: number } {
+  const { cap, adv } = fontMetrics(t.attrs);
+  const fs = t.fontSize;
+  const ls = t.attrs.match(/letter-spacing\s*=\s*"(-?[\d.]+)(em|px)?"/i);
+  const spacing = ls ? (ls[2] === "em" ? parseFloat(ls[1]) * fs : parseFloat(ls[1])) : 0;
+  const em = lineWidthEm(t.content, t.attrs);
+  const width = (em ?? t.content.length * adv) * fs + t.content.length * spacing;
+  const x1 = t.anchor === "middle" ? t.x - width / 2 : t.anchor === "end" ? t.x - width : t.x;
+  let base = t.y;
+  if (/^(central|middle)$/.test(t.baseline)) base = t.y + (cap * fs) / 2;
+  else if (/^(hanging|text-before-edge|text-top)$/.test(t.baseline)) base = t.y + cap * fs;
+  const top = base - cap * fs;
+  return { x1, x2: x1 + width, y1: top, y2: base, base, top, label: t.content.slice(0, 28) };
+}
+
+type Placed = { kind: "image" | "rect"; at: number; tag: string; href: string; x: number; y: number; w: number; h: number; known: boolean };
+
+/** <image> and <rect> elements in paint order, with translate() resolved through
+ *  their <g> ancestors. `known` is false under any other transform. */
+function placedElements(svg: string): Placed[] {
+  const out: Placed[] = [];
+  const stack: Array<{ dx: number; dy: number; ok: boolean; hidden: boolean }> = [];
+  const parseTf = (tag: string) => {
+    const tf = tag.match(/\stransform\s*=\s*"([^"]*)"/i)?.[1]?.trim() ?? "";
+    if (!tf) return { dx: 0, dy: 0, ok: true };
+    const m = tf.match(/^translate\(\s*(-?[\d.]+)(?:[\s,]+(-?[\d.]+))?\s*\)$/i);
+    return m ? { dx: parseFloat(m[1]), dy: parseFloat(m[2] ?? "0"), ok: true } : { dx: 0, dy: 0, ok: false };
+  };
+  const re = /<(\/?)(g|a|svg|defs|clipPath|mask|pattern|symbol|marker|image|rect)\b([^>]*?)(\/?)>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(svg))) {
+    const [tag, closing, rawName, , selfClose] = m;
+    const name = rawName.toLowerCase();
+    const parent = stack[stack.length - 1] ?? { dx: 0, dy: 0, ok: true, hidden: false };
+    if (name === "image" || name === "rect") {
+      if (closing || parent.hidden) continue;
+      const tf = parseTf(tag);
+      const w = numFrom(tag, "width"), h = numFrom(tag, "height");
+      if (w === null || h === null) continue;
+      out.push({
+        kind: name, at: m.index, tag,
+        href: tag.match(/(?:xlink:)?href\s*=\s*"([^"]+)"/i)?.[1] ?? "",
+        x: (numFrom(tag, "x") ?? 0) + parent.dx + tf.dx,
+        y: (numFrom(tag, "y") ?? 0) + parent.dy + tf.dy,
+        w, h, known: parent.ok && tf.ok,
+      });
+      continue;
+    }
+    if (closing) { stack.pop(); continue; }
+    if (selfClose) continue;
+    const tf = parseTf(tag);
+    const hidden = parent.hidden || /^(defs|clippath|mask|pattern|symbol|marker)$/.test(name);
+    stack.push({ dx: parent.dx + tf.dx, dy: parent.dy + tf.dy, ok: parent.ok && tf.ok, hidden });
+  }
+  return out;
+}
+
+/** Where an image's picture actually lands inside its box (preserveAspectRatio). */
+function contentRect(p: Placed, natW?: number, natH?: number): Box {
+  const box = { x1: p.x, y1: p.y, x2: p.x + p.w, y2: p.y + p.h, label: "image" };
+  const par = p.tag.match(/preserveAspectRatio\s*=\s*"([^"]+)"/i)?.[1]?.trim() ?? "xMidYMid meet";
+  if (/^none/i.test(par) || !natW || !natH) return box;
+  const s = /slice/i.test(par) ? Math.max(p.w / natW, p.h / natH) : Math.min(p.w / natW, p.h / natH);
+  const dw = natW * s, dh = natH * s;
+  const ax = /xMin/.test(par) ? 0 : /xMax/.test(par) ? 1 : 0.5;
+  const ay = /YMin/.test(par) ? 0 : /YMax/.test(par) ? 1 : 0.5;
+  const x1 = p.x + (p.w - dw) * ax, y1 = p.y + (p.h - dh) * ay;
+  return { x1, y1, x2: x1 + dw, y2: y1 + dh, label: "image" };
+}
+
+function intersect(a: Box, b: Box): Box {
+  return { x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1), x2: Math.min(a.x2, b.x2), y2: Math.min(a.y2, b.y2), label: a.label };
+}
+
+const isSolidShape = (tag: string) => {
+  const fill = tag.match(/\sfill\s*=\s*"([^"]+)"/i)?.[1]?.trim().toLowerCase() ?? "#000";
+  const op = Math.min(numFrom(tag, "opacity") ?? 1, numFrom(tag, "fill-opacity") ?? 1);
+  return fill !== "none" && fill !== "transparent" && op >= 0.9;
+};
+
+/** Face rectangles (canvas coords) of every placed, analysed photo. */
+function placedFaces(placed: Placed[], photos: PhotoData[], canvas?: { w: number; h: number }): Box[] {
+  const byUrl = new Map(photos.map((p) => [p.url, p]));
+  const out: Box[] = [];
+  for (const el of placed) {
+    const pd = el.kind === "image" && el.known ? byUrl.get(el.href) : undefined;
+    if (!pd?.faceBand || !pd.width || !pd.height) continue;
+    const c = contentRect(el, pd.width, pd.height);
+    const f = pd.faceBand;
+    const cw = c.x2 - c.x1, ch = c.y2 - c.y1;
+    const pad = (canvas?.h ?? ch) * 0.015;
+    let face: Box = {
+      x1: c.x1 + (f.x0 ?? 0) * cw, x2: c.x1 + (f.x1 ?? 1) * cw,
+      y1: c.y1 + f.y0 * ch - pad, y2: c.y1 + f.y1 * ch + pad, label: "faces",
+    };
+    face = intersect(face, { x1: el.x, y1: el.y, x2: el.x + el.w, y2: el.y + el.h, label: "" });
+    if (canvas) face = intersect(face, { x1: 0, y1: 0, x2: canvas.w, y2: canvas.h, label: "" });
+    if (face.x2 > face.x1 && face.y2 > face.y1) out.push(face);
+  }
+  return out;
+}
+
+/** Weekdays, today/tonight/tomorrow and clock times in a line of text. */
+function dayTimeTokens(text: string): Set<string> {
+  const tokens = new Set<string>();
+  for (const t of text.matchAll(/\b(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)\b/g)) tokens.add(`${+t[1]}${t[2] && t[2] !== "00" ? ":" + t[2] : ""}${t[3]}`);
+  for (const t of text.matchAll(/\b(MON|TUE|WED|THU|FRI|SAT|SUN)(?:DAY|S|SDAY|NESDAY|R|RS|RSDAY|URDAY)?\b/g)) tokens.add(t[1]);
+  for (const t of text.matchAll(/\b(TODAY|TONIGHT|TOMORROW)\b/g)) tokens.add(t[1]);
+  return tokens;
+}
+
 export function validateSvg(svg: string, opts: ValidateOptions): string[] {
   const violations = new Set<string>();
 
@@ -1040,7 +1363,9 @@ export function validateSvg(svg: string, opts: ValidateOptions): string[] {
   }
 
   // ── Brand marks over photo subjects / across text (always on — HARD) ─────
-  for (const v of markOverPhotoViolations(svg)) violations.add(v);
+  // Full-bleed photo templates know where the faces are (measured bands in the
+  // prompt); this blind "middle of the photo" rule would leave no legal spot.
+  if (!opts.photoRequired) for (const v of markOverPhotoViolations(svg)) violations.add(v);
   for (const v of markOverTextViolations(svg)) violations.add(v);
 
   // ── Per-system: photos must be greyscale (Minimal Bold) ──────────────────
@@ -1263,6 +1588,100 @@ export function validateSvg(svg: string, opts: ValidateOptions): string[] {
     }
   }
 
+  if (opts.forbidRepeats) {
+    // Split each non-decorative text element into its facts (" - ", " / ", " • ")
+    // and flag any fact that shows up in two different text elements.
+    const seen = new Map<string, number>();
+    let idx = 0;
+    const body = svg.replace(/<defs[\s\S]*?<\/defs>/gi, "");
+    for (const m of body.matchAll(/<text\b([^>]*)>([\s\S]*?)<\/text>/gi)) {
+      if (isDecorativeText(m[1])) continue;
+      idx++;
+      const content = m[2].replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim().toUpperCase();
+      for (const part of content.split(/\s+[-–—\/•·|]\s+/)) {
+        const key = part.replace(/[^A-Z0-9$€£฿₱₫₭៛%+&]/g, "");
+        if (key.length < 6) continue;
+        const prev = seen.get(key);
+        if (prev !== undefined && prev !== idx) {
+          violations.add(`Repeated fact "${part.trim()}": every fact appears exactly ONCE on the poster. Remove the duplicate.`);
+        } else seen.set(key, idx);
+      }
+    }
+
+    // Times, days and dates: "8PM" in the top row AND in the giant date.
+    const headKey = (opts.headline ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const when = new Map<string, string>();
+    for (const m of body.matchAll(/<text\b([^>]*)>([\s\S]*?)<\/text>/gi)) {
+      if (isDecorativeText(m[1])) continue;
+      const content = m[2].replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim().toUpperCase();
+      const flat = content.replace(/[^A-Z0-9]/g, "");
+      if (headKey && flat && headKey.includes(flat)) continue;
+      const tokens = new Set<string>();
+      for (const t of content.matchAll(/\b(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)\b/g)) tokens.add(`${+t[1]}${t[2] && t[2] !== "00" ? ":" + t[2] : ""}${t[3]}`);
+      for (const t of content.matchAll(/\b(MON|TUE|WED|THU|FRI|SAT|SUN)(?:DAY|S|SDAY|NESDAY|R|RS|RSDAY|URDAY)?\b/g)) tokens.add(t[1]);
+      for (const t of content.matchAll(/\b(TODAY|TONIGHT|TOMORROW)\b/g)) tokens.add(t[1]);
+      for (const t of content.matchAll(/\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:UARY|RUARY|CH|IL|E|Y|UST|T|TEMBER|OBER|EMBER)?\.?\s*(\d{1,2})\b/g)) tokens.add(`${t[1]} ${+t[2]}`);
+      for (const tok of tokens) {
+        const prev = when.get(tok);
+        if (prev !== undefined && prev !== content) {
+          violations.add(`"${tok}" is printed twice (in "${prev.slice(0, 40)}" and "${content.slice(0, 40)}"): the day, date and time each appear exactly ONCE. Keep them in one element and drop them from the other.`);
+        } else when.set(tok, content);
+      }
+    }
+
+    // A full date (DD . MM . YY) or a 20xx year needs a year in the brief.
+    if (opts.when !== undefined && !/\b(19|20)\d{2}\b|'\d{2}\b/.test(opts.when)) {
+      for (const m of body.matchAll(/<text\b([^>]*)>([\s\S]*?)<\/text>/gi)) {
+        if (isDecorativeText(m[1])) continue;
+        const content = m[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        if (/\b\d{1,2}\s*[.\/-]\s*\d{1,2}\s*[.\/-]\s*\d{2,4}\b|\b20\d{2}\b/.test(content)) {
+          violations.add(`"${content.slice(0, 30)}" prints a year, but the brief's date ("${opts.when.slice(0, 40)}") has none. Never invent a year: write the date without it (e.g. [22 . 08] or [SAT . 22 . 08]).`);
+        }
+      }
+    }
+  }
+
+  if (opts.storySafeZone) {
+    const { top, bottom } = opts.storySafeZone;
+    // Measured ink: capitals only reach the baseline; room below it only for
+    // letters that hang (g j p q y, commas).
+    for (const t of parseTexts(svg)) {
+      const ink = inkBox(t);
+      const y1 = ink.top, y2 = ink.base + (/[gjpqy,;]/.test(t.content) ? t.fontSize * 0.22 : 0);
+      if (y1 < top || y2 > bottom) {
+        violations.add(`Text "${t.content.slice(0, 28)}" sits in Instagram's covered zone: on a 9:16 story keep every text element between y=${top} and y=${bottom}. Move it inside.`);
+      }
+    }
+    for (const tag of svg.match(/<image\b[^>]*>/gi) ?? []) {
+      const href = tag.match(/(?:xlink:)?href\s*=\s*"([^"]+)"/i)?.[1] ?? "";
+      if (!/mm-logo-(?:white|black)/.test(href) || /transform\s*=/.test(tag)) continue;
+      const y = numFrom(tag, "y") ?? 0, h = numFrom(tag, "height") ?? 40;
+      if (y < top || y + h > bottom) {
+        violations.add(`The Mad Monkey wordmark sits in Instagram's covered zone: on a 9:16 story keep it between y=${top} and y=${bottom}.`);
+      }
+    }
+  }
+
+  // Event templates carry exactly one wordmark (Spotlight's lives in its badge).
+  if (opts.photoRequired) {
+    const marks = (svg.replace(/<defs[\s\S]*?<\/defs>/gi, "").match(/<image\b[^>]*mm-logo-(?:white|black)[^>]*>/gi) ?? []).length;
+    if (marks > 1) {
+      violations.add(`${marks} Mad Monkey wordmarks: this template carries exactly ONE. Keep the one the template places and remove the rest.`);
+    }
+  }
+
+  if (opts.requirePhoto) {
+    const hasPhoto = (svg.match(/<image\b[^>]*>/gi) ?? []).some((tag) => {
+      const href = tag.match(/(?:xlink:)?href\s*=\s*"([^"]+)"/i)?.[1] ?? "";
+      return href !== "" && !MARK_HREF.test(href) && !href.startsWith("#");
+    });
+    if (!hasPhoto) {
+      violations.add(
+        `No photo — this style is photo-led and MUST use one real photo from the IMAGE BANK list (exact URL). If nothing shows the event's activity, use a general Mad Monkey vibe photo (a group of young travellers having a great time). Never replace the photo with flat shapes.`,
+      );
+    }
+  }
+
   // ── Per-system: giant headline is corner-anchored, never centred (Minimal Bold)
   if (opts.forbidCenteredDisplay) {
     for (const t of parseTexts(svg)) {
@@ -1298,6 +1717,217 @@ export function validateSvg(svg: string, opts: ValidateOptions): string[] {
           break;
         }
         runStart = i;
+      }
+    }
+  }
+
+  // ── Event templates: exact geometry checks ───────────────────────────────
+  if (opts.checkStackedLines) {
+    const lines = positionedTexts(svg).map((t) => ({ t, b: inkBox(t) }));
+    for (const a of lines) {
+      for (const b of lines) {
+        if (a === b || b.b.base <= a.b.base) continue;
+        const hov = Math.min(a.b.x2, b.b.x2) - Math.max(a.b.x1, b.b.x1);
+        if (hov <= 0.2 * Math.min(a.b.x2 - a.b.x1, b.b.x2 - b.b.x1)) continue;
+        const intrusion = a.b.base - b.b.top;
+        if (intrusion > 0.04 * Math.min(a.t.fontSize, b.t.fontSize)) {
+          const pitch = /anton/i.test(b.t.attrs) ? 0.9 : 0.92;
+          violations.add(
+            `Lines "${a.b.label}" and "${b.b.label}" collide: the lower line's capitals start at y=${Math.round(b.b.top)}, above the upper line's baseline y=${Math.round(a.b.base)}. Each next baseline must sit at least ${pitch} x the LOWER line's font-size below the previous one. Never squeeze the line pitch to fit a space: shrink the font-sizes instead.`,
+          );
+        }
+      }
+    }
+  }
+
+  if (opts.checkTextBounds && opts.canvas) {
+    const { w: W } = opts.canvas;
+    const placed = placedElements(svg);
+    for (const t of positionedTexts(svg)) {
+      if (t.skewed) continue;
+      const b = inkBox(t);
+      const tw = b.x2 - b.x1;
+      if (b.x1 < -0.01 * W || b.x2 > 1.01 * W) {
+        violations.add(`Text "${b.label}" spills off the canvas edge (its letters span x ${Math.round(b.x1)}-${Math.round(b.x2)} on a ${W}-wide canvas). Shrink its font-size to about ${Math.floor((t.fontSize * 0.9 * W) / tw)} or split it so every letter fits with margin.`);
+        continue;
+      }
+      const cx = (b.x1 + b.x2) / 2;
+      const bar = placed
+        .filter((r) => r.kind === "rect" && r.known && r.at < t.at && isSolidShape(r.tag) && r.w < 0.98 * W &&
+          r.y <= b.y1 + 1 && r.y + r.h >= b.y2 - 1 && r.x < cx && r.x + r.w > cx)
+        .pop();
+      if (bar && (b.x1 < bar.x - 0.01 * bar.w || b.x2 > bar.x + bar.w + 0.01 * bar.w)) {
+        violations.add(`Text "${b.label}" runs past the ends of the bar it sits on (letters x ${Math.round(b.x1)}-${Math.round(b.x2)}, bar x ${Math.round(bar.x)}-${Math.round(bar.x + bar.w)}). Shrink its font-size to about ${Math.floor((t.fontSize * 0.9 * bar.w) / tw)} so it fits with padding.`);
+      }
+    }
+  }
+
+  if (opts.requiredFacts) {
+    const printed = positionedTexts(svg).map((t) => t.content.toUpperCase()).join(" | ");
+    const have = dayTimeTokens(printed);
+    // The whole event title: "TRIVIA" alone is not "TRIVIA NIGHT".
+    const words = new Set(printed.replace(/[^A-Z0-9&' ]/g, " ").split(/\s+/));
+    const lost = (opts.headline ?? "").toUpperCase().replace(/[^A-Z0-9&' ]/g, " ").split(/\s+/).filter((w) => w && !words.has(w));
+    if (lost.length) {
+      violations.add(`The poster leaves out "${lost.join(" ")}" from the event title "${opts.headline}". Print the whole title, every word: shrink it or use more lines rather than cutting words.`);
+    }
+    for (const tok of dayTimeTokens((opts.when ?? "").toUpperCase())) {
+      if (!have.has(tok)) {
+        violations.add(`The poster leaves out "${tok}" from the date line ("${(opts.when ?? "").slice(0, 50)}"). Every day and time the user gave must be printed once: add it to the key line, eyebrow or date.`);
+      }
+    }
+    // The whole price, wording included: "₱300 PER TEAM", not just "₱300".
+    const flat = (t: string) => t.toUpperCase().replace(/[^A-Z0-9$€£¥฿₱₫₭៛]/g, "");
+    const price = flat(opts.price ?? "");
+    if (price && !flat(printed).includes(price)) {
+      violations.add(`The price "${opts.price}" is missing from the poster or was shortened. Print it once exactly as written (with the details or the key line).`);
+    }
+  }
+
+  if (opts.stackFill && opts.canvas) {
+    const { w: W, h: H } = opts.canvas;
+    const headKey = (opts.headline ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const stack = positionedTexts(svg)
+      .filter((t) => /anton/i.test(t.attrs))
+      .filter((t) => {
+        const flat = t.content.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        return !headKey || (flat !== "" && headKey.includes(flat));
+      })
+      .sort((a, b) => a.y - b.y);
+    if (stack.length) {
+      const fillW = (W > H ? opts.stackFill.landscapeWidth : opts.stackFill.width) * W;
+      let target = stack.map((t) => fillW / Math.max(0.5, antonWidth(t.content)));
+      const height = target.reduce((sum, fs, i) => sum + (i === 0 ? 0.86 : 0.9) * fs, 0);
+      const maxH = (W > H ? opts.stackFill.landscapeMaxHeight ?? opts.stackFill.maxHeight : opts.stackFill.maxHeight) * H;
+      if (height > maxH) target = target.map((fs) => (fs * maxH) / height);
+      const small = stack.some((t, i) => t.fontSize < 0.82 * target[i]);
+      if (small) {
+        violations.add(
+          `The giant stack is too small: each headline line must fill the width. Use these font-sizes (Anton, measured letter by letter): ${stack.map((t, i) => `"${t.content}" ${Math.round(target[i])}`).join(", ")}. Re-stack them tight (next baseline = previous + 0.9 x the lower line's size) and move the people and small print to fit.`,
+        );
+      }
+    }
+  }
+
+  if ((opts.textOffFaces || opts.marksOffFaces || opts.cutoutRules) && opts.photoData?.length) {
+    const placed = placedElements(svg);
+    const faces = placedFaces(placed, opts.photoData, opts.canvas);
+    const faceMsg = (f: Box) => {
+      const H = opts.canvas?.h;
+      const room = [
+        f.y1 > 0 ? `above y=${Math.round(f.y1)}` : "",
+        H && f.y2 < H ? `below y=${Math.round(f.y2)}` : "",
+      ].filter(Boolean).join(" or ");
+      return `(the faces span y ${Math.round(f.y1)}-${Math.round(f.y2)}, x ${Math.round(f.x1)}-${Math.round(f.x2)} on this canvas)${room ? `. Move it ${room}` : ""}`;
+    };
+    if (opts.textOffFaces) {
+      for (const t of parseTexts(svg)) {
+        const b = inkBox(t);
+        const f = faces.find((f) => boxOverlap(b, f) > 0.1 * boxArea(b));
+        if (f) {
+          violations.add(
+            `Text "${b.label}" sits on people's faces in the photo ${faceMsg(f)}, shrinking the block if it does not fit, or pick a photo whose text-safe band fits it. Text never covers a face.`,
+          );
+        }
+      }
+    }
+    if (opts.marksOffFaces) {
+      for (const el of placed) {
+        if (el.kind !== "image" || !el.known || !/mm-logo-(?:white|black)/.test(el.href)) continue;
+        const b = { x1: el.x, y1: el.y, x2: el.x + el.w, y2: el.y + el.h, label: "wordmark" };
+        const f = faces.find((f) => boxOverlap(b, f) > 0.1 * boxArea(b));
+        if (f) violations.add(`The Mad Monkey wordmark sits on people's faces ${faceMsg(f)}, into a corner of empty photo.`);
+      }
+    }
+    if (opts.cutoutRules && opts.canvas) {
+      const { w: W, h: H } = opts.canvas;
+      const cuts = new Map(opts.photoData.filter((p) => p.cutoutUrl).map((p) => [p.cutoutUrl!, p]));
+      const used = placed.filter((el) => el.kind === "image" && cuts.has(el.href));
+      if (cuts.size && !used.length) {
+        violations.add(
+          `No cut-out: in this template the people are a CUTOUT (transparent PNG lifted from a photo) standing in front of the type, and the IMAGE BANK lists ${cuts.size}. Use the CUTOUT url of the best-fitting one (or a general fun group); a plain photo is only the fallback when the bank has no cut-out at all.`,
+        );
+      }
+      for (const el of used) {
+        if (!el.known) continue;
+        const pd = cuts.get(el.href)!;
+        const c = contentRect(el, pd.cutoutWidth, pd.cutoutHeight);
+        const cw = c.x2 - c.x1;
+        if (c.y2 < H - 2) {
+          const landed = placed.some(
+            (r) => r.kind === "rect" && r.known && r.at > el.at && isSolidShape(r.tag) &&
+              r.y < c.y2 - 2 && r.y + r.h > c.y2 + 1 &&
+              r.x <= c.x1 + 0.15 * cw && r.x + r.w >= c.x2 - 0.15 * cw,
+          );
+          if (!landed) {
+            violations.add(
+              `The cut-out people end in mid-air at y=${Math.round(c.y2)}: their bottom edge is a hard cut line. It must either run off the bottom of the canvas (picture bottom at y=${H}) or land INSIDE a solid shape drawn AFTER the cut-out (e.g. the details bar: bottom between the bar's top and bottom). With preserveAspectRatio="xMidYMax meet" the picture's bottom is the box's y + height.`,
+            );
+          }
+        }
+        // Nothing small sits on the people: the wordmark, small print. Headline
+        // lines are meant to sit behind them; text on a bar drawn over them is
+        // on the bar.
+        const area = (b: Box) => Math.max(1, boxArea(b));
+        // On a bar: vertically inside a solid shape drawn after the people, and
+        // centred over it (width estimates run long, so not the full width).
+        const onBar = (b: Box) =>
+          placed.some((r) => r.kind === "rect" && r.known && r.at > el.at && isSolidShape(r.tag) &&
+            r.y <= b.y1 + 2 && r.y + r.h >= b.y2 - 2 && r.x < (b.x1 + b.x2) / 2 && r.x + r.w > (b.x1 + b.x2) / 2);
+        const headKey = (opts.headline ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+        for (const t of parseTexts(svg)) {
+          const flat = t.content.toUpperCase().replace(/[^A-Z0-9]/g, "");
+          if (headKey && flat && headKey.includes(flat)) continue;
+          const b = inkBox(t);
+          if (boxOverlap(b, c) > 0.1 * area(b) && !onBar(b)) {
+            violations.add(`Text "${b.label}" sits on the cut-out people (their picture spans x ${Math.round(c.x1)}-${Math.round(c.x2)}, y ${Math.round(c.y1)}-${Math.round(c.y2)}). Small text lives on the flat background: move it clear of them.`);
+          }
+        }
+        for (const mk of placed) {
+          if (mk.kind !== "image" || !mk.known || !/mm-logo-(?:white|black)/.test(mk.href)) continue;
+          const b = { x1: mk.x, y1: mk.y, x2: mk.x + mk.w, y2: mk.y + mk.h, label: "wordmark" };
+          if (boxOverlap(b, c) > 0.1 * area(b) && !onBar(b)) {
+            violations.add(`The Mad Monkey wordmark sits on the cut-out people (their picture spans x ${Math.round(c.x1)}-${Math.round(c.x2)}, y ${Math.round(c.y1)}-${Math.round(c.y2)}). Put it in a corner of flat background.`);
+          }
+        }
+        // The people stand IN FRONT of the headline: their heads rise into its
+        // last line (the Spotlight / Giant Type look), never parked below it.
+        if (headKey) {
+          const heads = positionedTexts(svg)
+            .filter((t) => {
+              const flat = t.content.toUpperCase().replace(/[^A-Z0-9]/g, "");
+              return flat !== "" && headKey.includes(flat) && t.fontSize >= 0.05 * W;
+            })
+            .map((t) => ({ t, b: inkBox(t) }))
+            .sort((a, b) => b.b.base - a.b.base);
+          const last = heads[0];
+          if (last) {
+            const capH = last.b.base - last.b.top;
+            const hov = Math.min(c.x2, last.b.x2) - Math.max(c.x1, last.b.x1);
+            const lw = last.b.x2 - last.b.x1;
+            // Only ask for what this cut-out can do: grown tall enough to reach
+            // the line, a wide picture may need to be wider than the canvas.
+            const needTop = last.b.base - 0.45 * last.t.fontSize;
+            const aspect = (pd.cutoutWidth ?? 1) / (pd.cutoutHeight ?? 1);
+            const reachable = (c.y2 - needTop) * aspect <= 1.4 * W;
+            if (c.y1 > last.b.base - 0.25 * capH && reachable) {
+              violations.add(
+                `The cut-out people must stand IN FRONT of the headline's last line "${last.b.label}": raise the picture so its top sits at y=${Math.round(last.b.base - 0.45 * last.t.fontSize)} or higher (now ${Math.round(c.y1)}), keeping its bottom where the template puts it (make it taller), and draw it after the headline.`,
+              );
+            }
+            if (hov < 0.15 * lw) {
+              violations.add(
+                `The cut-out people must overlap the headline's last line "${last.b.label}" (x ${Math.round(last.b.x1)}-${Math.round(last.b.x2)}) by at least ${Math.round(0.15 * lw)}px sideways; the picture spans x ${Math.round(c.x1)}-${Math.round(c.x2)}. Move or widen it so the people stand in front of the line's end.`,
+              );
+            }
+          }
+        }
+        if (pd.cutoutSliced === "left" && c.x1 > 2) {
+          violations.add(`This cut-out's people are sliced at its LEFT edge (a straight cut line). Place the picture flush against the canvas's left edge (its left at x=0), not at x=${Math.round(c.x1)}.`);
+        }
+        if (pd.cutoutSliced === "right" && c.x2 < W - 2) {
+          violations.add(`This cut-out's people are sliced at its RIGHT edge (a straight cut line). Place the picture flush against the canvas's right edge (its right at x=${W}), not at x=${Math.round(c.x2)}.`);
+        }
       }
     }
   }

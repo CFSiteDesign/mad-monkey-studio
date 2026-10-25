@@ -137,7 +137,8 @@ async function downscaleToDataUrl(
     }
     ctx.drawImage(bmp, sx, sy, sw, sh, 0, 0, w, h);
     bmp.close?.();
-    const keepPng = href.startsWith("/"); // local logos → keep transparency
+    // Local logos and transparent PNGs (bank cut-outs) keep their alpha.
+    const keepPng = href.startsWith("/") || blob.type === "image/png";
     return { dataUrl: canvas.toDataURL(keepPng ? "image/png" : "image/jpeg", 0.85), cropped: Boolean(trim) };
   } catch {
     return rawDataUrl();

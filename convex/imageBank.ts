@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 const MIN_DESCRIPTION_LENGTH = 10;
@@ -31,13 +32,17 @@ export const addImage = mutation({
       );
     }
 
-    return await ctx.db.insert("brand_images", {
+    const imageId = await ctx.db.insert("brand_images", {
       brandId: user.brandId,
       uploadedBy: userId,
       storageId,
       description: desc,
       createdAt: Date.now(),
     });
+    // Estimate where the faces/subject sit so photo-led templates keep text off
+    // faces straight away (scripts/analyze-bank later refines it + cut-outs).
+    await ctx.scheduler.runAfter(0, internal.imageBankActions.analyzeUpload, { imageId });
+    return imageId;
   },
 });
 

@@ -91,6 +91,32 @@ export default defineSchema({
         noCenteredDisplay: v.optional(v.boolean()),
         // No headline "tower" — max 2 tightly-stacked lines per corner block.
         noHeadlineTower: v.optional(v.boolean()),
+        // ── Event templates (Oct 2026) ──
+        // The style is fully specified by the guidelines: the brand doc is cut
+        // to governance (colours, layout principles, logo, voice, output) and
+        // its sticker-collage recipe (grain, rotation, devices) is dropped.
+        ownStyle: v.optional(v.boolean()),
+        // A real bank photo is mandatory (HARD): best literal match for the
+        // event, else a general Mad Monkey vibe shot. Full-bleed allowed.
+        photoRequired: v.optional(v.boolean()),
+        // Wordmark only: never the ALL IN sticker / monkey / stamp.
+        wordmarkOnly: v.optional(v.boolean()),
+        // Brief writer mode: "title" = the event title IS the headline,
+        // verbatim, plus the facts. No pun hook, mood or sticker lines.
+        briefMode: v.optional(v.string()),
+        // Offer the bank's transparent people cut-outs to the model.
+        useCutouts: v.optional(v.boolean()),
+        // No text may sit on the faces of the placed photo (exact, from the
+        // photo's measured face band).
+        textOffFaces: v.optional(v.boolean()),
+        // Giant stacked headline lines fill this share of the width (portrait /
+        // landscape), the stack capped at maxHeight x H.
+        stackFill: v.optional(v.object({
+          width: v.number(),
+          landscapeWidth: v.number(),
+          maxHeight: v.number(),
+          landscapeMaxHeight: v.optional(v.number()),
+        })),
       }),
     ),
     isActive: v.boolean(),
@@ -130,6 +156,24 @@ export default defineSchema({
     storageId: v.id("_storage"),
     description: v.string(),
     createdAt: v.number(),
+    // ── Photo analysis (Oct 2026) — lets layouts keep text off faces ──
+    // Pixel size, the main subject's box and the faces' vertical band, all
+    // normalised 0..1. "vision" = macOS Vision via scripts/analyze-bank
+    // (precise, also makes cut-outs); "claude" = estimated at upload.
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    subjectBox: v.optional(v.object({ x0: v.number(), y0: v.number(), x1: v.number(), y1: v.number() })),
+    faceBand: v.optional(v.object({ y0: v.number(), y1: v.number(), x0: v.optional(v.number()), x1: v.optional(v.number()) })),
+    analysisSource: v.optional(v.string()),
+    // Transparent PNG of the lifted subject(s), cropped to them.
+    cutoutStorageId: v.optional(v.id("_storage")),
+    cutoutWidth: v.optional(v.number()),
+    cutoutHeight: v.optional(v.number()),
+    // "left" | "right" when the people are cut off by that edge of the photo:
+    // the layout must put that side flush with the poster edge.
+    cutoutSliced: v.optional(v.string()),
+    // Printed words are part of the picture (flyer text, captions): never a background.
+    hasText: v.optional(v.boolean()),
   }).index("by_brand", ["brandId"]),
 
   // ── Conversation ──────────────────────────────────────────────────────────

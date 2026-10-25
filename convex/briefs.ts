@@ -6,6 +6,7 @@ import { api, internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { FORMAT_DIMENSIONS } from "../lib/prompt";
+import { tidyTitleBrief } from "../lib/brief-tidy";
 
 // Haiku turns four event answers into a brand-voiced generation brief.
 // Cheap (~$0.001/call): claude-haiku-4-5 at $0.80/$4 per 1M tokens.
@@ -36,7 +37,26 @@ export const composeBrief = action({
     });
     const dim = FORMAT_DIMENSIONS[args.format];
 
-    const system = `You write generation briefs for the Mad Monkey Hostels design engine (a Gen Z party-hostel brand across Southeast Asia & Australia; slogan ALL IN; voice: your most-travelled friend, slightly hungover, telling you to book the flight).
+    // Event templates print the event title as the headline: no pun hook, no
+    // mood or sticker lines, just the title and the facts in fixed slots.
+    const titleMode = ds?.effects?.briefMode === "title";
+    const titleSystem = `You write generation briefs for the Mad Monkey Hostels design engine (a Gen Z party-hostel brand across Southeast Asia & Australia; slogan ALL IN).
+
+This asset uses an EVENT TEMPLATE: the event title IS the headline. Write ONE brief as plain labelled lines, exactly in this shape (omit a line only where noted):
+HEADLINE: <the event title exactly as given, in UPPERCASE. Never reword, shorten, translate, add to or pun it.>
+DETAILS: <highlights, stops, line-up or inclusions the user gave, as short UPPERCASE phrases joined with " - " (at most 8). Keep the user's OWN words for each item so it reads naturally ("FREE BUCKET FOR THE WINNING TEAM", "TEAMS OF UP TO 6", "DJS LEXY & FERNANDO"); you may drop filler like "bring your", never scramble word order. Omit this line if none were given. Never invent an item.>
+WHEN: <day / date / time exactly as given>
+WHERE: <location exactly as given>
+PRICE: <cost exactly as given. If no cost was given, leave this line out completely: never write "Not provided", "N/A", "TBC" or "Free" unless the user said free.>
+KEY LINE: <the single most useful practical line for the poster, UPPERCASE: the time + the ONE best perk, joined with " - ", e.g. "11AM TOMORROW - LUNCH INCLUDED" or "4PM TODAY - 5 DRINKS INCLUDED" or "WEDNESDAY 7PM - FREE BUCKET FOR THE WINNERS". Natural wording, max 7 words a side. The perk used here is then NOT repeated in DETAILS.>
+TAGLINE: <optional, at most 6 words in the brand voice (your most-travelled friend telling you to book the flight), only if it adds energy, and never a claim about the place's history, scenery or landmarks. Omit otherwise.>
+PHOTO: <what the photo should literally show: the event's real activity or setting, e.g. "people on bicycles", "group on a boat at sunset", "packed bar crowd at night">
+
+Target: ${ds?.label ?? args.designSystem} template, ${dim?.label ?? args.format}.
+
+Rules: plain text only, no markdown, no extra lines, no colours, no layout or mood instructions, no sticker copy. NEVER invent or imply a fact that wasn't provided: no prices, times, dates, perks, place-specific scenery, landmarks or distances.`;
+
+    const system = titleMode ? titleSystem : `You write generation briefs for the Mad Monkey Hostels design engine (a Gen Z party-hostel brand across Southeast Asia & Australia; slogan ALL IN; voice: your most-travelled friend, slightly hungover, telling you to book the flight).
 
 The brief you write instructs an SVG poster engine. From the event details provided, produce ONE brief that includes:
 - A suggested hook headline (1–3 punchy UPPERCASE words, ideally a question or challenge) and a cheeky payoff line — the joke lands across the pair.
@@ -71,13 +91,22 @@ NEVER invent or imply any fact that wasn't provided. This includes prices, times
     });
     const res = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 300,
+      max_tokens: titleMode ? 400 : 300,
       system,
       messages: [{ role: "user", content: userMsg }],
     });
 
-    const brief = res.content[0].type === "text" ? res.content[0].text.trim() : "";
-    if (!brief) throw new Error("Couldn't compose the brief — try again.");
+    const raw = res.content[0].type === "text" ? res.content[0].text.trim() : "";
+    if (!raw) throw new Error("Couldn't compose the brief. Try again.");
+    const brief = titleMode
+      ? tidyTitleBrief(raw, {
+          title: args.title,
+          date: args.date,
+          location: args.location,
+          cost: args.cost,
+          source: [...(args.followUps ?? []).map((f) => f.a), args.extraDetails ?? ""].join(". "),
+        })
+      : raw;
     return { brief };
   },
 });

@@ -10,6 +10,8 @@ import { buildSystemPrompt, stripFences, FORMAT_DIMENSIONS, DISPLAY_FONTS, ACCEN
 import { validateSvg, extractStatedColors, escapeStrayAmpersands, normalizeSvgRoot } from "../lib/validate";
 import { pixelValidate, type PixelResult } from "../lib/pixel-validate";
 import { injectBrandKit } from "../lib/brand-kit";
+import { fillMarkSizes, pushDownTextAttrs } from "../lib/svg-text-attrs";
+import { clampMarksToStory } from "../lib/story-safe";
 
 // Single generation model: Opus 4.8 ($5/1M input, $25/1M output) — the most
 // capable model, far better at dense on-brand layout. (Sonnet/quality tiers
@@ -149,6 +151,16 @@ const SOFT_PATTERNS = [
 ];
 const isSoftViolation = (v: string) => SOFT_PATTERNS.some((p) => p.test(v));
 
+const EVENT_QUALITY_PATTERNS = [
+  /stack is too small/,
+  /must stand IN FRONT|must overlap the headline's last line/,
+  /sits on the cut-out people/,
+  /sits on people's faces/,
+  /leaves out ".*" from the date line|is missing from the poster/,
+  /^Repeated fact|is printed twice/,
+];
+const isEventQualityNote = (v: string) => EVENT_QUALITY_PATTERNS.some((p) => p.test(v));
+
 const correctionPrompt = (violations: string[]) =>
   `BRAND VALIDATION FAILED. Your previous SVG broke these non-negotiable rules:
 ${violations.map((v) => `- ${v}`).join("\n")}
@@ -183,12 +195,12 @@ export const generateAsset = action({
   }> => {
     const { brief, format, designSystem, threadId } = args;
     const includeLogo        = args.includeLogo        ?? true;
-    // Minimal Bold is wordmark-only — NEVER the ALL IN sticker/monkey/stamp,
-    // whatever the UI ticked (the system bans them; prod used to obey the box).
-    const wordmarkOnly       = designSystem === "minimal-bold";
-    const includeAllIn       = wordmarkOnly ? false : (args.includeAllIn       ?? true);
-    const includeAllInMonkey = wordmarkOnly ? false : (args.includeAllInMonkey ?? false);
-    const includeStamp       = wordmarkOnly ? false : (args.includeStamp       ?? false);
+    // Wordmark-only systems (Minimal Bold, the event templates) NEVER carry the
+    // ALL IN sticker/monkey/stamp, whatever the UI ticked: resolved once the
+    // design system is loaded (effects.wordmarkOnly).
+    let includeAllIn       = args.includeAllIn       ?? true;
+    let includeAllInMonkey = args.includeAllInMonkey ?? false;
+    let includeStamp       = args.includeStamp       ?? false;
     // Auth — Convex Auth subject is "<userId>|<sessionId>"; use the helper.
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
@@ -236,6 +248,11 @@ export const generateAsset = action({
       brandId: user.brandId,
       name:    designSystem,
     });
+    if (designSystem === "minimal-bold" || ds?.effects?.wordmarkOnly) {
+      includeAllIn = false;
+      includeAllInMonkey = false;
+      includeStamp = false;
+    }
 
     // Community image bank — descriptions let Claude match photos to the brief
     const imageManifest = await ctx.runQuery(
@@ -336,7 +353,33 @@ export const generateAsset = action({
       maxRetries: 1,
     });
     const fmtDim = FORMAT_DIMENSIONS[format];
-    const bankUrls = new Set(imageManifest.map((i: { url: string }) => i.url));
+    // Cut-out PNGs used by an attempt, fetched once per generation so the
+    // pixel audit can measure how much of the headline the people really hide.
+    const cutoutUrls = new Set<string>(
+      imageManifest.flatMap((i: { cutoutUrl?: string }) => (i.cutoutUrl ? [i.cutoutUrl] : [])),
+    );
+    const cutoutCache = new Map<string, string | null>();
+    const cutoutPixels = async (svg: string): Promise<Record<string, string>> => {
+      const out: Record<string, string> = {};
+      for (const m of svg.matchAll(/<image\b[^>]*?(?:xlink:)?href\s*=\s*["']([^"']+)["']/gi)) {
+        const url = m[1];
+        if (!cutoutUrls.has(url)) continue;
+        if (!cutoutCache.has(url)) {
+          try {
+            const res = await fetch(url);
+            cutoutCache.set(url, res.ok ? `data:image/png;base64,${Buffer.from(await res.arrayBuffer()).toString("base64")}` : null);
+          } catch {
+            cutoutCache.set(url, null);
+          }
+        }
+        const data = cutoutCache.get(url);
+        if (data) out[url] = data;
+      }
+      return out;
+    };
+    const bankUrls = new Set<string>(
+      imageManifest.flatMap((i: { url: string; cutoutUrl?: string }) => (i.cutoutUrl ? [i.url, i.cutoutUrl] : [i.url])),
+    );
 
     // Starbursts default to the top-right corner — but if any brief in this
     // thread explicitly positions one ("starburst bottom left"), the brief
@@ -374,7 +417,11 @@ export const generateAsset = action({
       // stripping any hand-drawn copies, so every output has guaranteed-correct
       // primitives. Then escape stray & so strict XML consumers (pixel
       // validation, Quick fix, SVG-as-img export) accept the document.
-      const outputCode = normalizeSvgRoot(escapeStrayAmpersands(injectBrandKit(stripFences(raw))));
+      const cleaned = fillMarkSizes(pushDownTextAttrs(normalizeSvgRoot(escapeStrayAmpersands(injectBrandKit(stripFences(raw))))));
+      // Event-template stories: nudge a wordmark parked in Instagram's covered
+      // band back inside the safe zone (the validator still checks the rest).
+      const outputCode =
+        ds?.effects?.photoRequired && format === "9:16" ? clampMarksToStory(cleaned, 250, 1500) : cleaned;
       inputTokens  += response.usage.input_tokens;
       outputTokens += response.usage.output_tokens;
 
@@ -422,6 +469,21 @@ export const generateAsset = action({
         singlePhoto:          ds?.effects?.singlePhoto ?? false,
         forbidCenteredDisplay: ds?.effects?.noCenteredDisplay ?? false,
         forbidHeadlineTower:  ds?.effects?.noHeadlineTower ?? false,
+        requirePhoto:         ds?.effects?.photoRequired ?? false,
+        photoRequired:        ds?.effects?.photoRequired ?? false,
+        forbidRepeats:        ds?.effects?.photoRequired ?? false,
+        headline:             brief.match(/^HEADLINE:\s*(.+)$/m)?.[1],
+        when:                 brief.match(/^WHEN:\s*(.+)$/m)?.[1],
+        price:                brief.match(/^PRICE:\s*(.+)$/m)?.[1],
+        requiredFacts:        ds?.effects?.photoRequired ?? false,
+        stackFill:            ds?.effects?.stackFill,
+        checkTextBounds:      ds?.effects?.photoRequired ?? false,
+        storySafeZone:        ds?.effects?.photoRequired && format === "9:16" ? { top: 230, bottom: 1520 } : undefined,
+        photoData:            ds?.effects?.photoRequired ? imageManifest : undefined,
+        textOffFaces:         ds?.effects?.textOffFaces ?? false,
+        marksOffFaces:        ds?.effects?.photoRequired ?? false,
+        cutoutRules:          ds?.effects?.useCutouts ?? false,
+        checkStackedLines:    ds?.effects?.photoRequired ?? false,
         canvas:               fmtDim ? { w: fmtDim.w, h: fmtDim.h } : undefined,
       }).filter((v) => !isSoftViolation(v)));
 
@@ -491,6 +553,8 @@ export const generateAsset = action({
             pixelValidate(outputCode, {
               canvas: { w: fmtDim.w, h: fmtDim.h },
               edgePad: 36,
+              seeThrough: imageManifest.flatMap((i: { cutoutUrl?: string }) => (i.cutoutUrl ? [i.cutoutUrl] : [])),
+              cutoutData: await cutoutPixels(outputCode),
               marks: [
                 { pattern: /mm-logo-(?:white|black)\.png/, name: "Mad Monkey wordmark" },
                 { pattern: /mm-allin\.png/, name: "ALL IN sticker" },
@@ -532,9 +596,24 @@ export const generateAsset = action({
       }
       } // end !truncated
 
-      // Track best-so-far (prefer fewer hard, then fewer soft).
-      const score = hard.length * 100 + soft.length;
-      const bestScore = best ? best.hard.length * 100 + best.soft.length : Infinity;
+      // Event templates: text spilling out of its bar or pill, or the wordmark
+      // sitting on text, is a visible defect on a one-message poster, so it
+      // blocks like a brand break.
+      if (ds?.effects?.photoRequired) {
+        const spills = soft.filter((v) => /overflows its (plate|pill)|decorative image overlaps the text/i.test(v));
+        hard.push(...spills);
+        soft = soft.filter((v) => !spills.includes(v));
+      }
+
+      // Track best-so-far (prefer fewer hard, then fewer soft). On event
+      // templates a blocking break outweighs any number of quality notes, so
+      // an attempt that can ship always beats one that would fail.
+      const scoreOf = (h: string[], s: string[]) => {
+        const notes = ds?.effects?.photoRequired ? h.filter(isEventQualityNote).length : 0;
+        return (h.length - notes) * 10_000 + notes * 100 + s.length;
+      };
+      const score = scoreOf(hard, soft);
+      const bestScore = best ? scoreOf(best.hard, best.soft) : Infinity;
       if (score < bestScore) best = { code: outputCode, hard, soft };
 
       if (hard.length === 0 && soft.length === 0) break;
@@ -558,8 +637,14 @@ export const generateAsset = action({
 
     best = best ?? { code: "", hard: ["No output produced."], soft: [] };
     const outputCode    = best.code;
-    const hardRemaining = best.hard;
-    const softRemaining = best.soft;
+    // Event templates: the quality checks (headline size, people in front of
+    // the type, faces, missing or repeated facts) steer every retry, but when
+    // they are all that is left the poster ships with them as notes instead of
+    // an error. Real breakage (colliding lines, text out of its bar, people cut
+    // off mid-air, an invented year) still blocks.
+    const demoted = ds?.effects?.photoRequired ? best.hard.filter(isEventQualityNote) : [];
+    const hardRemaining = best.hard.filter((v) => !demoted.includes(v));
+    const softRemaining = [...best.soft, ...demoted];
     const costUsd = inputTokens * MODEL.inCost + outputTokens * MODEL.outCost;
     // Hard violations are exact brand breaks (off-palette, wrong font, missing
     // mark, bad canvas) — those never ship. Soft layout notes ship as a

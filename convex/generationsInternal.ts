@@ -1,5 +1,6 @@
 import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import type { BankImage } from "../lib/prompt";
 
 export const getDesignSystem = internalQuery({
   args: { brandId: v.id("brands"), name: v.string() },
@@ -21,10 +22,21 @@ export const getImageManifest = internalQuery({
       .query("brand_images")
       .withIndex("by_brand", (q) => q.eq("brandId", brandId))
       .collect();
-    const manifest: { url: string; description: string }[] = [];
+    const manifest: BankImage[] = [];
     for (const r of rows) {
       const url = await ctx.storage.getUrl(r.storageId);
-      if (url) manifest.push({ url, description: r.description });
+      if (!url) continue;
+      const cutoutUrl = r.cutoutStorageId ? await ctx.storage.getUrl(r.cutoutStorageId) : null;
+      manifest.push({
+        url,
+        description: r.description,
+        width: r.width,
+        height: r.height,
+        subjectBox: r.subjectBox,
+        faceBand: r.faceBand,
+        hasText: r.hasText,
+        ...(cutoutUrl ? { cutoutUrl, cutoutWidth: r.cutoutWidth, cutoutHeight: r.cutoutHeight, cutoutSliced: r.cutoutSliced } : {}),
+      });
     }
     return manifest;
   },

@@ -19,6 +19,7 @@ import { validateSvg, extractStatedColors, escapeStrayAmpersands } from "../lib/
 import { injectBrandKit } from "../lib/brand-kit";
 import { injectCountryKit, COUNTRY_KIT_DOC } from "../lib/country-kit";
 import { svgToPng } from "../lib/resvg-render";
+import { fillMarkSizes, pushDownTextAttrs } from "../lib/svg-text-attrs";
 
 // ⚠️ DEV ONLY — inline a comparison SVG's images and rasterise it to a PNG
 // (resvg = correct brand fonts) so it can be embedded in a PowerPoint.
@@ -115,7 +116,7 @@ export const devGenerate = internalAction({
     const fmtDim = FORMAT_DIMENSIONS[format];
     // Minimal Bold is wordmark-only (no ALL IN sticker); others test with the sticker.
     const marks =
-      designSystem === "minimal-bold"
+      designSystem === "minimal-bold" || ds?.effects?.wordmarkOnly
         ? { includeLogo: true, includeAllIn: false, includeAllInMonkey: false }
         : { includeLogo: true, includeAllIn: true, includeAllInMonkey: false };
     const systemPrompt =
@@ -138,6 +139,21 @@ export const devGenerate = internalAction({
       forbidCenteredDisplay: ds?.effects?.noCenteredDisplay ?? false,
       forbidHeadlineTower: ds?.effects?.noHeadlineTower ?? false,
       greyscalePhotos: ds?.effects?.greyscalePhotos ?? false,
+      requirePhoto: ds?.effects?.photoRequired ?? false,
+      photoRequired: ds?.effects?.photoRequired ?? false,
+      forbidRepeats: ds?.effects?.photoRequired ?? false,
+      headline: brief.match(/^HEADLINE:\s*(.+)$/m)?.[1],
+      when: brief.match(/^WHEN:\s*(.+)$/m)?.[1],
+      price: brief.match(/^PRICE:\s*(.+)$/m)?.[1],
+      requiredFacts: ds?.effects?.photoRequired ?? false,
+      stackFill: ds?.effects?.stackFill,
+      checkTextBounds: ds?.effects?.photoRequired ?? false,
+      storySafeZone: ds?.effects?.photoRequired && format === "9:16" ? { top: 230, bottom: 1520 } : undefined,
+      photoData: ds?.effects?.photoRequired ? imageManifest : undefined,
+      textOffFaces: ds?.effects?.textOffFaces ?? false,
+      marksOffFaces: ds?.effects?.photoRequired ?? false,
+      cutoutRules: ds?.effects?.useCutouts ?? false,
+      checkStackedLines: ds?.effects?.photoRequired ?? false,
       canvas: fmtDim ? { w: fmtDim.w, h: fmtDim.h } : undefined,
     } as const;
 
@@ -164,7 +180,7 @@ export const devGenerate = internalAction({
       inTok += res.usage.input_tokens;
       outTok += res.usage.output_tokens;
       const raw = res.content[0].type === "text" ? res.content[0].text : "";
-      const outputCode = escapeStrayAmpersands(injectCountryKit(injectBrandKit(stripFences(raw))));
+      const outputCode = fillMarkSizes(pushDownTextAttrs(escapeStrayAmpersands(injectCountryKit(injectBrandKit(stripFences(raw))))));
       // Base-run violations are HARD (brand/palette/marks/text-on-photo);
       // extras that only appear with the layout estimators on are SOFT.
       const hard = validateSvg(outputCode, validateOpts);
