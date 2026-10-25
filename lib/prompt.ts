@@ -394,6 +394,21 @@ export function buildSystemPrompt(
 }
 
 /** Strip markdown code fences Claude sometimes adds despite instructions. */
+/**
+ * The SVG document from a model reply. Opus 5.5 sometimes writes its layout
+ * notes as plain text before the SVG ("Line1 width: 33 chars at 35 → ~1020 …
+ * </reasoning><svg …"); browsers shrug that off but the export renderer
+ * refuses the file. Keep only the root <svg …xmlns…> through the last </svg>.
+ */
+export function extractSvg(raw: string): string {
+  const text = stripFences(raw);
+  const root = text.search(/<svg\b[^>]*\bxmlns\s*=/i);
+  const start = root >= 0 ? root : text.search(/<svg\b/i);
+  const end = text.lastIndexOf("</svg>");
+  if (start < 0 || end < start) return text;
+  return text.slice(start, end + "</svg>".length);
+}
+
 export function stripFences(raw: string): string {
   return raw
     .replace(/^```[\w]*\s*/i, "")

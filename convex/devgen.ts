@@ -10,7 +10,7 @@ import { api, internal } from "./_generated/api";
 import Anthropic from "@anthropic-ai/sdk";
 import {
   buildSystemPrompt,
-  stripFences,
+  extractSvg,
   FORMAT_DIMENSIONS,
   DISPLAY_FONTS,
   ACCENT_FONTS,
@@ -20,6 +20,7 @@ import { injectBrandKit } from "../lib/brand-kit";
 import { injectCountryKit, COUNTRY_KIT_DOC } from "../lib/country-kit";
 import { svgToPng } from "../lib/resvg-render";
 import { fillMarkSizes, pushDownTextAttrs } from "../lib/svg-text-attrs";
+import { textOf, CREATION_EFFORT } from "../lib/anthropic-text";
 
 // ⚠️ DEV ONLY — inline a comparison SVG's images and rasterise it to a PNG
 // (resvg = correct brand fonts) so it can be embedded in a PowerPoint.
@@ -60,7 +61,7 @@ export const devRenderPng = internalAction({
 
 const TIERS = {
   standard: { model: "claude-sonnet-4-6", inCost: 3 / 1_000_000, outCost: 15 / 1_000_000 },
-  extra: { model: "claude-opus-4-8", inCost: 5 / 1_000_000, outCost: 25 / 1_000_000 },
+  extra: { model: "claude-opus-5-5", inCost: 4 / 1_000_000, outCost: 20 / 1_000_000 },
 } as const;
 const MAX_RETRIES = 2;
 
@@ -174,13 +175,15 @@ export const devGenerate = internalAction({
       const res = await client.messages.create({
         model: t.model,
         max_tokens: 8000,
+        thinking: { type: "adaptive", display: "omitted" },
+        output_config: { effort: CREATION_EFFORT },
         system: systemPrompt,
         messages,
       });
       inTok += res.usage.input_tokens;
       outTok += res.usage.output_tokens;
-      const raw = res.content[0].type === "text" ? res.content[0].text : "";
-      const outputCode = fillMarkSizes(pushDownTextAttrs(escapeStrayAmpersands(injectCountryKit(injectBrandKit(stripFences(raw))))));
+      const raw = textOf(res);
+      const outputCode = fillMarkSizes(pushDownTextAttrs(escapeStrayAmpersands(injectCountryKit(injectBrandKit(extractSvg(raw))))));
       // Base-run violations are HARD (brand/palette/marks/text-on-photo);
       // extras that only appear with the layout estimators on are SOFT.
       const hard = validateSvg(outputCode, validateOpts);

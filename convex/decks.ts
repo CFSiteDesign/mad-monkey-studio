@@ -9,6 +9,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   buildSystemPrompt,
   stripFences,
+  extractSvg,
   FORMAT_DIMENSIONS,
   DISPLAY_FONTS,
   ACCENT_FONTS,
@@ -17,11 +18,13 @@ import { validateSvg, extractStatedColors, escapeStrayAmpersands, normalizeSvgRo
 import { pixelValidate, type PixelResult } from "../lib/pixel-validate";
 import { injectBrandKit } from "../lib/brand-kit";
 import { injectCountryKit, COUNTRY_KIT_DOC } from "../lib/country-kit";
+import { textOf, CREATION_EFFORT } from "../lib/anthropic-text";
 
 const OUTLINE_MODEL = "claude-haiku-4-5-20251001";
 // Single slide-generation model: Opus 4.8 ($5/1M in, $25/1M out). The cheap
 // Haiku OUTLINE_MODEL above still plans the deck; slides are always Opus.
-const MODEL = { model: "claude-opus-4-8", inCost: 5 / 1_000_000, outCost: 25 / 1_000_000 } as const;
+// Opus 5.5 designs the slides ($4 / $20 per 1M tokens), low thinking effort.
+const MODEL = { model: "claude-opus-5-5", inCost: 4 / 1_000_000, outCost: 20 / 1_000_000 } as const;
 
 // Slides are simpler than posters — one correction attempt keeps deck cost sane;
 // a slide that still has hard breaks ships best-effort rather than failing the deck.
@@ -88,7 +91,7 @@ Rules:
     system,
     messages: [{ role: "user", content: brief }],
   });
-  const text = res.content[0].type === "text" ? res.content[0].text : "";
+  const text = textOf(res);
   const cleaned = stripFences(text).trim();
   // Prefer a straight parse; fall back to slicing the outermost { … } object
   // out of any surrounding prose the model may have added.
@@ -159,13 +162,15 @@ async function generateSlide(
     const res = await client.messages.create({
       model,
       max_tokens: 8000,
+      thinking: { type: "adaptive", display: "omitted" },
+      output_config: { effort: CREATION_EFFORT },
       system: systemPrompt,
       messages,
     });
     inTok += res.usage.input_tokens;
     outTok += res.usage.output_tokens;
-    const raw = res.content[0].type === "text" ? res.content[0].text : "";
-    const outputCode = normalizeSvgRoot(escapeStrayAmpersands(injectCountryKit(injectBrandKit(stripFences(raw)))));
+    const raw = textOf(res);
+    const outputCode = normalizeSvgRoot(escapeStrayAmpersands(injectCountryKit(injectBrandKit(extractSvg(raw)))));
 
     const soft = validateSvg(outputCode, { ...validateOpts, checkTextOverlap: true, checkContainers: true, checkImageTextClip: true });
     const hard = validateSvg(outputCode, validateOpts).filter((vv) => !soft.includes(vv));

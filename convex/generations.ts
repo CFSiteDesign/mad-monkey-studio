@@ -6,17 +6,21 @@ import { internal, api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { buildSystemPrompt, stripFences, FORMAT_DIMENSIONS, DISPLAY_FONTS, ACCENT_FONTS } from "../lib/prompt";
+import { buildSystemPrompt, extractSvg, FORMAT_DIMENSIONS, DISPLAY_FONTS, ACCENT_FONTS } from "../lib/prompt";
 import { validateSvg, extractStatedColors, escapeStrayAmpersands, normalizeSvgRoot } from "../lib/validate";
 import { pixelValidate, type PixelResult } from "../lib/pixel-validate";
 import { injectBrandKit } from "../lib/brand-kit";
 import { fillMarkSizes, pushDownTextAttrs } from "../lib/svg-text-attrs";
 import { clampMarksToStory } from "../lib/story-safe";
+import { textOf, CREATION_EFFORT } from "../lib/anthropic-text";
 
 // Single generation model: Opus 4.8 ($5/1M input, $25/1M output) — the most
 // capable model, far better at dense on-brand layout. (Sonnet/quality tiers
 // were removed; brief/outline composition still uses cheap Haiku separately.)
-const MODEL = { model: "claude-opus-4-8", inCost: 5 / 1_000_000, outCost: 25 / 1_000_000 } as const;
+// Opus 5.5 for creation ($4 / $20 per 1M tokens), with thinking on
+// every call kept at low thinking effort: deep thinking was ~6x slower with no
+// better layouts.
+const MODEL = { model: "claude-opus-5-5", inCost: 4 / 1_000_000, outCost: 20 / 1_000_000 } as const;
 
 // Standard per-user rate limits.
 const RATE_PER_MINUTE = 10;
@@ -403,6 +407,8 @@ export const generateAsset = action({
         // past 4k output tokens — a low cap truncates mid-file, cutting off
         // the brand marks (drawn last) and forcing pointless retries.
         max_tokens: 16000,
+        thinking:   { type: "adaptive", display: "omitted" },
+        output_config: { effort: CREATION_EFFORT },
         // The system prompt (brand rules + image manifest, ~5k tokens) is
         // identical across retries and generations — cache it so retries pay
         // ~10% input cost and start faster.
@@ -412,12 +418,12 @@ export const generateAsset = action({
         messages,
       });
 
-      const raw        = response.content[0].type === "text" ? response.content[0].text : "";
+      const raw        = textOf(response);
       // Inject the canonical craft kit (filters/patterns/shapes + fonts),
       // stripping any hand-drawn copies, so every output has guaranteed-correct
       // primitives. Then escape stray & so strict XML consumers (pixel
       // validation, Quick fix, SVG-as-img export) accept the document.
-      const cleaned = fillMarkSizes(pushDownTextAttrs(normalizeSvgRoot(escapeStrayAmpersands(injectBrandKit(stripFences(raw))))));
+      const cleaned = fillMarkSizes(pushDownTextAttrs(normalizeSvgRoot(escapeStrayAmpersands(injectBrandKit(extractSvg(raw))))));
       // Event-template stories: nudge a wordmark parked in Instagram's covered
       // band back inside the safe zone (the validator still checks the rest).
       const outputCode =
