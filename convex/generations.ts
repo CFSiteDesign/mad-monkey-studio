@@ -9,10 +9,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt, extractSvg, FORMAT_DIMENSIONS, DISPLAY_FONTS, ACCENT_FONTS } from "../lib/prompt";
 import { validateSvg, extractStatedColors, escapeStrayAmpersands, normalizeSvgRoot } from "../lib/validate";
 import { pixelValidate, type PixelResult } from "../lib/pixel-validate";
+import { svgToJpeg } from "../lib/resvg-render";
 import { injectBrandKit } from "../lib/brand-kit";
 import { fillMarkSizes, pushDownTextAttrs } from "../lib/svg-text-attrs";
 import { clampMarksToStory } from "../lib/story-safe";
-import { textOf, CREATION_EFFORT } from "../lib/anthropic-text";
+import { textOf, creationEffort, reviewEffort } from "../lib/anthropic-text";
 
 // Single generation model: Opus 4.8 ($5/1M input, $25/1M output) — the most
 // capable model, far better at dense on-brand layout. (Sonnet/quality tiers
@@ -171,6 +172,33 @@ ${violations.map((v) => `- ${v}`).join("\n")}
 
 Regenerate the COMPLETE corrected SVG for the same brief. Fix every violation listed. Keep the concept and layout — change only what the violations require. Return ONLY the raw SVG.`;
 
+// The art director sees the finished poster as a picture: the attempts are
+// written blind, and no geometry check can tell a correct poster from a good one.
+const artDirectorPrompt = (brief: string, svg: string) =>
+  `ART DIRECTOR REVIEW. The image is the exact render of the SVG below, as the team will download and post it.
+
+<brief>
+${brief}
+</brief>
+
+<svg-source>
+${svg}
+</svg-source>
+
+Look at the image the way a senior designer at a top agency would before it goes out, and hold it to the standard of the best social posters you know. Check, in order:
+1. Focus: one clear hero (the headline or the photo), an obvious reading order, nothing competing with it.
+2. Legibility on a phone: every word readable at a glance (size, weight, contrast against what sits behind it).
+3. Space: consistent margins, a balanced composition, nothing cramped, crowded, floating or awkwardly empty.
+4. The photo: well cropped, heads and faces whole and uncovered, the subject where it reads best.
+5. Craft: alignment, line breaks (no orphan words or awkward splits), even spacing between related items, nothing clipped or overlapping by accident.
+6. Anything that looks amateur, generic or broken.
+
+If it is already excellent, reply with exactly: KEEP
+Otherwise reply with ONLY the complete improved SVG. Fix what you saw and keep what works: the same facts and wording, the same image URLs, the same brand marks, and every rule in your instructions still applies.`;
+
+// Where the deployed app serves /mm-*.png (the review render fetches them).
+const SITE_URL = process.env.STUDIO_SITE_URL ?? "https://mad-monkey-studio.vercel.app";
+
 export const generateAsset = action({
   args: {
     brief:         v.string(),
@@ -194,6 +222,10 @@ export const generateAsset = action({
     costUsd: number;
     retryCount: number;
     notes?: string[];
+    /** What the art director pass did (kept / revised / rejected / skipped). */
+    reviewed?: string;
+    /** Local testing only (ART_DIRECTOR_DEBUG=1): the draft before review. */
+    draftCode?: string;
     generationId: Id<"generations">;
     threadId: Id<"threads">;
   }> => {
@@ -393,52 +425,11 @@ export const generateAsset = action({
       /star\s*burst/.test(allBriefs) &&
       /\b(top|bottom|left|right|centre|center|middle|corner)\b/.test(allBriefs);
 
-    let inputTokens  = 0;
-    let outputTokens = 0;
-    let retryCount   = 0;
-    // Keep the best attempt seen (fewest hard, then fewest soft) so we never
-    // leave the user empty-handed after a paid generation.
-    let best: { code: string; hard: string[]; soft: string[] } | null = null;
-
-    for (let attempt = 0; attempt <= MAX_VALIDATION_RETRIES; attempt++) {
-      const response = await anthropic.messages.create({
-        model:      MODEL.model,
-        // Dense collage SVGs (grain, sawtooth badges, stickers) regularly run
-        // past 4k output tokens — a low cap truncates mid-file, cutting off
-        // the brand marks (drawn last) and forcing pointless retries.
-        max_tokens: 16000,
-        thinking:   { type: "adaptive", display: "omitted" },
-        output_config: { effort: CREATION_EFFORT },
-        // The system prompt (brand rules + image manifest, ~5k tokens) is
-        // identical across retries and generations — cache it so retries pay
-        // ~10% input cost and start faster.
-        system: [
-          { type: "text" as const, text: systemPrompt, cache_control: { type: "ephemeral" as const } },
-        ],
-        messages,
-      });
-
-      const raw        = textOf(response);
-      // Inject the canonical craft kit (filters/patterns/shapes + fonts),
-      // stripping any hand-drawn copies, so every output has guaranteed-correct
-      // primitives. Then escape stray & so strict XML consumers (pixel
-      // validation, Quick fix, SVG-as-img export) accept the document.
-      const cleaned = fillMarkSizes(pushDownTextAttrs(normalizeSvgRoot(escapeStrayAmpersands(injectBrandKit(extractSvg(raw))))));
-      // Event-template stories: nudge a wordmark parked in Instagram's covered
-      // band back inside the safe zone (the validator still checks the rest).
-      const outputCode =
-        ds?.effects?.photoRequired && format === "9:16" ? clampMarksToStory(cleaned, 250, 1500) : cleaned;
-      inputTokens  += response.usage.input_tokens;
-      outputTokens += response.usage.output_tokens;
-
+    // Every attempt (and the art director's revision) faces the same checks.
+    const checkAttempt = async (outputCode: string, truncated: boolean): Promise<{ hard: string[]; soft: string[] }> => {
       let soft: string[] = [];
       const hard: string[] = [];
 
-      // Truncated output is useless — flag it and skip the validators
-      // (no point measuring half an SVG, and pixel validation costs ~1.5s).
-      const truncated =
-        response.stop_reason === "max_tokens" ||
-        !outputCode.trimEnd().endsWith("</svg>");
       if (truncated) {
         hard.push(
           "The SVG was cut off before completion — it must be a COMPLETE document ending in </svg>. Be more economical: reuse <defs>, avoid repeated filter definitions, keep decorative paths short, and don't repeat near-identical elements.",
@@ -611,13 +602,64 @@ export const generateAsset = action({
         soft = soft.filter((v) => !spills.includes(v));
       }
 
+      return { hard, soft };
+    };
+    // Rank attempts: fewer hard, then fewer soft. On event templates a blocking
+    // break outweighs any number of quality notes, so an attempt that can ship
+    // always beats one that would fail.
+    const scoreOf = (h: string[], s: string[]) => {
+      const notes = ds?.effects?.photoRequired ? h.filter(isEventQualityNote).length : 0;
+      return (h.length - notes) * 10_000 + notes * 100 + s.length;
+    };
+
+    let inputTokens  = 0;
+    let outputTokens = 0;
+    let retryCount   = 0;
+    // Keep the best attempt seen (fewest hard, then fewest soft) so we never
+    // leave the user empty-handed after a paid generation.
+    let best: { code: string; hard: string[]; soft: string[] } | null = null;
+
+    for (let attempt = 0; attempt <= MAX_VALIDATION_RETRIES; attempt++) {
+      const response = await anthropic.messages.create({
+        model:      MODEL.model,
+        // Dense collage SVGs (grain, sawtooth badges, stickers) regularly run
+        // past 4k output tokens — a low cap truncates mid-file, cutting off
+        // the brand marks (drawn last) and forcing pointless retries.
+        max_tokens: 16000,
+        thinking:   { type: "adaptive", display: "omitted" },
+        output_config: { effort: creationEffort() },
+        // The system prompt (brand rules + image manifest, ~5k tokens) is
+        // identical across retries and generations — cache it so retries pay
+        // ~10% input cost and start faster.
+        system: [
+          { type: "text" as const, text: systemPrompt, cache_control: { type: "ephemeral" as const } },
+        ],
+        messages,
+      });
+
+      const raw        = textOf(response);
+      // Inject the canonical craft kit (filters/patterns/shapes + fonts),
+      // stripping any hand-drawn copies, so every output has guaranteed-correct
+      // primitives. Then escape stray & so strict XML consumers (pixel
+      // validation, Quick fix, SVG-as-img export) accept the document.
+      const cleaned = fillMarkSizes(pushDownTextAttrs(normalizeSvgRoot(escapeStrayAmpersands(injectBrandKit(extractSvg(raw))))));
+      // Event-template stories: nudge a wordmark parked in Instagram's covered
+      // band back inside the safe zone (the validator still checks the rest).
+      const outputCode =
+        ds?.effects?.photoRequired && format === "9:16" ? clampMarksToStory(cleaned, 250, 1500) : cleaned;
+      inputTokens  += response.usage.input_tokens;
+      outputTokens += response.usage.output_tokens;
+
+      // Truncated output is useless — flag it and skip the validators
+      // (no point measuring half an SVG, and pixel validation costs ~1.5s).
+      const truncated =
+        response.stop_reason === "max_tokens" ||
+        !outputCode.trimEnd().endsWith("</svg>");
+      const { hard, soft } = await checkAttempt(outputCode, truncated);
+
       // Track best-so-far (prefer fewer hard, then fewer soft). On event
       // templates a blocking break outweighs any number of quality notes, so
       // an attempt that can ship always beats one that would fail.
-      const scoreOf = (h: string[], s: string[]) => {
-        const notes = ds?.effects?.photoRequired ? h.filter(isEventQualityNote).length : 0;
-        return (h.length - notes) * 10_000 + notes * 100 + s.length;
-      };
       const score = scoreOf(hard, soft);
       const bestScore = best ? scoreOf(best.hard, best.soft) : Infinity;
       if (score < bestScore) best = { code: outputCode, hard, soft };
@@ -642,6 +684,79 @@ export const generateAsset = action({
     }
 
     best = best ?? { code: "", hard: ["No output produced."], soft: [] };
+
+    // ── Art director pass ─────────────────────────────────────────────────
+    // Render the best attempt with its real photos and logos, show the picture
+    // to the model and let it fix what a designer would see. The revision faces
+    // the same checks and replaces the original only if it scores no worse.
+    // Fresh designs only (a refinement or resize keeps what the user asked
+    // for), and only for an attempt that can ship. Off unless ART_DIRECTOR=on in the Convex env.
+    let reviewed: "kept" | "revised" | "rejected" | "skipped" = "skipped";
+    const draftCode = best.code;
+    if (
+      best.code &&
+      !threadId &&
+      !adaptFrom &&
+      process.env.ART_DIRECTOR === "on" &&
+      scoreOf(best.hard, best.soft) < 10_000
+    ) {
+      try {
+        let render = best.code;
+        const hrefs = new Set(
+          [...best.code.matchAll(/<image\b[^>]*?(?:xlink:)?href\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]),
+        );
+        for (const href of hrefs) {
+          if (href.startsWith("data:") || href.startsWith("#")) continue;
+          const url = href.startsWith("/")
+            ? SITE_URL + href.replace(/^\/(mm-logo-(?:white|black))\.png$/, "/$1-hd.png")
+            : href;
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const type = res.headers.get("content-type")?.split(";")[0] ?? (href.endsWith(".png") ? "image/png" : "image/jpeg");
+          const data = `data:${type};base64,${Buffer.from(await res.arrayBuffer()).toString("base64")}`;
+          render = render.split(`"${href}"`).join(`"${data}"`);
+        }
+        const jpeg = await svgToJpeg(render, fmtDim && fmtDim.w > fmtDim.h ? 1200 : 900, 80);
+        const response = await anthropic.messages.create({
+          model:      MODEL.model,
+          max_tokens: 16000,
+          thinking:   { type: "adaptive", display: "omitted" },
+          output_config: { effort: reviewEffort() },
+          system: [
+            { type: "text" as const, text: systemPrompt, cache_control: { type: "ephemeral" as const } },
+          ],
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "image", source: { type: "base64", media_type: "image/jpeg", data: jpeg.toString("base64") } },
+                { type: "text", text: artDirectorPrompt(claudeBrief, best.code) },
+              ],
+            },
+          ],
+        });
+        inputTokens  += response.usage.input_tokens;
+        outputTokens += response.usage.output_tokens;
+        const raw = textOf(response);
+        if (/^\s*KEEP\b/.test(raw) || !/<svg\b/i.test(raw)) {
+          reviewed = "kept";
+        } else {
+          const cleaned = fillMarkSizes(pushDownTextAttrs(normalizeSvgRoot(escapeStrayAmpersands(injectBrandKit(extractSvg(raw))))));
+          const revised =
+            ds?.effects?.photoRequired && format === "9:16" ? clampMarksToStory(cleaned, 250, 1500) : cleaned;
+          const truncated = response.stop_reason === "max_tokens" || !revised.trimEnd().endsWith("</svg>");
+          const check = await checkAttempt(revised, truncated);
+          if (scoreOf(check.hard, check.soft) <= scoreOf(best.hard, best.soft)) {
+            best = { code: revised, hard: check.hard, soft: check.soft };
+            reviewed = "revised";
+          } else {
+            reviewed = "rejected";
+          }
+        }
+      } catch (e) {
+        console.warn("art director pass skipped:", e instanceof Error ? e.message : e);
+      }
+    }
     const outputCode    = best.code;
     // Event templates: the quality checks (headline size, people in front of
     // the type, faces, missing or repeated facts) steer every retry, but when
@@ -695,6 +810,8 @@ export const generateAsset = action({
       costUsd,
       retryCount,
       notes: softRemaining.length ? softRemaining : undefined,
+      reviewed,
+      draftCode: process.env.ART_DIRECTOR_DEBUG === "1" && reviewed === "revised" ? draftCode : undefined,
       generationId: persistResult.generationId,
       threadId:     persistResult.threadId,
     };

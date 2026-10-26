@@ -18,7 +18,7 @@ import { validateSvg, extractStatedColors, escapeStrayAmpersands, normalizeSvgRo
 import { pixelValidate, type PixelResult } from "../lib/pixel-validate";
 import { injectBrandKit } from "../lib/brand-kit";
 import { injectCountryKit, COUNTRY_KIT_DOC } from "../lib/country-kit";
-import { textOf, CREATION_EFFORT } from "../lib/anthropic-text";
+import { textOf, creationEffort } from "../lib/anthropic-text";
 
 const OUTLINE_MODEL = "claude-haiku-4-5-20251001";
 // Single slide-generation model: Opus 4.8 ($5/1M in, $25/1M out). The cheap
@@ -163,7 +163,7 @@ async function generateSlide(
       model,
       max_tokens: 8000,
       thinking: { type: "adaptive", display: "omitted" },
-      output_config: { effort: CREATION_EFFORT },
+      output_config: { effort: creationEffort() },
       system: systemPrompt,
       messages,
     });

@@ -20,7 +20,7 @@ import { injectBrandKit } from "../lib/brand-kit";
 import { injectCountryKit, COUNTRY_KIT_DOC } from "../lib/country-kit";
 import { svgToPng } from "../lib/resvg-render";
 import { fillMarkSizes, pushDownTextAttrs } from "../lib/svg-text-attrs";
-import { textOf, CREATION_EFFORT } from "../lib/anthropic-text";
+import { textOf, creationEffort } from "../lib/anthropic-text";
 
 // ⚠️ DEV ONLY — inline a comparison SVG's images and rasterise it to a PNG
 // (resvg = correct brand fonts) so it can be embedded in a PowerPoint.
@@ -176,7 +176,7 @@ export const devGenerate = internalAction({
         model: t.model,
         max_tokens: 8000,
         thinking: { type: "adaptive", display: "omitted" },
-        output_config: { effort: CREATION_EFFORT },
+        output_config: { effort: creationEffort() },
         system: systemPrompt,
         messages,
       });
