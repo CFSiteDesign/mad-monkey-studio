@@ -191,7 +191,7 @@ export function Walkthrough({
             width: box.width,
             height: box.height,
             boxShadow: "0 0 0 9999px rgba(8,7,6,0.80)",
-            outline: "2px solid rgba(204,122,92,0.9)",
+            outline: "2px solid rgba(210,69,43,0.9)",
             pointerEvents: "none",
           }}
         />
@@ -200,28 +200,28 @@ export function Walkthrough({
       )}
       {/* tooltip card */}
       <div
-        className="absolute w-[calc(100vw-2rem)] max-w-[340px] rounded-2xl border border-[rgba(242,238,230,0.14)] bg-[#242220] p-4 shadow-2xl transition-all duration-300 lg:w-[340px] lg:max-w-none"
+        className="absolute w-[calc(100vw-2rem)] max-w-[340px] rounded-2xl border border-[rgba(21,17,14,0.14)] bg-[#FFFFFF] p-4 shadow-2xl transition-all duration-300 lg:w-[340px] lg:max-w-none"
         style={{ ...cardStyle, opacity: entering ? 0.7 : 1 }}
       >
         <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-[10px] font-medium uppercase tracking-widest text-[#CC7A5C]">
+          <span className="text-[10px] font-medium uppercase tracking-widest text-[#D2452B]">
             Step {i + 1} of {steps.length}
           </span>
-          <button onClick={onClose} className="-m-2 grid h-10 w-10 place-items-center text-[#8C8278] transition-colors hover:text-[#F2EEE6] lg:m-0 lg:h-auto lg:w-auto" aria-label="Close tour">
+          <button onClick={onClose} className="-m-2 grid h-10 w-10 place-items-center text-[#5E564F] transition-colors hover:text-[#15110E] lg:m-0 lg:h-auto lg:w-auto" aria-label="Close tour">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <h3 className="text-sm font-semibold text-[#F2EEE6]">{step.title}</h3>
-        <div className="mt-1.5 text-[12.5px] leading-relaxed text-[#CFC8BD]">{step.body}</div>
+        <h3 className="text-sm font-semibold text-[#15110E]">{step.title}</h3>
+        <div className="mt-1.5 text-[12.5px] leading-relaxed text-[#3A332D]">{step.body}</div>
         <div className="mt-3.5 flex items-center justify-between gap-2">
-          <button onClick={onClose} className="flex min-h-[40px] items-center text-[11px] text-[#8C8278] transition-colors hover:text-[#CFC8BD] lg:min-h-0">
+          <button onClick={onClose} className="flex min-h-[40px] items-center text-[11px] text-[#5E564F] transition-colors hover:text-[#3A332D] lg:min-h-0">
             Skip tour
           </button>
           <div className="flex items-center gap-2">
             {i > 0 && (
               <button
                 onClick={() => setI((v) => Math.max(0, v - 1))}
-                className="flex min-h-[40px] items-center gap-1 rounded-lg border border-[rgba(242,238,230,0.12)] px-3 py-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[rgba(242,238,230,0.25)] lg:min-h-0 lg:px-2.5 lg:py-1.5"
+                className="flex min-h-[40px] items-center gap-1 rounded-lg border border-[rgba(21,17,14,0.12)] px-3 py-2 text-[11px] text-[#3A332D] transition-colors hover:border-[rgba(21,17,14,0.25)] lg:min-h-0 lg:px-2.5 lg:py-1.5"
               >
                 <ArrowLeft className="h-3 w-3" /> Back
               </button>
@@ -239,7 +239,7 @@ export function Walkthrough({
           {steps.map((_, k) => (
             <span
               key={k}
-              className={`h-1 rounded-full transition-all ${k === i ? "w-4 bg-[#CC7A5C]" : "w-1 bg-[rgba(242,238,230,0.2)]"}`}
+              className={`h-1 rounded-full transition-all ${k === i ? "w-4 bg-[#D2452B]" : "w-1 bg-[rgba(21,17,14,0.2)]"}`}
             />
           ))}
         </div>

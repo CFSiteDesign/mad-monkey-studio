@@ -92,24 +92,24 @@ export function UploadPhotos({
   return (
     <div className="space-y-2" data-tour="upload-photo">
       <div className="flex items-center justify-between">
-        <label className="block text-[11px] font-medium text-[#CFC8BD]">
-          Use your own photo? <span className="text-[#8C8278]">· optional</span>
+        <label className="block text-[11px] font-medium text-[#3A332D]">
+          Use your own photo? <span className="text-[#5E564F]">· optional</span>
         </label>
-        <span className="text-[10px] text-[#8C8278]">{images.length}/{MAX_IMAGES}</span>
+        <span className="text-[10px] text-[#5E564F]">{images.length}/{MAX_IMAGES}</span>
       </div>
 
       <div className="flex flex-wrap gap-2">
         {images.map((it) => (
           <div
             key={it.localId}
-            className="relative h-20 w-20 overflow-hidden rounded-lg ring-1 ring-[rgba(242,238,230,0.12)] lg:h-16 lg:w-16"
+            className="relative h-20 w-20 overflow-hidden rounded-lg ring-1 ring-[rgba(21,17,14,0.12)] lg:h-16 lg:w-16"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={it.previewUrl} alt="Your upload" className="h-full w-full object-cover" />
             {it.status !== "ready" && (
-              <div className="absolute inset-0 grid place-items-center bg-[#1C1A18]/70">
+              <div className="absolute inset-0 grid place-items-center bg-[#F7F3EC]/70">
                 {it.status === "uploading" ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-[#CC7A5C]" />
+                  <Loader2 className="h-4 w-4 animate-spin text-[#D2452B]" />
                 ) : (
                   <span className="text-[9px] text-red-300">failed</span>
                 )}
@@ -118,7 +118,7 @@ export function UploadPhotos({
             <button
               type="button"
               onClick={() => onChange(images.filter((x) => x.localId !== it.localId))}
-              className="absolute right-0.5 top-0.5 grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-[#1C1A18]/85 text-[#F2EEE6] hover:bg-[#1C1A18] lg:h-4 lg:w-4"
+              className="absolute right-0.5 top-0.5 grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-[#F7F3EC]/85 text-[#15110E] hover:bg-[#F7F3EC] lg:h-4 lg:w-4"
               aria-label="Remove photo"
             >
               <X className="h-3 w-3 lg:h-2.5 lg:w-2.5" />
@@ -130,7 +130,7 @@ export function UploadPhotos({
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[rgba(242,238,230,0.2)] text-[#8C8278] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#CFC8BD] lg:h-16 lg:w-16"
+            className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[rgba(21,17,14,0.2)] text-[#5E564F] transition-colors hover:border-[#D2452B]/60 hover:text-[#3A332D] lg:h-16 lg:w-16"
             title="Upload up to 3 of your own photos"
           >
             <Upload className="h-4 w-4" />
@@ -150,7 +150,7 @@ export function UploadPhotos({
           e.target.value = "";
         }}
       />
-      <p className="text-[10px] leading-relaxed text-[#8C8278]">
+      <p className="text-[10px] leading-relaxed text-[#5E564F]">
         Your photo is added to the community bank (auto-described) and featured in the design.
       </p>
     </div>

@@ -187,11 +187,11 @@ export function PhotoCropper({
     hole('fill="#000"') +
     `</mask></defs>` +
     `<rect width="${geo.SW}" height="${geo.SH}" fill="rgba(12,11,9,0.62)" mask="url(#${maskId})"/>` +
-    hole('fill="none" stroke="#F2EEE6" stroke-width="2" vector-effect="non-scaling-stroke"');
+    hole('fill="none" stroke="#15110E" stroke-width="2" vector-effect="non-scaling-stroke"');
 
   return (
     <div ref={wrapRef} className="flex flex-col items-center gap-4 p-5">
-      <p className="px-2 text-center text-[12px] text-[#8C8278]">
+      <p className="px-2 text-center text-[12px] text-[#5E564F]">
         Drag the photo to frame the shot · zoom for a tighter crop
       </p>
 
@@ -201,7 +201,7 @@ export function PhotoCropper({
       >
         {imgAspect == null ? (
           <div className="grid h-full w-full place-items-center">
-            <Loader2 className="h-5 w-5 animate-spin text-[#CC7A5C]" />
+            <Loader2 className="h-5 w-5 animate-spin text-[#D2452B]" />
           </div>
         ) : (
           <>
@@ -230,7 +230,7 @@ export function PhotoCropper({
               aria-hidden
               dangerouslySetInnerHTML={{ __html: overlaySvg }}
             />
-            <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/45 px-2 py-1 text-[11px] text-[#F2EEE6]">
+            <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/45 px-2 py-1 text-[11px] text-[#F7F3EC]">
               The bright window is your post
             </div>
           </>
@@ -238,7 +238,7 @@ export function PhotoCropper({
       </div>
 
       <div className="flex w-full max-w-[460px] items-center gap-3">
-        <ZoomIn className="h-4 w-4 shrink-0 text-[#8C8278]" />
+        <ZoomIn className="h-4 w-4 shrink-0 text-[#5E564F]" />
         <input
           type="range"
           min={1}
@@ -246,7 +246,7 @@ export function PhotoCropper({
           step={0.01}
           value={zoom}
           onChange={(e) => onZoom(Number(e.target.value))}
-          className="h-1 flex-1 cursor-pointer accent-[#CC7A5C]"
+          className="h-1 flex-1 cursor-pointer accent-[#D2452B]"
           aria-label="Zoom the photo"
         />
       </div>
@@ -254,7 +254,7 @@ export function PhotoCropper({
       <div className="flex w-full max-w-[460px] items-center justify-between">
         <button
           onClick={onBack}
-          className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)]"
+          className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs text-[#3A332D] transition-colors hover:bg-[rgba(21,17,14,0.06)]"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Pick another
         </button>

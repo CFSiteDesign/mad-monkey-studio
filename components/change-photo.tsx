@@ -260,14 +260,14 @@ export function ChangePhoto({
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0a0a0a]/85 p-0 backdrop-blur-sm sm:p-4 lg:p-6">
       <div className="mm-card flex h-full max-h-[100svh] w-full flex-col overflow-hidden rounded-none sm:h-auto sm:max-h-[90vh] sm:max-w-3xl sm:rounded-2xl">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-[rgba(242,238,230,0.1)] px-5 py-3.5">
-          <p className="text-sm font-medium text-[#F2EEE6]">
+        <div className="flex shrink-0 items-center justify-between border-b border-[rgba(21,17,14,0.1)] px-5 py-3.5">
+          <p className="text-sm font-medium text-[#15110E]">
             {cropping ? "Frame the shot" : picking ? "Which photo do you want to change?" : "Change photo"}
           </p>
           <button
             onClick={onClose}
             disabled={!!busy}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] disabled:opacity-40"
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-[#3A332D] transition-colors hover:bg-[rgba(21,17,14,0.06)] disabled:opacity-40"
           >
             <X className="h-4 w-4" />
           </button>
@@ -304,7 +304,7 @@ export function ChangePhoto({
               <button
                 key={t.index}
                 onClick={() => setTargetIndex(t.index)}
-                className="group relative aspect-square overflow-hidden rounded-lg ring-1 ring-[rgba(242,238,230,0.12)] transition hover:ring-[#CC7A5C]"
+                className="group relative aspect-square overflow-hidden rounded-lg ring-1 ring-[rgba(21,17,14,0.12)] transition hover:ring-[#D2452B]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={t.href} alt="Photo in the design" className="h-full w-full object-cover" />
@@ -314,20 +314,20 @@ export function ChangePhoto({
         ) : (
           <>
             {/* Search + upload */}
-            <div className="flex shrink-0 items-center gap-2 border-b border-[rgba(242,238,230,0.08)] px-5 py-3">
+            <div className="flex shrink-0 items-center gap-2 border-b border-[rgba(21,17,14,0.08)] px-5 py-3">
               <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8C8278]" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#5E564F]" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search the image bank…"
-                  className="mm-field w-full rounded-lg pl-9 pr-3 py-2 text-sm text-[#F2EEE6] placeholder:text-[#8C8278]/55"
+                  className="mm-field w-full rounded-lg pl-9 pr-3 py-2 text-sm text-[#15110E] placeholder:text-[#5E564F]/55"
                 />
               </div>
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={!!busy}
-                className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-[#CC7A5C] px-3.5 py-2 text-xs font-medium text-[#1C1A18] transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-[#D2452B] px-3.5 py-2 text-xs font-medium text-[#F7F3EC] transition-opacity hover:opacity-90 disabled:opacity-50"
                 title="Upload a new photo — it's auto-added to the community bank"
               >
                 <Upload className="h-3.5 w-3.5" /> Upload new
@@ -350,11 +350,11 @@ export function ChangePhoto({
               <button
                 onClick={() => chooseImage(target.href)}
                 disabled={!!busy}
-                className="flex shrink-0 items-center gap-2.5 border-b border-[rgba(242,238,230,0.08)] px-5 py-2.5 text-left transition-colors hover:bg-[rgba(242,238,230,0.04)] disabled:opacity-50"
+                className="flex shrink-0 items-center gap-2.5 border-b border-[rgba(21,17,14,0.08)] px-5 py-2.5 text-left transition-colors hover:bg-[rgba(21,17,14,0.04)] disabled:opacity-50"
               >
-                <Crop className="h-4 w-4 shrink-0 text-[#CC7A5C]" />
-                <span className="text-xs text-[#CFC8BD]">
-                  <span className="font-medium text-[#F2EEE6]">Reframe the current photo</span> — drag &amp; zoom to reposition without changing it
+                <Crop className="h-4 w-4 shrink-0 text-[#D2452B]" />
+                <span className="text-xs text-[#3A332D]">
+                  <span className="font-medium text-[#15110E]">Reframe the current photo</span> — drag &amp; zoom to reposition without changing it
                 </span>
               </button>
             )}
@@ -362,11 +362,11 @@ export function ChangePhoto({
             {/* Bank grid */}
             <div className="relative grid grid-cols-3 gap-3 overflow-y-auto p-5 sm:grid-cols-4">
               {images === undefined ? (
-                <div className="col-span-full grid place-items-center py-10 text-sm text-[#8C8278]">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#CC7A5C]" />
+                <div className="col-span-full grid place-items-center py-10 text-sm text-[#5E564F]">
+                  <Loader2 className="h-5 w-5 animate-spin text-[#D2452B]" />
                 </div>
               ) : filtered.length === 0 ? (
-                <p className="col-span-full py-10 text-center text-sm text-[#8C8278]">
+                <p className="col-span-full py-10 text-center text-sm text-[#5E564F]">
                   {query ? "No images match that search." : "The bank is empty — upload one to get started."}
                 </p>
               ) : (
@@ -376,7 +376,7 @@ export function ChangePhoto({
                     onClick={() => chooseImage(im.url!)}
                     disabled={!!busy}
                     title={im.description}
-                    className="group relative aspect-square overflow-hidden rounded-lg ring-1 ring-[rgba(242,238,230,0.12)] transition hover:ring-[#CC7A5C] disabled:opacity-50"
+                    className="group relative aspect-square overflow-hidden rounded-lg ring-1 ring-[rgba(21,17,14,0.12)] transition hover:ring-[#D2452B] disabled:opacity-50"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={im.url!} alt={im.description} className="h-full w-full object-cover" />
@@ -385,15 +385,15 @@ export function ChangePhoto({
               )}
 
               {busy && (
-                <div className="absolute inset-0 z-10 grid place-items-center bg-[#1C1A18]/80 backdrop-blur-sm">
-                  <div className="flex items-center gap-2 text-sm text-[#F2EEE6]">
-                    <Loader2 className="h-4 w-4 animate-spin text-[#CC7A5C]" /> {busy}
+                <div className="absolute inset-0 z-10 grid place-items-center bg-[#F7F3EC]/80 backdrop-blur-sm">
+                  <div className="flex items-center gap-2 text-sm text-[#15110E]">
+                    <Loader2 className="h-4 w-4 animate-spin text-[#D2452B]" /> {busy}
                   </div>
                 </div>
               )}
             </div>
 
-            <p className="shrink-0 border-t border-[rgba(242,238,230,0.08)] px-5 py-2.5 text-[11px] text-[#8C8278]">
+            <p className="shrink-0 border-t border-[rgba(21,17,14,0.08)] px-5 py-2.5 text-[11px] text-[#5E564F]">
               Uploads are auto-described by Claude and added to the community bank for everyone.
             </p>
           </>

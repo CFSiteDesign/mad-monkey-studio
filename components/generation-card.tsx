@@ -231,7 +231,7 @@ export function GenerationCard({
       {/* Artwork */}
       <div
         ref={canvasRef}
-        className={`${ASPECT[gen.format] ?? "aspect-square"} max-w-full overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-[rgba(242,238,230,0.1)] [&>svg]:block [&>svg]:h-full [&>svg]:w-full`}
+        className={`${ASPECT[gen.format] ?? "aspect-square"} max-w-full overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-[rgba(21,17,14,0.1)] [&>svg]:block [&>svg]:h-full [&>svg]:w-full`}
         style={{ width: `min(100%, calc((100svh - 250px) * ${AR_NUM[gen.format] ?? 1}))` }}
       >
         {safeSvg ? (
@@ -241,19 +241,19 @@ export function GenerationCard({
           />
         ) : (
           <div className="grid h-full w-full place-items-center">
-            <Loader2 className="h-5 w-5 animate-spin text-[#8C8278]" />
+            <Loader2 className="h-5 w-5 animate-spin text-[#5E564F]" />
           </div>
         )}
       </div>
 
       {/* Meta bar */}
       <div className="mm-card flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-2xl px-3 py-2 lg:flex-nowrap lg:gap-4 lg:rounded-full lg:px-2 lg:py-1.5 lg:pl-4">
-        <span className="rounded-full bg-[rgba(242,238,230,0.06)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest text-[#8C8278]">
+        <span className="rounded-full bg-[rgba(21,17,14,0.06)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest text-[#5E564F]">
           v{version}
         </span>
         {gen.isManualEdit ? (
           <span
-            className="flex items-center gap-1 text-[11px] font-medium text-[#CFC8BD]"
+            className="flex items-center gap-1 text-[11px] font-medium text-[#3A332D]"
             title="Adjusted by hand in Quick fix — not re-validated against brand rules"
           >
             <Pencil className="h-3 w-3" />
@@ -279,20 +279,20 @@ export function GenerationCard({
             <Check className="h-3.5 w-3.5" />
             on-brand
             {gen.retryCount ? (
-              <span className="text-[#8C8278]">
+              <span className="text-[#5E564F]">
                 · {gen.retryCount} fix{gen.retryCount > 1 ? "es" : ""}
               </span>
             ) : null}
           </span>
         )}
-        <span className="h-3 w-px bg-[rgba(242,238,230,0.12)]" />
-        <span className="font-mono text-[11px] text-[#8C8278]">
-          <span className="text-[#CFC8BD]">
+        <span className="h-3 w-px bg-[rgba(21,17,14,0.12)]" />
+        <span className="font-mono text-[11px] text-[#5E564F]">
+          <span className="text-[#3A332D]">
             {(gen.inputTokens + gen.outputTokens).toLocaleString()}
           </span>{" "}
           tokens
-          <span className="mx-2 text-[#8C8278]/40">·</span>
-          <span className="text-[#CFC8BD]">${gen.costUsd.toFixed(4)}</span>
+          <span className="mx-2 text-[#5E564F]/40">·</span>
+          <span className="text-[#3A332D]">${gen.costUsd.toFixed(4)}</span>
         </span>
 
         {/* Quick fix — hand-edit this version */}
@@ -300,7 +300,7 @@ export function GenerationCard({
           onClick={() => setEditing(true)}
           disabled={!svg}
           title="Move, resize and retype elements by hand"
-          className="flex cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(242,238,230,0.06)] px-3.5 py-1.5 text-xs font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.12)] disabled:cursor-wait disabled:opacity-70"
+          className="flex cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(21,17,14,0.06)] px-3.5 py-1.5 text-xs font-medium text-[#15110E] transition-colors hover:bg-[rgba(21,17,14,0.12)] disabled:cursor-wait disabled:opacity-70"
         >
           <Pencil className="h-3.5 w-3.5" />
           Quick fix
@@ -311,7 +311,7 @@ export function GenerationCard({
           <button
             onClick={() => setChanging(true)}
             title="Swap a photo for one from the image bank, or upload your own"
-            className="flex cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(242,238,230,0.06)] px-3.5 py-1.5 text-xs font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.12)]"
+            className="flex cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(21,17,14,0.06)] px-3.5 py-1.5 text-xs font-medium text-[#15110E] transition-colors hover:bg-[rgba(21,17,14,0.12)]"
           >
             <Images className="h-3.5 w-3.5" />
             Change photo
@@ -326,7 +326,7 @@ export function GenerationCard({
               aria-haspopup="menu"
               aria-expanded={resizeOpen}
               title="Make a version of this design for another channel / size"
-              className="flex cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(242,238,230,0.06)] px-3.5 py-1.5 text-xs font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.12)]"
+              className="flex cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(21,17,14,0.06)] px-3.5 py-1.5 text-xs font-medium text-[#15110E] transition-colors hover:bg-[rgba(21,17,14,0.12)]"
             >
               <Maximize2 className="h-3.5 w-3.5" />
               Resize
@@ -344,13 +344,13 @@ export function GenerationCard({
                       setResizeOpen(false);
                       onResize(f.id);
                     }}
-                    className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.06)]"
+                    className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-[#15110E] transition-colors hover:bg-[rgba(21,17,14,0.06)]"
                   >
-                    <Maximize2 className="h-4 w-4 text-[#8C8278]" />
+                    <Maximize2 className="h-4 w-4 text-[#5E564F]" />
                     {f.label}
                   </button>
                 ))}
-                <p className="px-2.5 pb-1 pt-1.5 text-[10px] leading-relaxed text-[#8C8278]">
+                <p className="px-2.5 pb-1 pt-1.5 text-[10px] leading-relaxed text-[#5E564F]">
                   Claude re-lays-out the same design, copy &amp; photos for the new size — saved as a new creation.
                 </p>
               </div>
@@ -365,7 +365,7 @@ export function GenerationCard({
             disabled={!!exporting || !safeSvg}
             aria-haspopup="menu"
             aria-expanded={exportOpen}
-            className="flex cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(242,238,230,0.06)] px-3.5 py-1.5 text-xs font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.12)] disabled:cursor-wait disabled:opacity-70"
+            className="flex cursor-pointer items-center gap-1.5 rounded-full bg-[rgba(21,17,14,0.06)] px-3.5 py-1.5 text-xs font-medium text-[#15110E] transition-colors hover:bg-[rgba(21,17,14,0.12)] disabled:cursor-wait disabled:opacity-70"
           >
             {exporting ? (
               <>
@@ -396,9 +396,9 @@ export function GenerationCard({
                     key={kind}
                     role="menuitem"
                     onClick={() => handleExport(kind)}
-                    className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.06)]"
+                    className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-[#15110E] transition-colors hover:bg-[rgba(21,17,14,0.06)]"
                   >
-                    <Icon className="h-4 w-4 text-[#8C8278]" />
+                    <Icon className="h-4 w-4 text-[#5E564F]" />
                     {label}
                   </button>
                 );

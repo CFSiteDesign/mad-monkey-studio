@@ -301,7 +301,14 @@ export function buildSystemPrompt(
       `  • "beers"/"drinks"/"bar"/"pong" → a photo where people are visibly holding drinks / at a bar / playing beer pong.`,
       `  • "pool"/"foam"/"boat" → only use water/foam/boat photos when the event is actually that.`,
       `The headline may be a pun (e.g. "JUST GOT WETTER") — IGNORE the pun when picking the photo; the photo must depict the real event, not the joke.`,
-      ...images.map((img, i) => `${i + 1}. ${img.url}\n   → ${img.description}`),
+      // Flyers and graphics in the bank are flagged by the Vision scan: printed
+      // words baked into the picture must never pose as a photo.
+      ...images.map(
+        (img, i) =>
+          `${i + 1}. ${img.url}\n   → ${img.description}${
+            img.hasText ? `\n   [HAS PRINTED WORDS in the picture (a flyer or graphic): never use it as a photo]` : ""
+          }`,
+      ),
       `Embedding rules:`,
       `- Use <image href="EXACT_URL_FROM_LIST" x="…" y="…" width="…" height="…" preserveAspectRatio="xMidYMid slice"/>`,
       `- Crop into brand shapes with clipPath (photo cutout device) — irregular polygon or rounded container, thick #0a0a0a border on top.`,

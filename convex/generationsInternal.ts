@@ -1,3 +1,4 @@
+import { briefTitle } from "../lib/brief-display";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import type { BankImage } from "../lib/prompt";
@@ -121,7 +122,7 @@ export const persistGeneration = internalMutation({
       threadId = await ctx.db.insert("threads", {
         userId:    args.userId,
         brandId:   args.brandId,
-        title:     args.brief.slice(0, 60),
+        title:     briefTitle(args.brief).slice(0, 60),
         status:    "active",
         createdAt: now,
         updatedAt: now,

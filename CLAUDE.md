@@ -73,18 +73,22 @@ The validator is a **hard gate**, not a suggestion. A generation that uses `#FF0
 
 ## Design language
 
-Dark UI shell. Always dark — no light mode.
+UI shell uses the **Spotted design system** (Oct 2026, replaced the old always-dark
+charcoal theme): warm white paper, ink type, one rare coral spot.
 
 | Token | Value | Use |
 |---|---|---|
-| Background | `#1C1A18` | Page, base |
-| Surface | `#242220` | Cards, panels |
-| Foreground | `#F2EEE6` | Body text (warm off-white) |
-| Accent | `#CC7A5C` | CTAs, highlights (terracotta) |
-| Muted | `#8C8278` | Secondary text |
-| Border | `rgba(242,238,230,0.08)` | Hairline borders |
-| Display font | Fraunces | Headings (serif, variable) |
-| Body font | DM Sans | UI text (grotesque) |
+| Paper | `#F7F3EC` | Page background, canvas (with a 24px dot field) |
+| Card | `#FFFFFF` | Panels and cards, hairline `#E4DCCF` |
+| Ink | `#15110E` | Text, dark sections |
+| Ink soft | `#5E564F` | Secondary text |
+| Coral | `#E8553A` | The spot: eyebrow dots, full stops on big headlines. Never body text |
+| Button coral | `#D2452B` | Every call to action, white text |
+| Display font | Bricolage Grotesque 800 | Headlines 24px and up, tracked tight (`.mm-display`) |
+| Body font | Geist 400/500/600 | Body and UI; eyebrows are Geist 600 caps with a coral dot (`.mm-eyebrow`) |
+
+The style picker is visual: `lib/looks.ts` lists each look with real example posters in
+`public/looks/` (made by the Studio itself), shown by `components/look-picker.tsx`.
 
 ## Phases
 

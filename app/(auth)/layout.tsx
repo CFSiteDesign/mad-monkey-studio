@@ -10,19 +10,16 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="mb-5">
             <BrandLogo className="h-12 w-auto" />
           </div>
-          <h1
-            className="text-5xl font-light text-[#F2EEE6] leading-none"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Studio
+          <h1 className="mm-display text-6xl">
+            Studio<span className="text-[#E8553A]">.</span>
           </h1>
-          <p className="text-sm text-[#8C8278] mt-3 leading-relaxed max-w-[16rem]">
+          <p className="text-sm text-[#5E564F] mt-3 leading-relaxed max-w-[16rem]">
             On-brand marketing assets, generated and validated in seconds.
           </p>
         </div>
 
         {/* Form card */}
-        <div className="mm-card rounded-xl p-7">{children}</div>
+        <div className="mm-card rounded-2xl p-7">{children}</div>
 
         {/* Watermark */}
         <div className="flex justify-center mt-6">

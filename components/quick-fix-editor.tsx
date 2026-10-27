@@ -784,10 +784,10 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex max-h-[100svh] flex-col bg-[#0a0a0a]/90 backdrop-blur-sm">
       {/* ── Toolbar ── */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.1)] bg-[#1C1A18] px-4 py-3 lg:flex-nowrap lg:px-5">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[rgba(21,17,14,0.1)] bg-[#F7F3EC] px-4 py-3 lg:flex-nowrap lg:px-5">
         <div className="flex items-center gap-3">
-          <p className="text-sm font-medium text-[#F2EEE6]">Quick fix</p>
-          <p className="hidden items-center gap-1.5 text-[11px] text-[#8C8278] lg:flex">
+          <p className="text-sm font-medium text-[#15110E]">Quick fix</p>
+          <p className="hidden items-center gap-1.5 text-[11px] text-[#5E564F] lg:flex">
             <MousePointerClick className="h-3.5 w-3.5" />
             click to select · drag to move · drag a photo to reframe it (scroll/pinch to zoom) · handles resize/rotate · double-click text to edit · ⌫ delete · ⌘Z undo
           </p>
@@ -811,14 +811,14 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
               }
             }}
             disabled={!canUndo || saving}
-            className="flex min-h-[40px] cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-0"
+            className="flex min-h-[40px] cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[#3A332D] transition-colors hover:bg-[rgba(21,17,14,0.06)] disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-0"
           >
             <Undo2 className="h-3.5 w-3.5" /> Undo
           </button>
           <button
             onClick={onCancel}
             disabled={saving}
-            className="flex min-h-[40px] cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] disabled:opacity-40 lg:min-h-0"
+            className="flex min-h-[40px] cursor-pointer items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-[#3A332D] transition-colors hover:bg-[rgba(21,17,14,0.06)] disabled:opacity-40 lg:min-h-0"
           >
             <X className="h-3.5 w-3.5" /> Cancel
           </button>
@@ -836,8 +836,8 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
       {/* ── Canvas ── */}
       <div className="flex flex-1 items-center justify-center overflow-auto p-4 lg:p-6">
         {!ready && !error && (
-          <div className="flex items-center gap-2 text-sm text-[#8C8278]">
-            <Loader2 className="h-4 w-4 animate-spin text-[#CC7A5C]" /> Preparing editor…
+          <div className="flex items-center gap-2 text-sm text-[#5E564F]">
+            <Loader2 className="h-4 w-4 animate-spin text-[#D2452B]" /> Preparing editor…
           </div>
         )}
         <div
@@ -863,7 +863,7 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
               <polygon
                 points={overlay.corners.map((p) => `${p.x},${p.y}`).join(" ")}
                 fill="none"
-                stroke="#CC7A5C"
+                stroke="#D2452B"
                 strokeWidth={2.5}
                 strokeDasharray="8 5"
               />
@@ -875,7 +875,7 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
                     cx={overlay.box.x2}
                     cy={overlay.box.y2}
                     r={handleR}
-                    fill="#CC7A5C"
+                    fill="#D2452B"
                     stroke="#ffffff"
                     strokeWidth={2.5}
                     style={{ pointerEvents: "all", cursor: "nwse-resize" }}
@@ -887,7 +887,7 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
                     y1={overlay.box.y1}
                     x2={overlay.box.cx}
                     y2={overlay.box.y1 - handleR * 2.4}
-                    stroke="#CC7A5C"
+                    stroke="#D2452B"
                     strokeWidth={2}
                   />
                   <circle
@@ -895,7 +895,7 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
                     cy={overlay.box.y1 - handleR * 2.4}
                     r={handleR * 0.85}
                     fill="#ffffff"
-                    stroke="#CC7A5C"
+                    stroke="#D2452B"
                     strokeWidth={2.5}
                     style={{ pointerEvents: "all", cursor: "grab" }}
                     onPointerDown={startHandleGesture("rotate")}
@@ -907,7 +907,7 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
 
           {/* Photo selected → Canva-style reposition hint */}
           {overlay?.photo && (
-            <div className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#1C1A18]/85 px-3 py-1 text-[11px] text-[#F2EEE6] ring-1 ring-[rgba(242,238,230,0.15)] backdrop-blur-sm">
+            <div className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#F7F3EC]/85 px-3 py-1 text-[11px] text-[#15110E] ring-1 ring-[rgba(21,17,14,0.15)] backdrop-blur-sm">
               Drag to reposition · scroll or pinch to zoom
             </div>
           )}
@@ -923,7 +923,7 @@ export function QuickFixEditor({ outputCode, onCancel, onSave }: Props) {
                 if (e.key === "Enter") commitText();
                 if (e.key === "Escape") setEditingText(null);
               }}
-              className="absolute z-10 rounded-md border-2 border-[#CC7A5C] bg-[#1C1A18] px-2 py-1 text-sm text-[#F2EEE6] outline-none"
+              className="absolute z-10 rounded-md border-2 border-[#D2452B] bg-[#F7F3EC] px-2 py-1 text-sm text-[#15110E] outline-none"
               style={textCss}
               onPointerDown={(e) => e.stopPropagation()}
             />

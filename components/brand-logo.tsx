@@ -2,19 +2,20 @@
 
 /**
  * Mad Monkey wordmark.
- * variant="white" — white version for dark backgrounds (studio shell, auth page)
- * variant="black" — black version for light backgrounds
+ * variant="black" (default): for the warm white Spotted shell
+ * variant="white": for dark backgrounds
+ * Uses the 600px copies: the full-size black PNG is 2 MB.
  */
 export function BrandLogo({
   className = "h-8 w-auto",
-  variant = "white",
+  variant = "black",
 }: {
   className?: string;
   variant?: "white" | "black";
 }) {
   return (
     <img
-      src={variant === "black" ? "/mm-logo-black.png" : "/mm-logo-white.png"}
+      src={variant === "black" ? "/mm-logo-black-hd.png" : "/mm-logo-white-hd.png"}
       alt="Mad Monkey"
       className={className}
     />

@@ -34,8 +34,8 @@ export default function AccountPage() {
   if (stats === undefined) {
     return (
       <div className="mm-ambient grid min-h-screen place-items-center">
-        <div className="flex items-center gap-2 text-sm text-[#8C8278]">
-          <Loader2 className="h-4 w-4 animate-spin text-[#CC7A5C]" />
+        <div className="flex items-center gap-2 text-sm text-[#5E564F]">
+          <Loader2 className="h-4 w-4 animate-spin text-[#D2452B]" />
           Loading your stats…
         </div>
       </div>
@@ -47,10 +47,10 @@ export default function AccountPage() {
     return (
       <div className="mm-ambient grid min-h-screen place-items-center">
         <div className="mm-card rounded-xl p-8 text-center">
-          <p className="text-sm text-[#F2EEE6]">You&apos;re signed out.</p>
+          <p className="text-sm text-[#15110E]">You&apos;re signed out.</p>
           <Link
             href="/sign-in"
-            className="mt-3 inline-block text-sm text-[#CC7A5C] hover:text-[#E0936F] underline-offset-4 hover:underline"
+            className="mt-3 inline-block text-sm text-[#D2452B] hover:text-[#E8553A] underline-offset-4 hover:underline"
           >
             Sign in
           </Link>
@@ -67,7 +67,7 @@ export default function AccountPage() {
 
   // Bar colour: terracotta → amber at 80% → red at 95%
   const barColor =
-    pct >= 95 ? "#EF4444" : pct >= 80 ? "#F59E0B" : "#CC7A5C";
+    pct >= 95 ? "#EF4444" : pct >= 80 ? "#F59E0B" : "#D2452B";
 
   const monthLabel = new Date(stats.periodMonth + "-01").toLocaleDateString(
     "en-GB",
@@ -77,12 +77,12 @@ export default function AccountPage() {
   return (
     <div className="mm-ambient mm-grain relative min-h-screen overflow-y-auto">
       {/* ── Header ── */}
-      <header className="z-20 flex items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-4 py-3.5 backdrop-blur-md lg:px-6">
+      <header className="z-20 flex items-center justify-between gap-2 border-b border-[rgba(21,17,14,0.08)] bg-[#F7F3EC]/70 px-4 py-3.5 backdrop-blur-md lg:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <BrandLogo className="h-8 w-auto" />
-          <span className="hidden h-6 w-px bg-[rgba(242,238,230,0.12)] sm:block" />
+          <span className="hidden h-6 w-px bg-[rgba(21,17,14,0.12)] sm:block" />
           <p
-            className="truncate text-lg font-light leading-none text-[#F2EEE6]"
+            className="truncate text-lg font-extrabold tracking-[-0.03em] leading-none text-[#15110E]"
             style={{ fontFamily: "var(--font-display)" }}
           >
             Account
@@ -90,7 +90,7 @@ export default function AccountPage() {
         </div>
         <Link
           href="/"
-          className="flex shrink-0 items-center gap-2 rounded-lg px-2 py-2 text-sm text-[#8C8278] transition-colors hover:text-[#F2EEE6] lg:px-3"
+          className="flex shrink-0 items-center gap-2 rounded-lg px-2 py-2 text-sm text-[#5E564F] transition-colors hover:text-[#15110E] lg:px-3"
         >
           <ArrowLeft className="h-4 w-4" />
           <span className="hidden sm:inline">Back to Studio</span>
@@ -103,47 +103,47 @@ export default function AccountPage() {
           <p className="mm-eyebrow">Signed in as</p>
           <div className="mt-1 flex items-baseline gap-3">
             <h1
-              className="text-2xl font-light text-[#F2EEE6]"
+              className="text-2xl font-extrabold tracking-[-0.03em] text-[#15110E]"
               style={{ fontFamily: "var(--font-display)" }}
             >
               {stats.name}
             </h1>
-            <span className="rounded-full border border-[rgba(242,238,230,0.1)] px-2.5 py-0.5 text-[10px] uppercase tracking-widest text-[#8C8278]">
+            <span className="rounded-full border border-[rgba(21,17,14,0.1)] px-2.5 py-0.5 text-[10px] uppercase tracking-widest text-[#5E564F]">
               {stats.role}
             </span>
           </div>
-          <p className="mt-0.5 text-sm text-[#8C8278]">{stats.email}</p>
+          <p className="mt-0.5 text-sm text-[#5E564F]">{stats.email}</p>
         </div>
 
         {/* ── Spend vs cap ── */}
         <section className="mm-card mm-fade-up rounded-xl p-4 lg:p-6">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <Wallet className="h-4 w-4 shrink-0 text-[#CC7A5C]" />
-              <h2 className="text-sm font-medium text-[#F2EEE6]">
+              <Wallet className="h-4 w-4 shrink-0 text-[#D2452B]" />
+              <h2 className="text-sm font-medium text-[#15110E]">
                 Spend — {monthLabel}
               </h2>
             </div>
-            <p className="text-xs text-[#8C8278]">
+            <p className="text-xs text-[#5E564F]">
               resets on the 1st
             </p>
           </div>
 
           <div className="mt-5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span
-              className="text-4xl font-light text-[#F2EEE6]"
+              className="text-4xl font-extrabold tracking-[-0.03em] text-[#15110E]"
               style={{ fontFamily: "var(--font-display)" }}
             >
               ${spent.toFixed(2)}
             </span>
-            <span className="text-sm text-[#8C8278]">
+            <span className="text-sm text-[#5E564F]">
               of ${cap.toFixed(0)} monthly limit
             </span>
           </div>
 
           {/* Progress bar */}
           <div
-            className="mt-4 h-2.5 overflow-hidden rounded-full bg-[rgba(242,238,230,0.07)]"
+            className="mt-4 h-2.5 overflow-hidden rounded-full bg-[rgba(21,17,14,0.07)]"
             role="progressbar"
             aria-valuenow={Math.round(pct)}
             aria-valuemin={0}
@@ -155,7 +155,7 @@ export default function AccountPage() {
               style={{ width: `${pct}%`, backgroundColor: barColor }}
             />
           </div>
-          <div className="mt-2 flex justify-between text-xs text-[#8C8278]">
+          <div className="mt-2 flex justify-between text-xs text-[#5E564F]">
             <span>{pct.toFixed(1)}% used</span>
             <span>${remaining.toFixed(2)} remaining</span>
           </div>
@@ -165,32 +165,32 @@ export default function AccountPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <section className="mm-card mm-fade-up rounded-xl p-4 lg:p-6">
             <div className="flex items-center gap-2.5">
-              <Images className="h-4 w-4 text-[#CC7A5C]" />
-              <h2 className="text-sm font-medium text-[#F2EEE6]">Media created</h2>
+              <Images className="h-4 w-4 text-[#D2452B]" />
+              <h2 className="text-sm font-medium text-[#15110E]">Media created</h2>
             </div>
             <p
-              className="mt-4 text-4xl font-light text-[#F2EEE6]"
+              className="mt-4 text-4xl font-extrabold tracking-[-0.03em] text-[#15110E]"
               style={{ fontFamily: "var(--font-display)" }}
             >
               {stats.month.generations}
             </p>
-            <p className="mt-1 text-xs text-[#8C8278]">
+            <p className="mt-1 text-xs text-[#5E564F]">
               this month · {stats.allTime.generations} all time
             </p>
           </section>
 
           <section className="mm-card mm-fade-up rounded-xl p-4 lg:p-6">
             <div className="flex items-center gap-2.5">
-              <Coins className="h-4 w-4 text-[#CC7A5C]" />
-              <h2 className="text-sm font-medium text-[#F2EEE6]">Tokens used</h2>
+              <Coins className="h-4 w-4 text-[#D2452B]" />
+              <h2 className="text-sm font-medium text-[#15110E]">Tokens used</h2>
             </div>
             <p
-              className="mt-4 text-4xl font-light text-[#F2EEE6]"
+              className="mt-4 text-4xl font-extrabold tracking-[-0.03em] text-[#15110E]"
               style={{ fontFamily: "var(--font-display)" }}
             >
               {fmtTokens(monthTokens)}
             </p>
-            <p className="mt-1 text-xs text-[#8C8278]">
+            <p className="mt-1 text-xs text-[#5E564F]">
               this month · {fmtTokens(stats.month.inputTokens)} in /{" "}
               {fmtTokens(stats.month.outputTokens)} out ·{" "}
               {fmtTokens(stats.allTime.tokens)} all time
@@ -200,23 +200,23 @@ export default function AccountPage() {
 
         {/* ── Recent generations ── */}
         <section className="mm-card mm-fade-up rounded-xl p-4 lg:p-6">
-          <h2 className="text-sm font-medium text-[#F2EEE6]">Recent generations</h2>
+          <h2 className="text-sm font-medium text-[#15110E]">Recent generations</h2>
           {stats.recent.length === 0 ? (
-            <p className="mt-4 text-sm text-[#8C8278]">
+            <p className="mt-4 text-sm text-[#5E564F]">
               Nothing yet — your first generation will show up here.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-[rgba(242,238,230,0.06)]">
+            <ul className="mt-4 divide-y divide-[rgba(21,17,14,0.06)]">
               {stats.recent.map((g) => (
                 <li
                   key={g.id}
                   className="flex flex-col gap-1.5 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                 >
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    <span className="rounded-md border border-[rgba(242,238,230,0.1)] px-2 py-0.5 font-mono text-[11px] text-[#CFC8BD]">
+                    <span className="rounded-md border border-[rgba(21,17,14,0.1)] px-2 py-0.5 font-mono text-[11px] text-[#3A332D]">
                       {g.format}
                     </span>
-                    <span className="capitalize text-[#F2EEE6]">
+                    <span className="capitalize text-[#15110E]">
                       {g.designSystem}
                     </span>
                     {g.status === "failed" ? (
@@ -229,7 +229,7 @@ export default function AccountPage() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 font-mono text-[11px] text-[#8C8278]">
+                  <div className="flex items-center gap-4 font-mono text-[11px] text-[#5E564F]">
                     <span>{fmtTokens(g.tokens)} tok</span>
                     <span>${g.costUsd.toFixed(4)}</span>
                     <span>{fmtDate(g.createdAt)}</span>

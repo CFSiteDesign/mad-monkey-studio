@@ -1,10 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { briefTitle } from "../lib/brief-display";
 
 /** Squash a brief down to a ≤6-word caption for the gallery. */
 function sixWords(text: string): string {
-  const words = text.trim().split(/\s+/).filter(Boolean);
+  const words = briefTitle(text).trim().split(/\s+/).filter(Boolean);
   const clipped = words.slice(0, 6).join(" ");
   return words.length > 6 ? `${clipped}…` : clipped;
 }

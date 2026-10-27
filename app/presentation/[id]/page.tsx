@@ -38,33 +38,33 @@ function Slide({
     };
   }, [outputCode, uid]);
   return (
-    <div className="group overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-[rgba(242,238,230,0.1)]">
+    <div className="group overflow-hidden rounded-xl bg-white shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-[rgba(21,17,14,0.1)]">
       <div className="relative aspect-video w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full">
         {svg ? (
           <div className="h-full w-full [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} />
         ) : (
-          <div className="grid h-full w-full place-items-center bg-[#161412]">
-            <Loader2 className="h-5 w-5 animate-spin text-[#8C8278]" />
+          <div className="grid h-full w-full place-items-center bg-[#EFE9DF]">
+            <Loader2 className="h-5 w-5 animate-spin text-[#5E564F]" />
           </div>
         )}
         {onEdit && svg && (
           <button
             onClick={onEdit}
             title="Move, resize and retype elements on this slide by hand"
-            className="absolute right-3 top-3 flex cursor-pointer items-center gap-1.5 rounded-full bg-[#1C1A18]/85 px-3 py-1.5 text-xs font-medium text-[#F2EEE6] opacity-100 ring-1 ring-[rgba(242,238,230,0.12)] backdrop-blur-sm transition-opacity hover:bg-[#1C1A18] focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+            className="absolute right-3 top-3 flex cursor-pointer items-center gap-1.5 rounded-full bg-[#F7F3EC]/85 px-3 py-1.5 text-xs font-medium text-[#15110E] opacity-100 ring-1 ring-[rgba(21,17,14,0.12)] backdrop-blur-sm transition-opacity hover:bg-[#F7F3EC] focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
           >
             <Pencil className="h-3.5 w-3.5" />
             Quick fix
           </button>
         )}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[#8C8278]">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-1.5 text-[10px] uppercase tracking-widest text-[#5E564F]">
         <span>Slide {index + 1}</span>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {onChangePhoto && (
             <button
               onClick={onChangePhoto}
-              className="flex cursor-pointer items-center gap-1 py-1 text-[#8C8278] transition-colors hover:text-[#F2EEE6] lg:py-0"
+              className="flex cursor-pointer items-center gap-1 py-1 text-[#5E564F] transition-colors hover:text-[#15110E] lg:py-0"
             >
               <Images className="h-3 w-3" />
               Change photo
@@ -73,7 +73,7 @@ function Slide({
           {onEdit && (
             <button
               onClick={onEdit}
-              className="flex cursor-pointer items-center gap-1 py-1 text-[#8C8278] transition-colors hover:text-[#F2EEE6] lg:py-0"
+              className="flex cursor-pointer items-center gap-1 py-1 text-[#5E564F] transition-colors hover:text-[#15110E] lg:py-0"
             >
               <Pencil className="h-3 w-3" />
               Quick fix
@@ -129,10 +129,10 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
   const done = deck?.status === "complete";
 
   return (
-    <main className="min-h-screen bg-[#1C1A18] text-[#F2EEE6]">
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/90 px-4 py-3 backdrop-blur lg:px-6">
+    <main className="min-h-screen bg-[#F7F3EC] text-[#15110E]">
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-[rgba(21,17,14,0.08)] bg-[#F7F3EC]/90 px-4 py-3 backdrop-blur lg:px-6">
         <div className="flex min-w-0 items-center gap-4">
-          <Link href="/" className="flex shrink-0 items-center gap-1.5 text-sm text-[#8C8278] hover:text-[#F2EEE6]">
+          <Link href="/" className="flex shrink-0 items-center gap-1.5 text-sm text-[#5E564F] hover:text-[#15110E]">
             <ChevronLeft className="h-4 w-4" /> Studio
           </Link>
           <BrandLogo />
@@ -150,19 +150,19 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
       <div className="mx-auto max-w-4xl px-4 py-5 lg:px-6 lg:py-8">
         {deck === undefined ? (
           <div className="grid place-items-center py-32">
-            <Loader2 className="h-6 w-6 animate-spin text-[#8C8278]" />
+            <Loader2 className="h-6 w-6 animate-spin text-[#5E564F]" />
           </div>
         ) : deck === null ? (
-          <p className="py-32 text-center text-sm text-[#8C8278]">Presentation not found.</p>
+          <p className="py-32 text-center text-sm text-[#5E564F]">Presentation not found.</p>
         ) : (
           <>
             <div className="mb-6 flex items-center gap-3">
-              <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#CC7A5C]/15 text-[#CC7A5C]">
+              <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#D2452B]/15 text-[#D2452B]">
                 <Presentation className="h-5 w-5" />
               </span>
               <div>
                 <h1 className="text-lg font-semibold">{deck.title}</h1>
-                <p className="text-[11px] text-[#8C8278]">
+                <p className="text-[11px] text-[#5E564F]">
                   {generating
                     ? `Designing slides… ${realSlides.length}/${deck.slideCount}`
                     : deck.status === "failed"
@@ -187,8 +187,8 @@ export default function PresentationPage({ params }: { params: Promise<{ id: str
                 />
               ))}
               {generating && (
-                <div className="grid aspect-video w-full place-items-center rounded-xl border border-dashed border-[rgba(242,238,230,0.12)]">
-                  <div className="flex items-center gap-2 text-sm text-[#8C8278]">
+                <div className="grid aspect-video w-full place-items-center rounded-xl border border-dashed border-[rgba(21,17,14,0.12)]">
+                  <div className="flex items-center gap-2 text-sm text-[#5E564F]">
                     <Loader2 className="h-4 w-4 animate-spin" /> Designing slide {realSlides.length + 1}…
                   </div>
                 </div>

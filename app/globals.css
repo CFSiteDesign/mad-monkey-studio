@@ -45,74 +45,47 @@
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
-  /* Mad Monkey brand tokens */
-  --color-brand-terracotta: #CC7A5C;
-  --color-brand-cream: #F2EEE6;
-  --color-brand-charcoal: #1C1A18;
-  --color-brand-surface: #242220;
-  --color-brand-muted: #8C8278;
-  --color-brand-border: rgba(242, 238, 230, 0.08);
+  /* Spotted design system tokens (Oct 2026): warm white paper, ink type and
+     one rare coral spot. Button coral for every call to action. */
+  --color-spot-paper: #F7F3EC;
+  --color-spot-ink: #15110E;
+  --color-spot-coral: #E8553A;
+  --color-spot-button: #D2452B;
+  --color-spot-sun: #F2A93B;
+  --color-spot-tint: #FBE4DD;
+  --color-spot-ink-soft: #5E564F;
+  --color-spot-line: #E4DCCF;
 }
 
-/* Mad Monkey dark-first theme — always dark */
+/* Spotted light theme */
 :root {
-  --background: #1C1A18;
-  --foreground: #F2EEE6;
-  --card: #242220;
-  --card-foreground: #F2EEE6;
-  --popover: #2C2A28;
-  --popover-foreground: #F2EEE6;
-  --primary: #CC7A5C;
-  --primary-foreground: #F2EEE6;
-  --secondary: #2C2A28;
-  --secondary-foreground: #F2EEE6;
-  --muted: #2C2A28;
-  --muted-foreground: #8C8278;
-  --accent: #CC7A5C;
-  --accent-foreground: #F2EEE6;
-  --destructive: oklch(0.65 0.22 25);
-  --border: rgba(242, 238, 230, 0.08);
-  --input: rgba(242, 238, 230, 0.10);
-  --ring: #CC7A5C;
-  --radius: 0.375rem;
-  --sidebar: #18160F;
-  --sidebar-foreground: #F2EEE6;
-  --sidebar-primary: #CC7A5C;
-  --sidebar-primary-foreground: #F2EEE6;
-  --sidebar-accent: #2C2A28;
-  --sidebar-accent-foreground: #F2EEE6;
-  --sidebar-border: rgba(242, 238, 230, 0.06);
-  --sidebar-ring: #CC7A5C;
-}
-
-/* .dark mirrors :root — the app is always dark */
-.dark {
-  --background: #1C1A18;
-  --foreground: #F2EEE6;
-  --card: #242220;
-  --card-foreground: #F2EEE6;
-  --popover: #2C2A28;
-  --popover-foreground: #F2EEE6;
-  --primary: #CC7A5C;
-  --primary-foreground: #F2EEE6;
-  --secondary: #2C2A28;
-  --secondary-foreground: #F2EEE6;
-  --muted: #2C2A28;
-  --muted-foreground: #8C8278;
-  --accent: #CC7A5C;
-  --accent-foreground: #F2EEE6;
-  --destructive: oklch(0.65 0.22 25);
-  --border: rgba(242, 238, 230, 0.08);
-  --input: rgba(242, 238, 230, 0.10);
-  --ring: #CC7A5C;
-  --sidebar: #18160F;
-  --sidebar-foreground: #F2EEE6;
-  --sidebar-primary: #CC7A5C;
-  --sidebar-primary-foreground: #F2EEE6;
-  --sidebar-accent: #2C2A28;
-  --sidebar-accent-foreground: #F2EEE6;
-  --sidebar-border: rgba(242, 238, 230, 0.06);
-  --sidebar-ring: #CC7A5C;
+  --background: #F7F3EC;
+  --foreground: #15110E;
+  --card: #FFFFFF;
+  --card-foreground: #15110E;
+  --popover: #FFFFFF;
+  --popover-foreground: #15110E;
+  --primary: #D2452B;
+  --primary-foreground: #FFFFFF;
+  --secondary: #FFFFFF;
+  --secondary-foreground: #15110E;
+  --muted: #EFE9DF;
+  --muted-foreground: #5E564F;
+  --accent: #D2452B;
+  --accent-foreground: #FFFFFF;
+  --destructive: oklch(0.55 0.2 25);
+  --border: #E4DCCF;
+  --input: #E4DCCF;
+  --ring: #D2452B;
+  --radius: 0.75rem;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #15110E;
+  --sidebar-primary: #D2452B;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F7F3EC;
+  --sidebar-accent-foreground: #15110E;
+  --sidebar-border: #E4DCCF;
+  --sidebar-ring: #D2452B;
 }
 
 @layer base {
@@ -142,38 +115,38 @@
     }
   }
 
-  /* Warm selection */
+  /* Coral tint selection */
   ::selection {
-    background: rgba(204, 122, 92, 0.3);
-    color: #f7f3ec;
+    background: #FBE4DD;
+    color: #15110E;
   }
 
   /* Consistent, visible keyboard focus everywhere */
   :focus-visible {
     outline: none;
     box-shadow:
-      0 0 0 2px #1c1a18,
-      0 0 0 4px rgba(204, 122, 92, 0.7);
+      0 0 0 2px #F7F3EC,
+      0 0 0 4px rgba(210, 69, 43, 0.75);
     border-radius: 4px;
   }
 
   /* Slim, on-brand scrollbars */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(242, 238, 230, 0.14) transparent;
+    scrollbar-color: rgba(21, 17, 14, 0.16) transparent;
   }
   *::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   *::-webkit-scrollbar-thumb {
-    background: rgba(242, 238, 230, 0.12);
+    background: rgba(21, 17, 14, 0.14);
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: padding-box;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background: rgba(242, 238, 230, 0.22);
+    background: rgba(21, 17, 14, 0.26);
     background-clip: padding-box;
   }
 }
@@ -194,101 +167,96 @@
     }
   }
 
-  /* Atmospheric warmth: layered radial glows behind the shell */
+  /* Paper: the warm white page with a faint Spotted dot field */
   .mm-ambient {
-    background-color: #1c1a18;
-    background-image:
-      radial-gradient(
-        60rem 60rem at 12% -10%,
-        rgba(204, 122, 92, 0.1),
-        transparent 60%
-      ),
-      radial-gradient(
-        48rem 48rem at 100% 0%,
-        rgba(204, 122, 92, 0.06),
-        transparent 55%
-      ),
-      radial-gradient(
-        70rem 50rem at 50% 120%,
-        rgba(140, 130, 120, 0.06),
-        transparent 60%
-      );
+    background-color: #F7F3EC;
   }
 
-  /* Subtle film grain overlay */
+  /* Kept as a no-op hook: Spotted is flat, no film grain */
   .mm-grain::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    opacity: 0.025;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    content: none;
   }
 
   .mm-hairline {
-    border: 1px solid rgba(242, 238, 230, 0.08);
+    border: 1px solid #E4DCCF;
   }
 
+  /* White card on warm white, hairline edge, soft lift */
   .mm-card {
-    background: linear-gradient(
-      180deg,
-      rgba(242, 238, 230, 0.022),
-      rgba(242, 238, 230, 0) 40%
-    );
-    background-color: #242220;
-    border: 1px solid rgba(242, 238, 230, 0.08);
-    box-shadow:
-      0 1px 0 0 rgba(242, 238, 230, 0.04) inset,
-      0 16px 40px -24px rgba(0, 0, 0, 0.6);
+    background-color: #FFFFFF;
+    border: 1px solid #E4DCCF;
+    box-shadow: 0 1px 2px rgba(21, 17, 14, 0.04), 0 12px 32px -20px rgba(21, 17, 14, 0.18);
   }
 
-  /* Primary CTA — terracotta with depth + glow on hover */
+  /* Primary CTA: button coral pill, white Geist 600 */
   .mm-cta {
-    background: linear-gradient(180deg, #d4866a, #c06f51);
-    box-shadow:
-      0 1px 0 0 rgba(255, 255, 255, 0.16) inset,
-      0 8px 24px -12px rgba(204, 122, 92, 0.7);
+    background: #D2452B;
+    color: #FFFFFF;
+    border-radius: 999px;
+    font-weight: 600;
+    box-shadow: 0 8px 20px -12px rgba(210, 69, 43, 0.8);
     transition:
-      filter 0.2s ease,
+      background-color 0.2s ease,
       transform 0.2s ease,
       box-shadow 0.2s ease;
   }
   .mm-cta:hover:not(:disabled) {
-    filter: brightness(1.06);
-    box-shadow:
-      0 1px 0 0 rgba(255, 255, 255, 0.2) inset,
-      0 12px 32px -10px rgba(204, 122, 92, 0.85);
+    background: #BC3B22;
+    box-shadow: 0 12px 26px -12px rgba(210, 69, 43, 0.9);
   }
   .mm-cta:active:not(:disabled) {
     transform: translateY(1px);
   }
 
-  /* Form fields */
+  /* Form fields: white on paper, ink focus ring in coral */
   .mm-field {
-    background-color: #1c1a18;
-    border: 1px solid rgba(242, 238, 230, 0.12);
+    background-color: #FFFFFF;
+    border: 1px solid #E4DCCF;
+    color: #15110E;
     transition:
       border-color 0.2s ease,
-      box-shadow 0.2s ease,
-      background-color 0.2s ease;
+      box-shadow 0.2s ease;
+  }
+  .mm-field::placeholder {
+    color: #8A8178;
   }
   .mm-field:hover {
-    border-color: rgba(242, 238, 230, 0.22);
+    border-color: #CFC4B4;
   }
   .mm-field:focus,
   .mm-field:focus-visible {
     outline: none;
-    border-color: #cc7a5c;
-    box-shadow: 0 0 0 3px rgba(204, 122, 92, 0.18);
-    background-color: #201d1b;
+    border-color: #D2452B;
+    box-shadow: 0 0 0 3px rgba(210, 69, 43, 0.14);
   }
 
+  /* Eyebrow: Geist 600, tracked caps, led by the coral spot */
   .mm-eyebrow {
-    font-size: 10px;
-    letter-spacing: 0.2em;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: #8c8278;
+    color: #15110E;
+  }
+  .mm-eyebrow::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #E8553A;
+    flex-shrink: 0;
+  }
+
+  /* Display type: Bricolage ExtraBold, tracked tight */
+  .mm-display {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 0.95;
+    color: #15110E;
   }
 
   @keyframes mm-fade-up {
@@ -322,7 +290,7 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(242, 238, 230, 0.06),
+      rgba(21, 17, 14, 0.05),
       transparent
     );
     animation: mm-shimmer 1.6s ease-in-out infinite;

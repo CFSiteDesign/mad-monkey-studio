@@ -85,9 +85,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       <div className="space-y-1">
-        <h2 className="text-lg font-medium text-[#F2EEE6]">{copy.heading}</h2>
+        <h2 className="text-lg font-medium text-[#15110E]">{copy.heading}</h2>
         {mode === "signUp" && (
-          <p className="text-xs text-[#8C8278]">
+          <p className="text-xs text-[#5E564F]">
             Use your @madmonkeyhostels.com email to create an account.
           </p>
         )}
@@ -107,7 +107,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#F2EEE6] placeholder:text-[#8C8278]/60"
+            className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#15110E] placeholder:text-[#5E564F]/60"
             placeholder="you@example.com"
           />
         </div>
@@ -127,14 +127,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={mode === "signUp" ? 8 : undefined}
-              className="mm-field w-full rounded-lg px-3.5 py-2.5 pr-11 text-sm text-[#F2EEE6] placeholder:text-[#8C8278]/60"
+              className="mm-field w-full rounded-lg px-3.5 py-2.5 pr-11 text-sm text-[#15110E] placeholder:text-[#5E564F]/60"
               placeholder={copy.passwordPlaceholder}
             />
             <button
               type="button"
               onClick={() => setShow((s) => !s)}
               aria-label={show ? "Hide password" : "Show password"}
-              className="absolute right-1 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-md text-[#8C8278] hover:text-[#F2EEE6] transition-colors cursor-pointer"
+              className="absolute right-1 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-md text-[#5E564F] hover:text-[#15110E] transition-colors cursor-pointer"
             >
               {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -147,14 +147,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
                   <li
                     key={rule.label}
                     className={`flex items-center gap-1.5 text-[11px] transition-colors ${
-                      met ? "text-[#7FB069]" : "text-[#8C8278]/70"
+                      met ? "text-[#7FB069]" : "text-[#5E564F]/70"
                     }`}
                   >
                     <span
                       className={`grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full border transition-colors ${
                         met
                           ? "border-[#7FB069] bg-[#7FB069]/15"
-                          : "border-[#8C8278]/40"
+                          : "border-[#5E564F]/40"
                       }`}
                     >
                       {met && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
@@ -195,11 +195,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
         )}
       </button>
 
-      <p className="text-center text-sm text-[#8C8278]">
+      <p className="text-center text-sm text-[#5E564F]">
         {copy.altText}{" "}
         <Link
           href={copy.altHref}
-          className="text-[#CC7A5C] hover:text-[#E0936F] underline-offset-4 hover:underline transition-colors"
+          className="text-[#D2452B] hover:text-[#E8553A] underline-offset-4 hover:underline transition-colors"
         >
           {copy.altLink}
         </Link>

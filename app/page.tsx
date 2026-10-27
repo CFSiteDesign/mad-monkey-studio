@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sanitizeSvg, scopeSvgIds } from "@/lib/sanitize-svg";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -16,18 +16,13 @@ import { useGeneration } from "@/components/generation-provider";
 import { PoweredBy } from "@/components/powered-by";
 import { Walkthrough, type TourStep } from "@/components/walkthrough";
 import { FORMAT_DIMENSIONS } from "@/lib/prompt";
+import { LookPicker, LookPickerModal } from "@/components/look-picker";
+import { lookByName } from "@/lib/looks";
+import { readableBrief } from "@/lib/brief-display";
 import {
   Loader2,
   Sparkles,
-  Megaphone,
   ImageOff,
-  Check,
-  Contrast,
-  Camera,
-  Bold,
-  Star,
-  Type,
-  Moon,
   Plus,
   Trash2,
   Wand2,
@@ -36,7 +31,6 @@ import {
   Presentation,
   ArrowRight,
   FileText,
-  Heart,
   HelpCircle,
   Home,
   MessageSquare,
@@ -54,62 +48,7 @@ const FORMATS = [
   { id: "whatsapp-landscape", ratio: "aspect-[1600/1052]", name: "Landscape chat image", title: "WhatsApp", landscape: true },
 ] as const;
 
-const DESIGN_SYSTEMS = [
-  {
-    name: "brand",
-    label: "Brand",
-    desc: "One universal system — posts, stories, print & decks",
-    Icon: Megaphone,
-  },
-  {
-    name: "girly-pop",
-    label: "Girly Pop",
-    desc: "Dreamy retro-pop script + travel scrapbook — pinks & pastels",
-    Icon: Heart,
-  },
-  {
-    name: "minimal-bold",
-    label: "Minimal Bold",
-    desc: "Monochrome editorial — giant type over a black & white photo",
-    Icon: Contrast,
-  },
-  // Event templates (Oct 2026): built for nightly events, Story + WhatsApp landscape.
-  {
-    name: "event-photo",
-    label: "Event Photo",
-    desc: "The event's own photo, big white title, details and time",
-    Icon: Camera,
-    group: "Event templates",
-  },
-  {
-    name: "big-block",
-    label: "Big Block",
-    desc: "Vibe photo, giant slanted block title in colour",
-    Icon: Bold,
-    group: "Event templates",
-  },
-  {
-    name: "spotlight",
-    label: "Spotlight",
-    desc: "Purple page, giant orange title, cut-out people in front",
-    Icon: Star,
-    group: "Event templates",
-  },
-  {
-    name: "giant-type",
-    label: "Giant Type",
-    desc: "One bold colour, giant stacked title, people in front",
-    Icon: Type,
-    group: "Event templates",
-  },
-  {
-    name: "underground",
-    label: "Underground",
-    desc: "Moody black & white photo, small type, giant date",
-    Icon: Moon,
-    group: "Event templates",
-  },
-] as const;
+// The looks people pick from (with real examples) live in lib/looks.ts.
 
 // The freshly-returned generation, shown until the thread query catches up.
 const ASPECT: Record<string, string> = {
@@ -188,6 +127,17 @@ export default function StudioPage() {
   // design restores what the user had, instead of snapping back to 1:1.
   const lastDesignFormatRef = useRef<string>("1:1");
   const [designSystem, setDesignSystem] = useState("brand");
+  const [lookOpen, setLookOpen] = useState(false);
+  // Logo and sticker choices sit behind "More options" (logo on by default).
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const currentLook = lookByName(designSystem);
+  // Event templates are built for Story and WhatsApp landscape: picking one
+  // while a format it wasn't made for is selected switches to its first.
+  function pickLook(name: string) {
+    setDesignSystem(name);
+    const best = lookByName(name).bestFor;
+    if (best && !best.includes(format) && format !== "presentation") setFormat(best[0]);
+  }
   const [includeLogo, setIncludeLogo] = useState(true);
   const [includeAllIn, setIncludeAllIn] = useState(false);
   const [includeAllInMonkey, setIncludeAllInMonkey] = useState(false);
@@ -273,8 +223,8 @@ export default function StudioPage() {
     }
   }
   const DEMO_FOLLOWUPS = [
-    { q: "What's the single biggest draw — the foam, the DJ, or the crowd?", hint: "endless foam + DJ" },
-    { q: "Who's it for — current guests or travellers still choosing a hostel?", hint: "current guests" },
+    { q: "What's the single biggest draw: the foam, the DJ, or the crowd?", hint: "endless foam + DJ" },
+    { q: "Who's it for: current guests, or travellers still choosing a hostel?", hint: "current guests" },
     { q: "What makes THIS foam party different?", hint: "UV glow, 200 cap" },
   ];
   const DEMO_ANSWERS = ["Endless foam + a DJ", "Current guests", "UV glow + 200-cap"];
@@ -337,16 +287,15 @@ export default function StudioPage() {
     },
     {
       target: '[data-tour="design-system"]',
-      title: "1 · Your design system",
+      title: "1 · Pick a look",
       body: (
         <div className="space-y-1.5">
           <p>
-            There's just one — <b className="text-[#F2EEE6]">Brand</b>. A single universal system that does
-            everything and stays perfectly on-brand.
+            Every look is shown with real examples. Hover one to flip through them, click to pick it.
           </p>
-          <p className="text-[#8C8278]">
-            It adapts to whatever format you pick: loud &amp; dark for social posts and stories, editorial for
-            print, clean &amp; structured for presentations. Nothing to choose — you're always on-brand.
+          <p className="text-[#5E564F]">
+            <b className="text-[#15110E]">Event templates</b> are built for tonight's event as a Story or a WhatsApp
+            image. <b className="text-[#15110E]">Classic styles</b> are free-form Mad Monkey posters for any format.
           </p>
         </div>
       ),
@@ -355,7 +304,7 @@ export default function StudioPage() {
     {
       target: '[data-tour="format"]',
       title: "2 · Choose the format",
-      body: "Pick the size and the Brand system tailors the look to it — 1:1, 4:5 or 9:16 for social, WhatsApp (portrait or landscape) for a chat-ready image, A4 for print, or Presentation for a multi-slide deck. The layout locks to this before you write a word.",
+      body: "Pick the size and the look adapts to it: 1:1, 4:5 or 9:16 for social, WhatsApp (portrait or landscape) for a chat-ready image, A4 for print. A coral dot marks the formats a look is built for.",
       onEnter: () => {
         setDesignSystem("brand");
         setFormat("4:5");
@@ -364,7 +313,7 @@ export default function StudioPage() {
     {
       target: '[data-tour="event-fields"]',
       title: "3 · Answer a few basics",
-      body: "Tell us about the event — title, date, location, optional cost. Keep it factual; the AI turns it into a brand-perfect brief, so you never write the brief yourself.",
+      body: "Tell us about the event: title, date, location and the cost if there is one. Keep it factual. The AI turns it into the brief, so you never write one yourself.",
       onEnter: () => {
         cancelTyping();
         setDesignSystem("brand");
@@ -382,19 +331,19 @@ export default function StudioPage() {
     {
       target: '[data-tour="cta"]',
       title: "4 · Hit Continue",
-      body: "Instead of generating straight away, the AI reads your answers and asks 3 sharp follow-up questions tailored to THIS event — the details that make the result land.",
+      body: "Instead of generating straight away, the AI reads your answers and asks 3 sharp follow-up questions about this event: the details that make the result land.",
       onEnter: () => restoreEventDemo(false),
     },
     {
       target: '[data-tour="followups"]',
       title: "5 · Answer the smart follow-ups",
-      body: "These 3 are generated for your exact event. Answer them in a few words for a noticeably better design — or use “skip the extra questions” if you're in a hurry.",
+      body: "These 3 are written for your exact event. Answer them in a few words for a noticeably better design, or use “skip the extra questions” if you're in a hurry.",
       onEnter: () => restoreEventDemo(true),
     },
     {
       target: '[data-tour="other-details"]',
       title: "6 · Any other details",
-      body: "A catch-all for anything else — a must-have detail, a vibe, a call-to-action. Totally optional.",
+      body: "A catch-all for anything else: a must-have detail, a vibe, a call to action. Totally optional.",
       onEnter: () => {
         restoreEventDemo(true);
         setOtherDetails("Free shot for the first 50 through the door.");
@@ -402,23 +351,24 @@ export default function StudioPage() {
     },
     {
       target: '[data-tour="brand-marks"]',
-      title: "7 · Choose your logo & brand marks",
-      body: "This is where you pick which marks go on the asset — tick the Mad Monkey logo, the ALL IN stickers, and/or the Mad Monkey Stamp (any combination). Hover any box to preview exactly which logo/sticker it adds, right by your cursor.",
+      title: "7 · Logo and brand marks",
+      body: "Open More options to choose the marks: the Mad Monkey logo, the ALL IN stickers or the Mad Monkey Stamp, in any combination. Hover a box to preview the mark. Event templates carry the logo only.",
       onEnter: () => {
         restoreEventDemo(true);
+        setOptionsOpen(true);
         setIncludeAllIn(true);
       },
     },
     {
       target: '[data-tour="cta"]',
       title: "8 · Generate",
-      body: "Hit Generate. ~20s later you've got a validated, on-brand design — no off-palette colours, no clipped text, no overlapping stickers.",
+      body: "Hit Generate. About 30 seconds later you have a checked, on-brand design: no off-palette colours, no clipped text, no overlapping stickers.",
       onEnter: () => restoreEventDemo(true),
     },
     {
       target: '[data-tour="present-fields"]',
       title: "9 · Presentations",
-      body: "Pick the Presentation format and you're building a full multi-slide deck — same Brand system, just a different output. Give the topic and a slide count; the AI plans the outline and designs every slide on-brand, then exports straight to PowerPoint.",
+      body: "Pick Presentation and you're building a full multi-slide deck. Give the topic and a slide count; the AI plans the outline and designs every slide on-brand, then exports straight to PowerPoint.",
       onEnter: () => {
         cancelTyping();
         setDesignSystem("brand");
@@ -427,7 +377,7 @@ export default function StudioPage() {
         void (async () => {
           await tourSleep(160);
           await typeFields(
-            [[setDeckBrief, "Investor pitch for our Bali expansion — 3 new properties, the team, and the $4M ask."]],
+            [[setDeckBrief, "Investor pitch for our Bali expansion: 3 new properties, the team, and the $4M ask."]],
             14,
           );
         })();
@@ -444,20 +394,20 @@ export default function StudioPage() {
       body: (
         <div className="space-y-1.5">
           <p>
-            Click your avatar (up here) → <b className="text-[#F2EEE6]">Image bank</b>. It's the shared library of
-            real Mad Monkey photos — foam parties, pool days, dorms, beach runs.
+            Click your avatar (up here) → <b className="text-[#15110E]">Image bank</b>. It's the shared library of
+            real Mad Monkey photos: foam parties, pool days, dorms, beach runs.
           </p>
-          <p className="text-[#8C8278]">
+          <p className="text-[#5E564F]">
             Upload a shot with a short description and the AI automatically drops the best-matching photo into your
-            designs. A fresh bank starts empty — load it up, because the more real photos it holds, the better every
+            designs. The more real photos it holds, the better every
             poster and deck looks.
           </p>
         </div>
       ),
     },
     {
-      title: "That's everything — you're ALL IN 🐵",
-      body: "You now know the whole tool: systems, formats, the smart questions, presentations, the gallery and the image bank. Replay this tour anytime from “How it works” in the top bar.",
+      title: "That's everything. You're ALL IN 🐵",
+      body: "You now know the whole tool: looks, formats, the smart questions, presentations, the gallery and the image bank. Replay this tour anytime from “How it works” in the top bar.",
     },
   ];
 
@@ -514,7 +464,7 @@ export default function StudioPage() {
     try {
       const text = await extractTextFromFile(file);
       if (!text || text.length < 20) {
-        throw new Error("Couldn't find readable text in that file — try a PDF/Word export, or paste the text.");
+        throw new Error("Couldn't find readable text in that file. Try a PDF or Word export, or paste the text.");
       }
       setDocText(text.slice(0, 16000)); // cap so the brief stays a sane size
     } catch (e) {
@@ -672,7 +622,7 @@ export default function StudioPage() {
         setLocalError(
           typeof data === "string"
             ? data
-            : "Couldn't build the presentation — try again in a moment, or give a fuller brief.",
+            : "Couldn't build the presentation. Try again in a moment, or give a fuller brief.",
         );
         setDeckLoading(false);
       }
@@ -766,27 +716,27 @@ export default function StudioPage() {
   return (
     <div className="mm-ambient relative flex min-h-[100svh] flex-col dt:h-screen dt:overflow-hidden">
       {/* ── Header ── */}
-      <header className="z-20 flex shrink-0 items-center justify-between gap-2 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/70 px-3 py-2.5 backdrop-blur-md sm:px-4 sm:py-3 lg:px-6 lg:py-3.5">
+      <header className="z-20 flex shrink-0 items-center justify-between gap-2 border-b border-[rgba(21,17,14,0.08)] bg-[#F7F3EC]/70 px-3 py-2.5 backdrop-blur-md sm:px-4 sm:py-3 lg:px-6 lg:py-3.5">
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           {/* Mobile: open the gallery drawer */}
           <button
             type="button"
             onClick={() => setMobileNavOpen(true)}
             aria-label="Open gallery"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] dt:hidden"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#3A332D] transition-colors hover:bg-[rgba(21,17,14,0.06)] hover:text-[#15110E] dt:hidden"
           >
             <Menu className="h-5 w-5" />
           </button>
           <BrandLogo className="block h-7 w-auto shrink-0 sm:h-8" />
-          <span className="hidden h-6 w-px bg-[rgba(242,238,230,0.12)] sm:block" />
+          <span className="hidden h-6 w-px bg-[rgba(21,17,14,0.12)] sm:block" />
           <p
-            className="hidden text-lg font-light leading-none text-[#F2EEE6] sm:block"
+            className="hidden text-lg font-extrabold tracking-[-0.03em] leading-none text-[#15110E] sm:block"
             style={{ fontFamily: "var(--font-display)" }}
           >
             Studio
           </p>
           {user?.role && (
-            <span className="ml-1 hidden rounded-full border border-[rgba(242,238,230,0.1)] px-2.5 py-0.5 text-[10px] uppercase tracking-widest text-[#8C8278] sm:inline">
+            <span className="ml-1 hidden rounded-full border border-[rgba(21,17,14,0.1)] px-2.5 py-0.5 text-[10px] uppercase tracking-widest text-[#5E564F] sm:inline">
               {user.role}
             </span>
           )}
@@ -795,8 +745,8 @@ export default function StudioPage() {
           <button
             type="button"
             onClick={createNew}
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3 sm:py-1.5"
-            title="Start fresh — back to a new creation"
+            className="flex items-center gap-1.5 rounded-full border border-[rgba(21,17,14,0.12)] p-2 text-[11px] text-[#3A332D] transition-colors hover:border-[#D2452B]/60 hover:text-[#15110E] sm:px-3 sm:py-1.5"
+            title="Start fresh with a new design"
           >
             <Home className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">Home</span>
           </button>
@@ -804,7 +754,7 @@ export default function StudioPage() {
             href="https://docs.google.com/forms/d/e/1FAIpQLSdCGDQJTQHuj1OY3I8mAtQL7vyTAfK3Ym-gEmfQHjursAm1Vw/viewform"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3 sm:py-1.5"
+            className="flex items-center gap-1.5 rounded-full border border-[rgba(21,17,14,0.12)] p-2 text-[11px] text-[#3A332D] transition-colors hover:border-[#D2452B]/60 hover:text-[#15110E] sm:px-3 sm:py-1.5"
             title="Share feedback (opens a form in a new tab)"
           >
             <MessageSquare className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">Feedback</span>
@@ -812,7 +762,7 @@ export default function StudioPage() {
           <button
             type="button"
             onClick={() => setTourOpen(true)}
-            className="flex items-center gap-1.5 rounded-full border border-[rgba(242,238,230,0.12)] p-2 text-[11px] text-[#CFC8BD] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#F2EEE6] sm:px-3 sm:py-1.5"
+            className="flex items-center gap-1.5 rounded-full border border-[rgba(21,17,14,0.12)] p-2 text-[11px] text-[#3A332D] transition-colors hover:border-[#D2452B]/60 hover:text-[#15110E] sm:px-3 sm:py-1.5"
             title="Take the tour"
           >
             <HelpCircle className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> <span className="hidden sm:inline">How it works</span>
@@ -836,7 +786,7 @@ export default function StudioPage() {
         {/* ── Gallery sidebar — collapsible rail on desktop, slide-over drawer on mobile ── */}
         <aside
           data-tour="gallery"
-          className={`fixed inset-y-0 left-0 z-40 flex w-[17rem] shrink-0 flex-col overflow-hidden border-r border-[rgba(242,238,230,0.08)] bg-[#161412] shadow-2xl transition-transform duration-300 ease-in-out dt:relative dt:z-auto dt:translate-x-0 dt:bg-[#1C1A18]/60 dt:shadow-none dt:transition-[width] ${
+          className={`fixed inset-y-0 left-0 z-40 flex w-[17rem] shrink-0 flex-col overflow-hidden border-r border-[#E4DCCF] bg-white shadow-2xl transition-transform duration-300 ease-in-out dt:relative dt:z-auto dt:translate-x-0 dt:bg-white dt:shadow-none dt:transition-[width] ${
             mobileNavOpen ? "translate-x-0" : "-translate-x-full dt:translate-x-0"
           } ${galleryOpen ? "dt:w-56 xl:w-64" : "dt:w-12"}`}
         >
@@ -855,7 +805,7 @@ export default function StudioPage() {
             <button
               onClick={() => setMobileNavOpen(false)}
               aria-label="Close gallery"
-              className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] dt:hidden"
+              className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-md text-[#5E564F] transition-colors hover:bg-[rgba(21,17,14,0.06)] hover:text-[#15110E] dt:hidden"
             >
               <X className="h-4 w-4" />
             </button>
@@ -863,7 +813,7 @@ export default function StudioPage() {
             <button
               onClick={() => setGalleryOpen((o) => !o)}
               aria-label={galleryOpen ? "Collapse gallery" : "Expand gallery"}
-              className="hidden h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-[#8C8278] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6] dt:grid"
+              className="hidden h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-md text-[#5E564F] transition-colors hover:bg-[rgba(21,17,14,0.06)] hover:text-[#15110E] dt:grid"
             >
               <ChevronLeft
                 className={`h-4 w-4 transition-transform duration-300 ${
@@ -910,15 +860,15 @@ export default function StudioPage() {
             {/* Gallery grid */}
             <div className="flex-1 overflow-y-auto px-3 pb-4">
               {threads === undefined ? (
-                <div className="flex items-center gap-2 px-1 py-2 text-xs text-[#8C8278]">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-[#CC7A5C]" />
+                <div className="flex items-center gap-2 px-1 py-2 text-xs text-[#5E564F]">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-[#D2452B]" />
                   Loading…
                 </div>
               ) : threads.length === 0 ? (
-                <p className="px-1 py-2 text-xs leading-relaxed text-[#8C8278]/70">
+                <p className="px-1 py-2 text-xs leading-relaxed text-[#5E564F]/70">
                   {failedCount > 0
-                    ? `${failedCount} recent ${failedCount === 1 ? "run" : "runs"} didn't pass brand checks, so nothing's landed here yet. Only on-brand designs appear — tweak the brief and try again.`
-                    : "Nothing here yet — hit Create something new and your first asset lands in this gallery."}
+                    ? `${failedCount} recent ${failedCount === 1 ? "run" : "runs"} didn't pass brand checks, so nothing's landed here yet. Only on-brand designs appear, so tweak the brief and try again.`
+                    : "Nothing here yet. Hit Create something new and your first design lands here."}
                 </p>
               ) : (
                 <ul className="grid grid-cols-2 gap-2.5">
@@ -932,18 +882,18 @@ export default function StudioPage() {
                           disabled={loading}
                           className={`block w-full overflow-hidden rounded-lg border text-left transition-all duration-200 disabled:cursor-not-allowed ${
                             active
-                              ? "border-[#CC7A5C]/70 ring-1 ring-[#CC7A5C]/40"
-                              : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.25)]"
+                              ? "border-[#D2452B]/70 ring-1 ring-[#D2452B]/40"
+                              : "border-[rgba(21,17,14,0.08)] hover:border-[rgba(21,17,14,0.25)]"
                           } ${loading ? "" : "cursor-pointer"}`}
                         >
                           {t.thumbnail ? (
                             <GalleryThumb svg={t.thumbnail} format={t.format} />
                           ) : (
-                            <div className="grid aspect-square w-full place-items-center bg-[rgba(242,238,230,0.03)]">
-                              <ImageOff className="h-5 w-5 text-[#8C8278]/50" />
+                            <div className="grid aspect-square w-full place-items-center bg-[rgba(21,17,14,0.03)]">
+                              <ImageOff className="h-5 w-5 text-[#5E564F]/50" />
                             </div>
                           )}
-                          <p className="line-clamp-2 px-2 py-1.5 text-[11px] leading-snug text-[#CFC8BD]">
+                          <p className="line-clamp-2 px-2 py-1.5 text-[11px] leading-snug text-[#3A332D]">
                             {t.caption || "Untitled"}
                           </p>
                         </button>
@@ -956,15 +906,15 @@ export default function StudioPage() {
                           }}
                           disabled={loading}
                           aria-label="Delete creation"
-                          className="absolute right-1.5 top-1.5 grid h-6 w-6 cursor-pointer place-items-center rounded-md bg-[#1C1A18]/80 text-[#8C8278] opacity-0 backdrop-blur transition-opacity hover:text-red-300 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-0"
+                          className="absolute right-1.5 top-1.5 grid h-6 w-6 cursor-pointer place-items-center rounded-md bg-[#F7F3EC]/80 text-[#5E564F] opacity-0 backdrop-blur transition-opacity hover:text-red-300 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-0"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
 
                         {/* Are-you-sure overlay */}
                         {confirming && (
-                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-[#1C1A18]/95 p-2 text-center backdrop-blur-sm">
-                            <p className="text-[11px] font-medium leading-snug text-[#F2EEE6]">
+                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-[#F7F3EC]/95 p-2 text-center backdrop-blur-sm">
+                            <p className="text-[11px] font-medium leading-snug text-[#15110E]">
                               Delete this creation?
                             </p>
                             <div className="flex gap-1.5">
@@ -982,7 +932,7 @@ export default function StudioPage() {
                                   e.stopPropagation();
                                   setConfirmDeleteId(null);
                                 }}
-                                className="cursor-pointer rounded-md bg-[rgba(242,238,230,0.1)] px-2.5 py-1 text-[11px] font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.18)]"
+                                className="cursor-pointer rounded-md bg-[rgba(21,17,14,0.1)] px-2.5 py-1 text-[11px] font-medium text-[#15110E] transition-colors hover:bg-[rgba(21,17,14,0.18)]"
                               >
                                 Cancel
                               </button>
@@ -1009,27 +959,27 @@ export default function StudioPage() {
                             setMobileNavOpen(false);
                             router.push(`/presentation/${d._id}`);
                           }}
-                          className="block w-full overflow-hidden rounded-lg border border-[rgba(242,238,230,0.08)] text-left transition-colors hover:border-[rgba(242,238,230,0.25)]"
+                          className="block w-full overflow-hidden rounded-lg border border-[rgba(21,17,14,0.08)] text-left transition-colors hover:border-[rgba(21,17,14,0.25)]"
                         >
                           {/* First slide as the thumbnail (16:9), same treatment as the design tiles */}
                           {d.status === "generating" ? (
-                            <div className="grid aspect-[16/9] w-full place-items-center bg-[rgba(242,238,230,0.03)]">
-                              <Loader2 className="h-4 w-4 animate-spin text-[#CC7A5C]" />
+                            <div className="grid aspect-[16/9] w-full place-items-center bg-[rgba(21,17,14,0.03)]">
+                              <Loader2 className="h-4 w-4 animate-spin text-[#D2452B]" />
                             </div>
                           ) : d.thumbnail ? (
                             <GalleryThumb svg={d.thumbnail} format="16:9" />
                           ) : (
-                            <div className="grid aspect-[16/9] w-full place-items-center bg-[rgba(242,238,230,0.03)]">
-                              <Presentation className="h-5 w-5 text-[#8C8278]/50" />
+                            <div className="grid aspect-[16/9] w-full place-items-center bg-[rgba(21,17,14,0.03)]">
+                              <Presentation className="h-5 w-5 text-[#5E564F]/50" />
                             </div>
                           )}
                           <span className="flex items-center gap-1.5 px-2 py-1.5 pr-8">
-                            <Presentation className="h-3 w-3 shrink-0 text-[#CC7A5C]" />
+                            <Presentation className="h-3 w-3 shrink-0 text-[#D2452B]" />
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[11px] font-medium text-[#CFC8BD]">
+                              <span className="block truncate text-[11px] font-medium text-[#3A332D]">
                                 {d.title || "Untitled deck"}
                               </span>
-                              <span className="block text-[10px] text-[#8C8278]">
+                              <span className="block text-[10px] text-[#5E564F]">
                                 {d.status === "generating"
                                   ? `${d.slidesDone}/${d.slideCount} slides…`
                                   : `${d.slidesDone} slides`}
@@ -1045,15 +995,15 @@ export default function StudioPage() {
                             setConfirmDeleteDeckId(d._id);
                           }}
                           aria-label="Delete presentation"
-                          className="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 cursor-pointer place-items-center rounded-md bg-[#1C1A18]/80 text-[#8C8278] opacity-0 backdrop-blur transition-opacity hover:text-red-300 group-hover:opacity-100"
+                          className="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 cursor-pointer place-items-center rounded-md bg-[#F7F3EC]/80 text-[#5E564F] opacity-0 backdrop-blur transition-opacity hover:text-red-300 group-hover:opacity-100"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
 
                         {/* Are-you-sure overlay */}
                         {confirmDeleteDeckId === d._id && (
-                          <div className="absolute inset-0 z-10 flex items-center justify-center gap-1.5 rounded-lg bg-[#1C1A18]/95 px-2 backdrop-blur-sm">
-                            <span className="text-[11px] font-medium text-[#F2EEE6]">Delete?</span>
+                          <div className="absolute inset-0 z-10 flex items-center justify-center gap-1.5 rounded-lg bg-[#F7F3EC]/95 px-2 backdrop-blur-sm">
+                            <span className="text-[11px] font-medium text-[#15110E]">Delete?</span>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1069,7 +1019,7 @@ export default function StudioPage() {
                                 e.stopPropagation();
                                 setConfirmDeleteDeckId(null);
                               }}
-                              className="cursor-pointer rounded-md bg-[rgba(242,238,230,0.1)] px-2 py-1 text-[11px] font-medium text-[#F2EEE6] transition-colors hover:bg-[rgba(242,238,230,0.18)]"
+                              className="cursor-pointer rounded-md bg-[rgba(21,17,14,0.1)] px-2 py-1 text-[11px] font-medium text-[#15110E] transition-colors hover:bg-[rgba(21,17,14,0.18)]"
                             >
                               Cancel
                             </button>
@@ -1085,7 +1035,7 @@ export default function StudioPage() {
         </aside>
 
         {/* ── Left control panel ── */}
-        <aside className="flex w-full shrink-0 flex-col border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/40 dt:w-72 dt:overflow-y-auto dt:border-b-0 dt:border-r xl:w-80">
+        <aside className="flex w-full shrink-0 flex-col border-b border-[#E4DCCF] bg-white dt:w-72 dt:overflow-y-auto dt:border-b-0 dt:border-r xl:w-80">
           <form onSubmit={handleGenerate} className="flex flex-1 flex-col">
             {/* Locked while a generation is in flight — nothing about the
                 in-progress design can change mid-run. */}
@@ -1109,14 +1059,14 @@ export default function StudioPage() {
                     aria-pressed={!isPresentation}
                     className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 cursor-pointer ${
                       !isPresentation
-                        ? "border-[#CC7A5C]/70 bg-[#CC7A5C]/10"
-                        : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.2)]"
+                        ? "border-[#D2452B]/70 bg-[#D2452B]/10"
+                        : "border-[rgba(21,17,14,0.08)] hover:border-[rgba(21,17,14,0.2)]"
                     }`}
                   >
-                    <span className={`flex items-center gap-2 text-sm font-medium ${!isPresentation ? "text-[#F2EEE6]" : "text-[#CFC8BD]"}`}>
+                    <span className={`flex items-center gap-2 text-sm font-medium ${!isPresentation ? "text-[#15110E]" : "text-[#3A332D]"}`}>
                       <Sparkles className="h-4 w-4 shrink-0" /> Single design
                     </span>
-                    <span className="text-[11px] leading-tight text-[#8C8278]">Post, story or poster</span>
+                    <span className="text-[11px] leading-tight text-[#5E564F]">Post, story or poster</span>
                   </button>
                   <button
                     type="button"
@@ -1124,25 +1074,62 @@ export default function StudioPage() {
                     aria-pressed={isPresentation}
                     className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 cursor-pointer ${
                       isPresentation
-                        ? "border-[#CC7A5C]/70 bg-[#CC7A5C]/10"
-                        : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.2)]"
+                        ? "border-[#D2452B]/70 bg-[#D2452B]/10"
+                        : "border-[rgba(21,17,14,0.08)] hover:border-[rgba(21,17,14,0.2)]"
                     }`}
                   >
-                    <span className={`flex items-center gap-2 text-sm font-medium ${isPresentation ? "text-[#F2EEE6]" : "text-[#CFC8BD]"}`}>
+                    <span className={`flex items-center gap-2 text-sm font-medium ${isPresentation ? "text-[#15110E]" : "text-[#3A332D]"}`}>
                       <Presentation className="h-4 w-4 shrink-0" /> Presentation
                     </span>
-                    <span className="text-[11px] leading-tight text-[#8C8278]">Multi-slide deck</span>
+                    <span className="text-[11px] leading-tight text-[#5E564F]">Multi-slide deck</span>
                   </button>
                 </div>
                 {isPresentation && (
-                  <div className="rounded-lg border border-[rgba(242,238,230,0.08)] bg-[rgba(242,238,230,0.02)] px-3 py-2.5">
-                    <p className="text-[11px] font-medium text-[#CFC8BD]">On-brand slide deck (PowerPoint export)</p>
-                    <p className="mt-0.5 font-mono text-[10px] text-[#8C8278]">1920 × 1080 px · landscape · {deckSlides} slides</p>
-                    <p className="mt-1.5 text-[11px] leading-relaxed text-[#8C8278]">
-                      One consistent presentation style — just the topic or a document, no other questions.
+                  <div className="rounded-lg border border-[rgba(21,17,14,0.08)] bg-[rgba(21,17,14,0.02)] px-3 py-2.5">
+                    <p className="text-[11px] font-medium text-[#3A332D]">On-brand slide deck (PowerPoint export)</p>
+                    <p className="mt-0.5 font-mono text-[10px] text-[#5E564F]">1920 × 1080 px · landscape · {deckSlides} slides</p>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-[#5E564F]">
+                      One consistent presentation style: just the topic or a document, no other questions.
                     </p>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Look — a real example of the selected style; opens the visual
+                picker. Hidden while refining (a refinement keeps the look) and
+                for presentations (one fixed deck style). */}
+            {!threadId && !isPresentation && (
+              <div className="space-y-2.5" data-tour="design-system">
+                <div className="flex items-center justify-between">
+                  <span className="mm-eyebrow">Look</span>
+                  <button
+                    type="button"
+                    onClick={() => setLookOpen(true)}
+                    className="cursor-pointer text-[12px] font-semibold text-[#15110E] underline decoration-[#E8553A] decoration-2 underline-offset-4 transition-colors hover:text-[#D2452B]"
+                  >
+                    See all looks
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLookOpen(true)}
+                  className="group flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-[#E4DCCF] bg-white p-2 pr-3 text-left transition-all hover:border-[#CFC4B4] hover:shadow-[0_10px_24px_-18px_rgba(21,17,14,0.4)]"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={currentLook.examples[0].src}
+                    alt=""
+                    className="h-[68px] w-[54px] shrink-0 rounded-xl object-cover"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] font-semibold leading-tight text-[#15110E]">{currentLook.label}</span>
+                    <span className="mt-0.5 block text-[11.5px] leading-snug text-[#5E564F]">{currentLook.desc}</span>
+                  </span>
+                  <span className="shrink-0 rounded-full border border-[#E4DCCF] px-3 py-1 text-[12px] font-semibold text-[#15110E] transition-colors group-hover:border-[#15110E]">
+                    Change
+                  </span>
+                </button>
               </div>
             )}
 
@@ -1153,7 +1140,7 @@ export default function StudioPage() {
                   {threadId ? "Refine" : isPresentation ? "Presentation details" : "Event details"}
                 </label>
                 {threadId && (
-                  <span className="text-[10px] tabular-nums text-[#8C8278]/60">
+                  <span className="text-[10px] tabular-nums text-[#5E564F]/60">
                     {charCount}
                   </span>
                 )}
@@ -1161,13 +1148,13 @@ export default function StudioPage() {
 
               {/* Conversation so far — briefs sent in this chat */}
               {threadId && activeThread && activeThread.briefs.length > 0 && (
-                <div className="max-h-32 space-y-1.5 overflow-y-auto rounded-lg border border-[rgba(242,238,230,0.08)] bg-[rgba(242,238,230,0.02)] p-2.5">
+                <div className="max-h-32 space-y-1.5 overflow-y-auto rounded-lg border border-[rgba(21,17,14,0.08)] bg-[rgba(21,17,14,0.02)] p-2.5">
                   {activeThread.briefs.map((b) => (
                     <p
                       key={b.id}
-                      className="border-l-2 border-[#CC7A5C]/40 pl-2 text-[11px] leading-relaxed text-[#8C8278]"
+                      className="border-l-2 border-[#D2452B]/40 pl-2 text-[11px] leading-relaxed text-[#5E564F]"
                     >
-                      {b.content}
+                      {readableBrief(b.content)}
                     </p>
                   ))}
                 </div>
@@ -1181,12 +1168,12 @@ export default function StudioPage() {
                   rows={4}
                   spellCheck
                   placeholder="What should change? “Make the headline bigger”, “swap to the lime colourway”, “use the pool party photo”…"
-                  className="mm-field w-full resize-none rounded-lg px-3.5 py-3 text-sm leading-relaxed text-[#F2EEE6] placeholder:text-[#8C8278]/55"
+                  className="mm-field w-full resize-none rounded-lg px-3.5 py-3 text-sm leading-relaxed text-[#15110E] placeholder:text-[#5E564F]/55"
                 />
               ) : isPresentation ? (
                 <div className="space-y-3" data-tour="present-fields">
                   <div className="space-y-1.5">
-                    <label htmlFor="deck-brief" className="block text-[11px] font-medium text-[#CFC8BD]">
+                    <label htmlFor="deck-brief" className="block text-[11px] font-medium text-[#3A332D]">
                       What is the presentation about?
                     </label>
                     <textarea
@@ -1195,31 +1182,31 @@ export default function StudioPage() {
                       onChange={(e) => setDeckBrief(e.target.value)}
                       rows={5}
                       spellCheck
-                      placeholder={`Topic, audience, and the key points / numbers to cover. e.g. Investor pitch for Mad Monkey Bali expansion — 3 new properties, 2027 target, occupancy and revenue highlights, the team, and the ask of $2M.`}
-                      className="mm-field w-full resize-none rounded-lg px-3.5 py-3 text-sm leading-relaxed text-[#F2EEE6] placeholder:text-[#8C8278]/55"
+                      placeholder={`Topic, audience, and the key points / numbers to cover. e.g. Investor pitch for Mad Monkey Bali expansion: 3 new properties, 2027 target, occupancy and revenue highlights, the team, and the ask of $2M.`}
+                      className="mm-field w-full resize-none rounded-lg px-3.5 py-3 text-sm leading-relaxed text-[#15110E] placeholder:text-[#5E564F]/55"
                     />
                   </div>
                   {/* Add a document — Claude pulls the deck details from it */}
                   <div className="space-y-1.5">
-                    <label className="block text-[11px] font-medium text-[#CFC8BD]">
+                    <label className="block text-[11px] font-medium text-[#3A332D]">
                       Or add a document{" "}
-                      <span className="text-[#8C8278]">· optional — PDF, Word, Markdown or text</span>
+                      <span className="text-[#5E564F]">· optional: PDF, Word, Markdown or text</span>
                     </label>
                     {docName ? (
-                      <div className="flex items-center gap-2 rounded-lg border border-[rgba(242,238,230,0.1)] bg-[rgba(242,238,230,0.03)] px-3 py-2">
+                      <div className="flex items-center gap-2 rounded-lg border border-[rgba(21,17,14,0.1)] bg-[rgba(21,17,14,0.03)] px-3 py-2">
                         {docBusy ? (
-                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[#CC7A5C]" />
+                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[#D2452B]" />
                         ) : (
-                          <FileText className="h-3.5 w-3.5 shrink-0 text-[#CC7A5C]" />
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-[#D2452B]" />
                         )}
-                        <span className="flex-1 truncate text-[12px] text-[#CFC8BD]">
+                        <span className="flex-1 truncate text-[12px] text-[#3A332D]">
                           {docName}
-                          {docBusy ? " — reading…" : docText ? ` · ${docText.split(/\s+/).length} words` : ""}
+                          {docBusy ? " · reading…" : docText ? ` · ${docText.split(/\s+/).length} words` : ""}
                         </span>
                         <button
                           type="button"
                           onClick={clearDoc}
-                          className="shrink-0 text-[#8C8278] transition-colors hover:text-[#F2EEE6]"
+                          className="shrink-0 text-[#5E564F] transition-colors hover:text-[#15110E]"
                           aria-label="Remove document"
                         >
                           <X className="h-3.5 w-3.5" />
@@ -1229,7 +1216,7 @@ export default function StudioPage() {
                       <button
                         type="button"
                         onClick={() => docInputRef.current?.click()}
-                        className="flex items-center gap-1.5 rounded-lg border border-dashed border-[rgba(242,238,230,0.2)] px-3 py-2 text-[12px] text-[#8C8278] transition-colors hover:border-[#CC7A5C]/60 hover:text-[#CFC8BD]"
+                        className="flex items-center gap-1.5 rounded-lg border border-dashed border-[rgba(21,17,14,0.2)] px-3 py-2 text-[12px] text-[#5E564F] transition-colors hover:border-[#D2452B]/60 hover:text-[#3A332D]"
                       >
                         <Paperclip className="h-3.5 w-3.5" /> Add file
                       </button>
@@ -1249,7 +1236,7 @@ export default function StudioPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="deck-slides" className="block text-[11px] font-medium text-[#CFC8BD]">
+                    <label htmlFor="deck-slides" className="block text-[11px] font-medium text-[#3A332D]">
                       How many slides?
                     </label>
                     <div className="flex items-center gap-2">
@@ -1262,9 +1249,9 @@ export default function StudioPage() {
                         onChange={(e) =>
                           setDeckSlides(Math.max(3, Math.min(14, Number(e.target.value) || 8)))
                         }
-                        className="mm-field w-20 rounded-lg px-3.5 py-2.5 text-sm text-[#F2EEE6]"
+                        className="mm-field w-20 rounded-lg px-3.5 py-2.5 text-sm text-[#15110E]"
                       />
-                      <span className="text-[11px] text-[#8C8278]">slides (3–14) · Claude plans the rest</span>
+                      <span className="text-[11px] text-[#5E564F]">slides (3–14) · Claude plans the rest</span>
                     </div>
                   </div>
                   <UploadPhotos images={userPhotos} onChange={setUserPhotos} />
@@ -1272,8 +1259,8 @@ export default function StudioPage() {
               ) : (
                 <div className="space-y-2" data-tour="event-fields">
                   {costingProduct && (
-                    <div className="rounded-lg border border-[#FFC72C]/40 bg-[#FFC72C]/10 px-3 py-2 text-xs text-[#F2EEE6]">
-                      Prefilled from the Experience Database — <span className="font-semibold">{costingProduct.tour}</span>.
+                    <div className="rounded-lg border border-[#FFC72C]/40 bg-[#FFC72C]/10 px-3 py-2 text-xs text-[#15110E]">
+                      Prefilled from the Experience Database: <span className="font-semibold">{costingProduct.tour}</span>.
                       When you export, the finished file is saved back to that experience automatically.
                     </div>
                   )}
@@ -1282,27 +1269,27 @@ export default function StudioPage() {
                     value={eventTitle}
                     onChange={(e) => setEventTitle(e.target.value)}
                     spellCheck
-                    placeholder="Event title — “Foam Party”, “Bar Olympics”…"
-                    className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#F2EEE6] placeholder:text-[#8C8278]/55"
+                    placeholder="Event title, e.g. Foam Party"
+                    className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#15110E] placeholder:text-[#5E564F]/55"
                   />
                   <input
                     value={eventDate}
                     onChange={(e) => setEventDate(e.target.value)}
-                    placeholder="Date — “Friday 4th July, 10pm”"
-                    className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#F2EEE6] placeholder:text-[#8C8278]/55"
+                    placeholder="Date and time, e.g. Friday 4th July, 10pm"
+                    className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#15110E] placeholder:text-[#5E564F]/55"
                   />
                   <input
                     value={eventCost}
                     onChange={(e) => setEventCost(e.target.value)}
-                    placeholder="Cost (optional) — “$9”, “free entry”"
-                    className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#F2EEE6] placeholder:text-[#8C8278]/55"
+                    placeholder="Cost (optional), e.g. $9 or free entry"
+                    className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#15110E] placeholder:text-[#5E564F]/55"
                   />
                   <input
                     value={eventLocation}
                     onChange={(e) => setEventLocation(e.target.value)}
                     spellCheck
-                    placeholder="Location(s) — “Mad Monkey Uluwatu, Bali”"
-                    className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#F2EEE6] placeholder:text-[#8C8278]/55"
+                    placeholder="Location, e.g. Mad Monkey Uluwatu, Bali"
+                    className="mm-field w-full rounded-lg px-3.5 py-2.5 text-sm text-[#15110E] placeholder:text-[#5E564F]/55"
                   />
                   <UploadPhotos images={userPhotos} onChange={setUserPhotos} />
                 </div>
@@ -1310,42 +1297,42 @@ export default function StudioPage() {
 
               {/* Smart follow-up questions (Haiku) — new creations only */}
               {!threadId && briefStep === "followup" && (
-                <div data-tour="followups" className="space-y-3 rounded-lg border border-[rgba(242,238,230,0.1)] bg-[#242220]/50 p-3.5">
+                <div data-tour="followups" className="space-y-3 rounded-lg border border-[rgba(21,17,14,0.1)] bg-[#FFFFFF]/50 p-3.5">
                   <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-medium text-[#CFC8BD]">
+                    <p className="text-[11px] font-medium text-[#3A332D]">
                       A few more questions for a sharper result{" "}
-                      <span className="text-[#8C8278]">· optional</span>
+                      <span className="text-[#5E564F]">· optional</span>
                     </p>
                     <button
                       type="button"
                       onClick={resetBriefFlow}
-                      className="text-[10px] text-[#8C8278] transition-colors hover:text-[#CFC8BD]"
+                      className="text-[10px] text-[#5E564F] transition-colors hover:text-[#3A332D]"
                     >
                       ← edit basics
                     </button>
                   </div>
                   {followUps.length === 0 ? (
-                    <p className="text-[11px] leading-relaxed text-[#8C8278]">
-                      Couldn’t fetch extra questions — add any details below, or just generate.
+                    <p className="text-[11px] leading-relaxed text-[#5E564F]">
+                      Couldn’t fetch extra questions. Add any details below, or just generate.
                     </p>
                   ) : (
                     followUps.map((f, i) => (
                       <div key={i} className="space-y-1">
-                        <label className="block text-[11px] leading-snug text-[#CFC8BD]">{f.q}</label>
+                        <label className="block text-[11px] leading-snug text-[#3A332D]">{f.q}</label>
                         <input
                           value={followUpAnswers[i] ?? ""}
                           onChange={(e) =>
                             setFollowUpAnswers((a) => a.map((v, j) => (j === i ? e.target.value : v)))
                           }
                           placeholder={f.hint ? `e.g. ${f.hint}` : "Your answer…"}
-                          className="mm-field w-full rounded-lg px-3 py-2 text-sm text-[#F2EEE6] placeholder:text-[#8C8278]/55"
+                          className="mm-field w-full rounded-lg px-3 py-2 text-sm text-[#15110E] placeholder:text-[#5E564F]/55"
                         />
                       </div>
                     ))
                   )}
                   <div className="space-y-1" data-tour="other-details">
-                    <label className="block text-[11px] text-[#CFC8BD]">
-                      Any other details? <span className="text-[#8C8278]">· optional</span>
+                    <label className="block text-[11px] text-[#3A332D]">
+                      Any other details? <span className="text-[#5E564F]">· optional</span>
                     </label>
                     <textarea
                       value={otherDetails}
@@ -1353,27 +1340,52 @@ export default function StudioPage() {
                       rows={2}
                       spellCheck
                       placeholder="Anything else that should shape the design…"
-                      className="mm-field w-full resize-none rounded-lg px-3 py-2 text-sm leading-relaxed text-[#F2EEE6] placeholder:text-[#8C8278]/55"
+                      className="mm-field w-full resize-none rounded-lg px-3 py-2 text-sm leading-relaxed text-[#15110E] placeholder:text-[#5E564F]/55"
                     />
                   </div>
                 </div>
               )}
 
               {/* Brand marks — new creations only (a refinement keeps the marks
-                  already on the design). Hover a checkbox to preview the mark. */}
+                  already on the design), tucked behind "More options". Event
+                  templates and Minimal Bold only ever carry the wordmark, so
+                  they offer just the logo. Hover a checkbox to preview the mark. */}
               {!isPresentation && !threadId && (
-              <div data-tour="brand-marks" className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-0.5">
+              <div data-tour="brand-marks" className="rounded-xl border border-[#E4DCCF]">
+                <button
+                  type="button"
+                  onClick={() => setOptionsOpen((o) => !o)}
+                  aria-expanded={optionsOpen}
+                  className="flex w-full cursor-pointer items-center justify-between px-3 py-2.5 text-left text-[12px] font-semibold text-[#15110E]"
+                >
+                  <span>
+                    More options
+                    <span className="ml-2 font-normal text-[#5E564F]">
+                      {[
+                        includeLogo && "logo",
+                        includeAllIn && "ALL IN sticker",
+                        includeAllInMonkey && "ALL IN monkey sticker",
+                        includeStamp && "stamp",
+                      ]
+                        .filter(Boolean)
+                        .join(", ") || "no marks"}
+                    </span>
+                  </span>
+                  <ChevronLeft className={`h-4 w-4 text-[#5E564F] transition-transform ${optionsOpen ? "rotate-90" : "-rotate-90"}`} />
+                </button>
+                {optionsOpen && (
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[#E4DCCF] px-3 py-2.5">
                 {(
                   [
-                    { label: "Mad Monkey logo", src: "/mm-logo-white.png", checked: includeLogo, set: setIncludeLogo },
-                    { label: "ALL IN sticker", src: "/mm-allin.png", checked: includeAllIn, set: setIncludeAllIn },
-                    { label: "ALL IN Mad Monkey Hostels sticker", src: "/mm-allin-monkey.png", checked: includeAllInMonkey, set: setIncludeAllInMonkey },
-                    { label: "Mad Monkey Stamp", src: "/mm-stamp.png", checked: includeStamp, set: setIncludeStamp },
+                    { label: "Mad Monkey logo", src: "/mm-logo-white.png", checked: includeLogo, set: setIncludeLogo, sticker: false },
+                    { label: "ALL IN sticker", src: "/mm-allin.png", checked: includeAllIn, set: setIncludeAllIn, sticker: true },
+                    { label: "ALL IN Mad Monkey Hostels sticker", src: "/mm-allin-monkey.png", checked: includeAllInMonkey, set: setIncludeAllInMonkey, sticker: true },
+                    { label: "Mad Monkey Stamp", src: "/mm-stamp.png", checked: includeStamp, set: setIncludeStamp, sticker: true },
                   ] as const
-                ).map((opt) => (
+                ).filter((opt) => !opt.sticker || (currentLook.group === "classic" && currentLook.name !== "minimal-bold")).map((opt) => (
                   <label
                     key={opt.label}
-                    className="flex cursor-pointer items-center gap-2 text-xs text-[#CFC8BD]"
+                    className="flex cursor-pointer items-center gap-2 text-xs text-[#3A332D]"
                     onMouseEnter={(e) => {
                       setMarkHover({ src: opt.src, label: opt.label });
                       setMarkHoverPos({ x: e.clientX, y: e.clientY });
@@ -1385,18 +1397,20 @@ export default function StudioPage() {
                       type="checkbox"
                       checked={opt.checked}
                       onChange={(e) => opt.set(e.target.checked)}
-                      className="h-3.5 w-3.5 cursor-pointer accent-[#CC7A5C]"
+                      className="h-3.5 w-3.5 cursor-pointer accent-[#D2452B]"
                     />
                     {opt.label}
                   </label>
                 ))}
+                </div>
+                )}
               </div>
               )}
 
               {/* Floating brand-mark preview — follows the cursor on checkbox hover */}
               {markHover && (
                 <div
-                  className="pointer-events-none fixed z-50 flex flex-col items-center rounded-lg border border-[rgba(242,238,230,0.15)] bg-[#2b2926] p-2 shadow-2xl"
+                  className="pointer-events-none fixed z-50 flex flex-col items-center rounded-lg border border-[rgba(21,17,14,0.15)] bg-[#FFFFFF] p-2 shadow-2xl"
                   style={{ left: markHoverPos.x + 18, top: markHoverPos.y + 18 }}
                 >
                   <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-md bg-[#8c8c8c]">
@@ -1410,77 +1424,20 @@ export default function StudioPage() {
                       }}
                     />
                   </div>
-                  <p className="mt-1.5 w-28 text-center text-[10px] leading-tight text-[#CFC8BD]">
+                  <p className="mt-1.5 w-28 text-center text-[10px] leading-tight text-[#3A332D]">
                     {markHover.label}
                   </p>
                 </div>
               )}
 
-              <p className="text-[11px] italic text-[#8C8278]/60">
-                {threadId
-                  ? "Refinements keep the current design and change what you ask for."
-                  : isPresentation
-                  ? "Claude outlines the deck and designs every slide on-brand — then you can export to PowerPoint."
-                  : "We turn your answers into a brand-perfect brief automatically."}
-              </p>
+              {(threadId || isPresentation) && (
+                <p className="text-[11px] text-[#5E564F]">
+                  {threadId
+                    ? "Refinements keep the current design and change what you ask for."
+                    : "Claude outlines the deck and designs every slide on-brand, then you can export to PowerPoint."}
+                </p>
+              )}
             </div>
-
-            {/* Design system — hidden while refining (a refinement keeps it) and
-                for presentations (they use the one fixed deck style). */}
-            {!threadId && !isPresentation && (
-            <div className="space-y-2.5" data-tour="design-system">
-              <label className="mm-eyebrow">Design system</label>
-              <div className="space-y-2">
-                {DESIGN_SYSTEMS.map((sys, i) => {
-                  const { name, label, desc, Icon } = sys;
-                  const group = "group" in sys ? sys.group : undefined;
-                  const prev = i > 0 ? DESIGN_SYSTEMS[i - 1] : undefined;
-                  const startsGroup = Boolean(group) && !(prev && "group" in prev && prev.group === group);
-                  const active = designSystem === name;
-                  return (
-                    <Fragment key={name}>
-                    {startsGroup && (
-                      <p className="pt-2 text-[10px] uppercase tracking-[0.18em] text-[#8C8278]">
-                        {group} <span className="normal-case tracking-normal text-[#8C8278]/70">· best as Story or WhatsApp landscape</span>
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setDesignSystem(name)}
-                      aria-pressed={active}
-                      className={`group flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all duration-200 cursor-pointer ${
-                        active
-                          ? "border-[#CC7A5C]/70 bg-[#CC7A5C]/10"
-                          : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.2)] hover:bg-[rgba(242,238,230,0.02)]"
-                      }`}
-                    >
-                      <span
-                        className={`grid h-8 w-8 shrink-0 place-items-center rounded-md transition-colors ${
-                          active
-                            ? "bg-[#CC7A5C] text-[#F7F3EC]"
-                            : "bg-[rgba(242,238,230,0.05)] text-[#8C8278] group-hover:text-[#F2EEE6]"
-                        }`}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span
-                          className={`block text-sm font-medium ${
-                            active ? "text-[#F2EEE6]" : "text-[#CFC8BD]"
-                          }`}
-                        >
-                          {label}
-                        </span>
-                        <span className="block text-[11px] text-[#8C8278]">{desc}</span>
-                      </span>
-                      {active && <Check className="h-4 w-4 shrink-0 text-[#CC7A5C]" />}
-                    </button>
-                    </Fragment>
-                  );
-                })}
-              </div>
-            </div>
-            )}
 
             {/* Format — hidden while refining (a refinement keeps it) and for
                 presentations (a deck is always 16:9). */}
@@ -1493,6 +1450,7 @@ export default function StudioPage() {
                   const title = "title" in f ? f.title : id;
                   const landscape = "landscape" in f && f.landscape;
                   const active = format === id;
+                  const best = currentLook.bestFor?.includes(id);
                   return (
                     <button
                       key={id}
@@ -1502,16 +1460,16 @@ export default function StudioPage() {
                       title={FORMAT_DIMENSIONS[id]?.label ?? id}
                       className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-all duration-200 ${
                         active
-                          ? "border-[#CC7A5C]/70 bg-[#CC7A5C]/10"
-                          : "border-[rgba(242,238,230,0.08)] hover:border-[rgba(242,238,230,0.2)]"
+                          ? "border-[#D2452B]/70 bg-[#D2452B]/10"
+                          : "border-[rgba(21,17,14,0.08)] hover:border-[rgba(21,17,14,0.2)]"
                       }`}
                     >
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center">
                         <span
                           className={`${ratio} rounded-[3px] border ${landscape ? "h-auto" : "w-auto"} ${
                             active
-                              ? "border-[#CC7A5C] bg-[#CC7A5C]/25"
-                              : "border-[#8C8278]/50 bg-[rgba(242,238,230,0.04)]"
+                              ? "border-[#D2452B] bg-[#D2452B]/25"
+                              : "border-[#5E564F]/50 bg-[rgba(21,17,14,0.04)]"
                           }`}
                           style={landscape ? { width: "1.7rem" } : { height: "1.6rem" }}
                         />
@@ -1519,31 +1477,43 @@ export default function StudioPage() {
                       <span className="min-w-0">
                         <span
                           className={`block text-[12px] font-semibold leading-tight ${
-                            active ? "text-[#F2EEE6]" : "text-[#CFC8BD]"
+                            active ? "text-[#15110E]" : "text-[#3A332D]"
                           }`}
                         >
                           {title}
                         </span>
-                        <span className="block text-[10px] leading-tight text-[#8C8278]">
+                        <span className="block text-[10px] leading-tight text-[#5E564F]">
                           {name}
                         </span>
                       </span>
+                      {best && (
+                        <span
+                          className="ml-auto h-2 w-2 shrink-0 self-start rounded-full bg-[#E8553A]"
+                          title={`Best for ${currentLook.label}`}
+                        />
+                      )}
                     </button>
                   );
                 })}
               </div>
 
+              {currentLook.bestFor && (
+                <p className="flex items-center gap-2 text-[11px] text-[#5E564F]">
+                  <span className="h-2 w-2 rounded-full bg-[#E8553A]" /> Best formats for {currentLook.label}
+                </p>
+              )}
+
               {/* Selected-format intent — what Claude will design for */}
               {FORMAT_DIMENSIONS[format] && (
-                <div className="rounded-lg border border-[rgba(242,238,230,0.08)] bg-[rgba(242,238,230,0.02)] px-3 py-2.5">
-                  <p className="text-[11px] font-medium text-[#CFC8BD]">
+                <div className="rounded-lg border border-[rgba(21,17,14,0.08)] bg-[rgba(21,17,14,0.02)] px-3 py-2.5">
+                  <p className="text-[11px] font-medium text-[#3A332D]">
                     {FORMAT_DIMENSIONS[format].useCase}
                   </p>
-                  <p className="mt-0.5 font-mono text-[10px] text-[#8C8278]">
+                  <p className="mt-0.5 font-mono text-[10px] text-[#5E564F]">
                     {FORMAT_DIMENSIONS[format].w} × {FORMAT_DIMENSIONS[format].h} px ·{" "}
                     {FORMAT_DIMENSIONS[format].orientation}
                   </p>
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-[#8C8278]">
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-[#5E564F]">
                     Layout locked to this format before your brief drops in.
                   </p>
                 </div>
@@ -1601,7 +1571,7 @@ export default function StudioPage() {
                 <button
                   type="button"
                   onClick={() => handleGenerate(undefined, { skip: true })}
-                  className="w-full text-center text-[11px] text-[#8C8278] transition-colors hover:text-[#CFC8BD]"
+                  className="w-full text-center text-[11px] text-[#5E564F] transition-colors hover:text-[#3A332D]"
                 >
                   skip the extra questions →
                 </button>
@@ -1622,42 +1592,38 @@ export default function StudioPage() {
 
         {/* ── Canvas: scrollable chat feed of every version ── */}
         <main
-          className="relative flex min-h-[60svh] w-full flex-1 flex-col bg-[#18160F] p-4 sm:p-6 dt:min-h-0 dt:overflow-y-auto xl:p-8"
+          className="relative flex min-h-[60svh] w-full flex-1 flex-col bg-[#F7F3EC] p-4 sm:p-6 dt:min-h-0 dt:overflow-y-auto xl:p-10"
           style={{
-            backgroundImage:
-              "linear-gradient(rgba(242,238,230,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(242,238,230,0.04) 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
+            // Spotted's quiet dot field: 24px grid of soft ink dots.
+            backgroundImage: "radial-gradient(rgba(21,17,14,0.12) 1px, transparent 1.4px)",
+            backgroundSize: "24px 24px",
           }}
         >
           {threadLoading && feed.length === 0 && !loading ? (
-            <div className="m-auto flex items-center gap-2 text-sm text-[#8C8278]">
-              <Loader2 className="h-4 w-4 animate-spin text-[#CC7A5C]" />
+            <div className="m-auto flex items-center gap-2 text-sm text-[#5E564F]">
+              <Loader2 className="h-4 w-4 animate-spin text-[#D2452B]" />
               Loading chat…
             </div>
+          ) : feed.length === 0 && !loading && isPresentation ? (
+            <div className="m-auto max-w-md text-center">
+              <h2 className="mm-display text-[40px]">
+                Your deck lands here<span className="text-[#E8553A]">.</span>
+              </h2>
+              <p className="mt-3 text-[15px] leading-relaxed text-[#5E564F]">
+                Tell Claude what the presentation is about, or add a document, then hit Build presentation.
+              </p>
+            </div>
           ) : feed.length === 0 && !loading ? (
-            <div className="m-auto flex max-w-xs flex-col items-center gap-4 text-center">
-              <div className="grid h-16 w-16 place-items-center rounded-2xl border border-[rgba(242,238,230,0.08)] bg-[rgba(242,238,230,0.02)]">
-                <ImageOff className="h-7 w-7 text-[#8C8278]/60" strokeWidth={1.5} />
-              </div>
-              <div className="space-y-1.5">
-                <p
-                  className="text-xl font-light text-[#F2EEE6]"
-                  style={{ fontFamily: "var(--font-display)" }}
-                >
-                  Your canvas awaits
-                </p>
-                <p className="text-sm leading-relaxed text-[#8C8278]">
-                  Answer a few questions, pick your format, then hit Generate to see an
-                  on-brand asset appear here.
-                </p>
-              </div>
-              <div className="mt-1 flex items-center gap-2 rounded-full border border-[rgba(242,238,230,0.08)] px-3 py-1 text-[11px] text-[#8C8278]">
-                <span className="capitalize text-[#CFC8BD]">{designSystem}</span>
-                <span className="text-[#8C8278]/40">·</span>
-                <span className="text-[#CFC8BD]">{format}</span>
-                <span className="text-[#8C8278]/40">·</span>
-                <span>{FORMAT_DIMENSIONS[format]?.label?.split("—")[0]?.trim() ?? format}</span>
-              </div>
+            /* First visit to a new design: the canvas is the look gallery, so
+               people see real examples before they type a word. */
+            <div className="mm-fade-up mx-auto w-full max-w-5xl py-2">
+              <h2 className="mm-display text-[40px] sm:text-[56px]">
+                Pick a look<span className="text-[#E8553A]">.</span>
+              </h2>
+              <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-[#5E564F]">
+                Every card shows real examples, so hover one to flip through them. Then add your event details and the Studio designs it in about 30 seconds.
+              </p>
+              <LookPicker className="mt-8" value={designSystem} onChange={pickLook} />
             </div>
           ) : (
             <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-10 pb-8 sm:gap-14">
@@ -1684,6 +1650,12 @@ export default function StudioPage() {
           </div>
         </main>
       </div>
+      <LookPickerModal
+        open={lookOpen}
+        value={designSystem}
+        onChange={pickLook}
+        onClose={() => setLookOpen(false)}
+      />
     </div>
   );
 }

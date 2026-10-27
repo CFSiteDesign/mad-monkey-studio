@@ -47,8 +47,8 @@ function SvgThumb({ code, format, className = "" }: { code: string; format?: str
   }, [code, uid]);
   if (!safe) {
     return (
-      <div className={`grid ${ASPECT[format ?? ""] ?? "aspect-square"} w-full place-items-center bg-[rgba(242,238,230,0.03)] ${className}`}>
-        <ImageOff className="h-5 w-5 text-[#8C8278]/50" />
+      <div className={`grid ${ASPECT[format ?? ""] ?? "aspect-square"} w-full place-items-center bg-[rgba(21,17,14,0.03)] ${className}`}>
+        <ImageOff className="h-5 w-5 text-[#5E564F]/50" />
       </div>
     );
   }
@@ -81,7 +81,7 @@ function fmtDate(ts: number | null): string {
   return new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 function capColor(pct: number): string {
-  return pct >= 95 ? "#EF4444" : pct >= 80 ? "#F59E0B" : "#CC7A5C";
+  return pct >= 95 ? "#EF4444" : pct >= 80 ? "#F59E0B" : "#D2452B";
 }
 
 function Metric({
@@ -96,13 +96,13 @@ function Metric({
   Icon: typeof Wallet;
 }) {
   return (
-    <div className="rounded-lg bg-[rgba(242,238,230,0.03)] p-4">
-      <div className="flex items-center gap-1.5 text-[#8C8278]">
+    <div className="rounded-lg bg-[rgba(21,17,14,0.03)] p-4">
+      <div className="flex items-center gap-1.5 text-[#5E564F]">
         <Icon className="h-3.5 w-3.5" />
         <span className="text-[10px] uppercase tracking-wide">{label}</span>
       </div>
-      <p className="mt-1.5 text-2xl font-semibold text-[#F2EEE6]">{value}</p>
-      {sub && <p className="mt-0.5 text-[11px] text-[#8C8278]">{sub}</p>}
+      <p className="mt-1.5 text-2xl font-semibold text-[#15110E]">{value}</p>
+      {sub && <p className="mt-0.5 text-[11px] text-[#5E564F]">{sub}</p>}
     </div>
   );
 }
@@ -144,8 +144,8 @@ export default function AdminUsagePage() {
   if (me === undefined) {
     return (
       <div className="mm-ambient grid min-h-[100svh] place-items-center">
-        <div className="flex items-center gap-2 text-sm text-[#8C8278]">
-          <Loader2 className="h-4 w-4 animate-spin text-[#CC7A5C]" /> Loading…
+        <div className="flex items-center gap-2 text-sm text-[#5E564F]">
+          <Loader2 className="h-4 w-4 animate-spin text-[#D2452B]" /> Loading…
         </div>
       </div>
     );
@@ -154,8 +154,8 @@ export default function AdminUsagePage() {
     return (
       <div className="mm-ambient grid min-h-[100svh] place-items-center">
         <div className="mm-card rounded-xl p-8 text-center">
-          <p className="text-sm text-[#F2EEE6]">You&apos;re signed out.</p>
-          <Link href="/sign-in" className="mt-3 inline-block text-sm text-[#CC7A5C] underline-offset-4 hover:underline">
+          <p className="text-sm text-[#15110E]">You&apos;re signed out.</p>
+          <Link href="/sign-in" className="mt-3 inline-block text-sm text-[#D2452B] underline-offset-4 hover:underline">
             Sign in
           </Link>
         </div>
@@ -165,7 +165,7 @@ export default function AdminUsagePage() {
   if (!isAdmin) {
     return (
       <div className="mm-ambient grid min-h-[100svh] place-items-center">
-        <div className="mm-card rounded-xl p-8 text-center text-sm text-[#8C8278]">Admins only — redirecting…</div>
+        <div className="mm-card rounded-xl p-8 text-center text-sm text-[#5E564F]">Admins only — redirecting…</div>
       </div>
     );
   }
@@ -175,18 +175,18 @@ export default function AdminUsagePage() {
   const successPct = successDen > 0 ? Math.round(((t?.completed ?? 0) / successDen) * 100) : 100;
 
   return (
-    <div className="mm-ambient min-h-[100svh] text-[#F2EEE6]">
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[rgba(242,238,230,0.08)] bg-[#1C1A18]/85 px-4 py-3 backdrop-blur-md lg:px-6">
+    <div className="mm-ambient min-h-[100svh] text-[#15110E]">
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[rgba(21,17,14,0.08)] bg-[#F7F3EC]/85 px-4 py-3 backdrop-blur-md lg:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <Link href="/" className="flex shrink-0 items-center gap-1.5 text-sm text-[#8C8278] hover:text-[#F2EEE6]">
+          <Link href="/" className="flex shrink-0 items-center gap-1.5 text-sm text-[#5E564F] hover:text-[#15110E]">
             <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Studio</span>
           </Link>
-          <span className="hidden h-5 w-px bg-[rgba(242,238,230,0.12)] sm:block" />
+          <span className="hidden h-5 w-px bg-[rgba(21,17,14,0.12)] sm:block" />
           <BrandLogo className="block h-6 w-auto shrink-0" />
         </div>
         <div className="flex items-center gap-2">
           <h1 className="text-sm font-medium">Usage</h1>
-          <span className="rounded-full border border-[rgba(242,238,230,0.1)] px-2 py-0.5 text-[9px] uppercase tracking-widest text-[#8C8278]">
+          <span className="rounded-full border border-[rgba(21,17,14,0.1)] px-2 py-0.5 text-[9px] uppercase tracking-widest text-[#5E564F]">
             admin
           </span>
         </div>
@@ -194,16 +194,16 @@ export default function AdminUsagePage() {
 
       <main className="mx-auto max-w-5xl px-4 py-6 lg:px-6 lg:py-10">
         {data === undefined ? (
-          <div className="grid place-items-center py-24 text-sm text-[#8C8278]">
-            <Loader2 className="h-5 w-5 animate-spin text-[#CC7A5C]" />
+          <div className="grid place-items-center py-24 text-sm text-[#5E564F]">
+            <Loader2 className="h-5 w-5 animate-spin text-[#D2452B]" />
           </div>
         ) : (
           <>
             <div className="mb-1 flex items-baseline justify-between">
               <h2 className="text-lg font-semibold">Team usage</h2>
-              <span className="text-[11px] text-[#8C8278]">This month · {data.periodMonth}</span>
+              <span className="text-[11px] text-[#5E564F]">This month · {data.periodMonth}</span>
             </div>
-            <p className="mb-5 text-[12px] text-[#8C8278]">
+            <p className="mb-5 text-[12px] text-[#5E564F]">
               Spend covers single creations and presentations. {data.activeThisMonth} of {data.memberCount} members active this month.
             </p>
 
@@ -219,9 +219,9 @@ export default function AdminUsagePage() {
 
             {/* ── Per-member ── */}
             <div className="mb-2 mt-8 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-medium">Per member <span className="text-[#8C8278]">({data.memberCount})</span></h3>
-              <div className="flex items-center gap-0.5 rounded-lg border border-[rgba(242,238,230,0.1)] p-0.5 text-[11px]">
-                <span className="px-1.5 text-[10px] uppercase tracking-wide text-[#8C8278]">Sort</span>
+              <h3 className="text-sm font-medium">Per member <span className="text-[#5E564F]">({data.memberCount})</span></h3>
+              <div className="flex items-center gap-0.5 rounded-lg border border-[rgba(21,17,14,0.1)] p-0.5 text-[11px]">
+                <span className="px-1.5 text-[10px] uppercase tracking-wide text-[#5E564F]">Sort</span>
                 {(
                   [
                     ["spend", "Spend"],
@@ -233,7 +233,7 @@ export default function AdminUsagePage() {
                     key={k}
                     onClick={() => setSortBy(k)}
                     className={`cursor-pointer rounded-md px-2.5 py-1 transition-colors ${
-                      sortBy === k ? "bg-[#CC7A5C]/20 text-[#E0936F]" : "text-[#8C8278] hover:text-[#CFC8BD]"
+                      sortBy === k ? "bg-[#D2452B]/20 text-[#E8553A]" : "text-[#5E564F] hover:text-[#3A332D]"
                     }`}
                   >
                     {label}
@@ -247,22 +247,22 @@ export default function AdminUsagePage() {
                   key={String(m.userId)}
                   onClick={() => setViewUserId(m.userId)}
                   title={`View ${m.name || m.email}'s creations`}
-                  className="mm-card group block w-full cursor-pointer rounded-xl p-4 text-left transition-shadow hover:ring-1 hover:ring-[#CC7A5C]/40"
+                  className="mm-card group block w-full cursor-pointer rounded-xl p-4 text-left transition-shadow hover:ring-1 hover:ring-[#D2452B]/40"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                     {/* Identity */}
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium text-[#F2EEE6]">{m.name || m.email || "—"}</p>
+                        <p className="truncate text-sm font-medium text-[#15110E]">{m.name || m.email || "—"}</p>
                         {m.role === "admin" && (
-                          <span className="rounded-full border border-[rgba(242,238,230,0.1)] px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-[#8C8278]">
+                          <span className="rounded-full border border-[rgba(21,17,14,0.1)] px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-[#5E564F]">
                             admin
                           </span>
                         )}
-                        <ChevronRight className="h-3.5 w-3.5 text-[#8C8278] transition-colors group-hover:text-[#CC7A5C]" />
+                        <ChevronRight className="h-3.5 w-3.5 text-[#5E564F] transition-colors group-hover:text-[#D2452B]" />
                       </div>
-                      {m.name && <p className="truncate text-[11px] text-[#8C8278]">{m.email}</p>}
-                      <p className="mt-0.5 text-[10px] text-[#8C8278]/70">Last active {fmtDate(m.lastActiveAt)}</p>
+                      {m.name && <p className="truncate text-[11px] text-[#5E564F]">{m.email}</p>}
+                      <p className="mt-0.5 text-[10px] text-[#5E564F]/70">Last active {fmtDate(m.lastActiveAt)}</p>
                     </div>
 
                     {/* Stats */}
@@ -276,13 +276,13 @@ export default function AdminUsagePage() {
 
                   {/* Cap usage bar */}
                   <div className="mt-3">
-                    <div className="mb-1 flex items-center justify-between text-[10px] text-[#8C8278]">
+                    <div className="mb-1 flex items-center justify-between text-[10px] text-[#5E564F]">
                       <span>
                         {m.capUsd > 0 ? `${usd(m.monthSpendUsd)} of ${usd(m.capUsd, 0)} cap` : "No cap"}
                       </span>
                       {m.capUsd > 0 && <span>{Math.round(m.capPct)}%</span>}
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-[rgba(242,238,230,0.08)]">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-[rgba(21,17,14,0.08)]">
                       <div
                         className="h-full rounded-full transition-all"
                         style={{ width: `${m.capUsd > 0 ? m.capPct : 0}%`, backgroundColor: capColor(m.capPct) }}
@@ -303,12 +303,12 @@ export default function AdminUsagePage() {
                       const max = Math.max(...data.byFormat.map((x) => x.count), 1);
                       return (
                         <div key={f.format} className="flex items-center gap-3">
-                          <span className="w-28 shrink-0 truncate text-[12px] text-[#CFC8BD]">{f.format}</span>
-                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-[rgba(242,238,230,0.06)]">
-                            <div className="h-full rounded-full bg-[#CC7A5C]/70" style={{ width: `${(f.count / max) * 100}%` }} />
+                          <span className="w-28 shrink-0 truncate text-[12px] text-[#3A332D]">{f.format}</span>
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-[rgba(21,17,14,0.06)]">
+                            <div className="h-full rounded-full bg-[#D2452B]/70" style={{ width: `${(f.count / max) * 100}%` }} />
                           </div>
-                          <span className="w-12 shrink-0 text-right text-[12px] tabular-nums text-[#F2EEE6]">{f.count}</span>
-                          <span className="w-20 shrink-0 text-right text-[11px] tabular-nums text-[#8C8278]">{usd(f.spendUsd)}</span>
+                          <span className="w-12 shrink-0 text-right text-[12px] tabular-nums text-[#15110E]">{f.count}</span>
+                          <span className="w-20 shrink-0 text-right text-[11px] tabular-nums text-[#5E564F]">{usd(f.spendUsd)}</span>
                         </div>
                       );
                     })}
@@ -317,7 +317,7 @@ export default function AdminUsagePage() {
               </>
             )}
 
-            <Link href="/account" className="mt-8 inline-flex text-[12px] text-[#8C8278] hover:text-[#CFC8BD]">
+            <Link href="/account" className="mt-8 inline-flex text-[12px] text-[#5E564F] hover:text-[#3A332D]">
               Manage members &amp; caps →
             </Link>
           </>
@@ -333,12 +333,12 @@ export default function AdminUsagePage() {
             onClick={() => setViewUserId(null)}
             aria-hidden
           />
-          <div className="relative flex h-full w-full max-w-2xl flex-col bg-[#1C1A18] shadow-2xl ring-1 ring-[rgba(242,238,230,0.08)]">
-            <div className="flex shrink-0 items-center justify-between border-b border-[rgba(242,238,230,0.08)] px-5 py-3.5">
+          <div className="relative flex h-full w-full max-w-2xl flex-col bg-[#F7F3EC] shadow-2xl ring-1 ring-[rgba(21,17,14,0.08)]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[rgba(21,17,14,0.08)] px-5 py-3.5">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-[#F2EEE6]">{creations?.name || creations?.email || "Member"}</p>
+                <p className="truncate text-sm font-medium text-[#15110E]">{creations?.name || creations?.email || "Member"}</p>
                 {creations && (
-                  <p className="truncate text-[11px] text-[#8C8278]">
+                  <p className="truncate text-[11px] text-[#5E564F]">
                     {creations.email} · {creations.creationCount} designs · {creations.deckCount} presentations
                   </p>
                 )}
@@ -346,7 +346,7 @@ export default function AdminUsagePage() {
               <button
                 onClick={() => setViewUserId(null)}
                 aria-label="Close"
-                className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-[#CFC8BD] transition-colors hover:bg-[rgba(242,238,230,0.06)] hover:text-[#F2EEE6]"
+                className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-[#3A332D] transition-colors hover:bg-[rgba(21,17,14,0.06)] hover:text-[#15110E]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -354,10 +354,10 @@ export default function AdminUsagePage() {
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
               {creations === undefined ? (
                 <div className="grid place-items-center py-24">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#CC7A5C]" />
+                  <Loader2 className="h-5 w-5 animate-spin text-[#D2452B]" />
                 </div>
               ) : creations.creations.length === 0 && creations.decks.length === 0 ? (
-                <p className="py-16 text-center text-sm text-[#8C8278]">Nothing created yet.</p>
+                <p className="py-16 text-center text-sm text-[#5E564F]">Nothing created yet.</p>
               ) : (
                 <>
                   {creations.creations.length > 0 && (
@@ -368,10 +368,10 @@ export default function AdminUsagePage() {
                           <button
                             key={String(c.id)}
                             onClick={() => c.outputCode && setLightbox({ code: c.outputCode, format: c.format })}
-                            className="block cursor-pointer overflow-hidden rounded-lg ring-1 ring-[rgba(242,238,230,0.1)] transition hover:ring-[#CC7A5C]/50"
+                            className="block cursor-pointer overflow-hidden rounded-lg ring-1 ring-[rgba(21,17,14,0.1)] transition hover:ring-[#D2452B]/50"
                           >
                             <SvgThumb code={c.outputCode} format={c.format} />
-                            <div className="flex items-center justify-between px-2 py-1.5 text-[10px] text-[#8C8278]">
+                            <div className="flex items-center justify-between px-2 py-1.5 text-[10px] text-[#5E564F]">
                               <span className="uppercase tracking-wide">{c.format}</span>
                               <span className="tabular-nums">{fmtDate(c.createdAt)}</span>
                             </div>
@@ -389,21 +389,21 @@ export default function AdminUsagePage() {
                         {creations.decks.map((d) => (
                           <div
                             key={String(d.id)}
-                            className="flex items-center gap-3 rounded-lg border border-[rgba(242,238,230,0.08)] p-2"
+                            className="flex items-center gap-3 rounded-lg border border-[rgba(21,17,14,0.08)] p-2"
                           >
                             <button
                               onClick={() => d.thumb && setLightbox({ code: d.thumb, format: "presentation" })}
-                              className="aspect-video w-28 shrink-0 cursor-pointer overflow-hidden rounded-md ring-1 ring-[rgba(242,238,230,0.1)] hover:ring-[#CC7A5C]/50"
+                              className="aspect-video w-28 shrink-0 cursor-pointer overflow-hidden rounded-md ring-1 ring-[rgba(21,17,14,0.1)] hover:ring-[#D2452B]/50"
                             >
                               <SvgThumb code={d.thumb} format="presentation" className="!aspect-video" />
                             </button>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-[12px] font-medium text-[#CFC8BD]">{d.title || "Untitled deck"}</p>
-                              <p className="text-[10px] text-[#8C8278]">
+                              <p className="truncate text-[12px] font-medium text-[#3A332D]">{d.title || "Untitled deck"}</p>
+                              <p className="text-[10px] text-[#5E564F]">
                                 {d.slideCount} slides · {d.status} · {fmtDate(d.createdAt)}
                               </p>
                             </div>
-                            <span className="shrink-0 font-mono text-[11px] text-[#8C8278]">{usd(d.costUsd)}</span>
+                            <span className="shrink-0 font-mono text-[11px] text-[#5E564F]">{usd(d.costUsd)}</span>
                           </div>
                         ))}
                       </div>
@@ -423,7 +423,7 @@ export default function AdminUsagePage() {
           onClick={() => setLightbox(null)}
         >
           <div
-            className="overflow-hidden rounded-xl bg-white ring-1 ring-[rgba(242,238,230,0.12)] [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
+            className="overflow-hidden rounded-xl bg-white ring-1 ring-[rgba(21,17,14,0.12)] [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
             style={{ width: `min(90vw, calc(86vh * ${arOf(lightbox.format)}))` }}
             onClick={(e) => e.stopPropagation()}
             dangerouslySetInnerHTML={{ __html: sanitizeSvg(lightbox.code) }}
@@ -431,7 +431,7 @@ export default function AdminUsagePage() {
           <button
             onClick={() => setLightbox(null)}
             aria-label="Close"
-            className="absolute right-4 top-4 grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-black/50 text-[#F2EEE6] transition-colors hover:bg-black/70"
+            className="absolute right-4 top-4 grid h-9 w-9 cursor-pointer place-items-center rounded-lg bg-black/50 text-[#F7F3EC] transition-colors hover:bg-black/70"
           >
             <X className="h-5 w-5" />
           </button>
@@ -444,9 +444,9 @@ export default function AdminUsagePage() {
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="min-w-[64px]">
-      <p className="text-[9px] uppercase tracking-wide text-[#8C8278]">{label}</p>
-      <p className="text-sm font-medium tabular-nums text-[#F2EEE6]">{value}</p>
-      {sub && <p className="text-[10px] tabular-nums text-[#8C8278]">{sub}</p>}
+      <p className="text-[9px] uppercase tracking-wide text-[#5E564F]">{label}</p>
+      <p className="text-sm font-medium tabular-nums text-[#15110E]">{value}</p>
+      {sub && <p className="text-[10px] tabular-nums text-[#5E564F]">{sub}</p>}
     </div>
   );
 }

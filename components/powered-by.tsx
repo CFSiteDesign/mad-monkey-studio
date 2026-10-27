@@ -13,7 +13,7 @@ export function PoweredBy({ className = "" }: { className?: string }) {
       className={`pointer-events-auto flex items-center gap-2 select-none transition-opacity hover:opacity-80 ${className}`}
       aria-label="Powered by TheoroX — visit theorox.com"
     >
-      <span className="text-[9px] uppercase tracking-[0.18em] text-[#8C8278]/70">
+      <span className="text-[9px] uppercase tracking-[0.18em] text-[#5E564F]/70">
         Powered by
       </span>
       <img
